@@ -231,3 +231,45 @@ npm run test:e2e
 - **Archivierte Projekte** sind in „Alle Aufgaben“ ausgeblendet und schreibgeschützt, bleiben aber über die Projektliste erreichbar.
 - **Zurückgestellt:** Task-Abhängigkeiten (optional laut Briefing), Drag zum Verschieben von Timeline-Balken, Dark Mode. Für zurückgestellte Funktionen gibt es keine Bedienelemente.
 - **Nicht Teil des MVP:** Billing, öffentliche Registrierung, Gäste, Kommentare, Anhänge, Zeiterfassung, Automationen, Benachrichtigungen, Custom Fields, Workflows, Unteraufgaben, KI, Reporting.
+
+---
+
+## Chat
+
+Eigener Navigationseintrag **„Chat“** mit eigener Arbeitsansicht (`/chat`, `/chat/[id]`): Desktop zweispaltig (Liste | Unterhaltung), mobil erst die Liste, dann die Unterhaltung als eigene Seite. Unterhaltungen sind direkt verlinkbar, Browser-Zurück funktioniert über normale Routen. Ein Punkt am Navigationseintrag und an der Unterhaltung zeigt Ungelesenes.
+
+**Unterhaltungen**
+- *Offene Kanäle*: für alle aktiven Mitglieder **dieses Workspaces** (nie öffentlich). „Allgemein“ wird idempotent angelegt (Migration + bei Bedarf zur Laufzeit) und kann nicht archiviert werden.
+- *Geschlossene Kanäle*: nur für ausdrücklich hinzugefügte Mitglieder. Neue Mitglieder sehen den bisherigen Verlauf (wird beim Hinzufügen angezeigt). Die Sichtbarkeit ist nach dem Erstellen nicht änderbar.
+- *Direktnachrichten*: genau eine pro Personenpaar (eindeutiger DB-Index auf `(workspace_id, dm_key)`, auch bei gleichzeitigem Start), keine Selbst- oder Gruppen-DMs.
+- Verwaltung: die verantwortliche Person (Ersteller) und Admins bei offenen Kanälen; bei geschlossenen Kanälen setzt jede Verwaltung eine Kanalmitgliedschaft voraus. **Die Admin-Rolle gibt keinen Zugriff auf private Unterhaltungen.** Verlässt die verantwortliche Person einen geschlossenen Kanal, muss sie die Verantwortung übergeben oder archivieren. Wird sie aus dem Workspace entfernt, übernimmt automatisch das am längsten anwesende Mitglied; bleibt niemand, wird archiviert.
+- Wird ein Mitglied aus dem Workspace entfernt, verliert es sofort den Zugriff (Server und RLS/Realtime). DMs mit ihm bleiben für die andere Person lesbar, sind aber schreibgeschützt.
+
+**Nachrichten**: Klartext (kein HTML/Markdown, Links werden klickbar), max. 10 000 Zeichen, Bearbeiten und Löschen nur eigener Nachrichten (gelöscht → Platzhalter, Anhänge werden entfernt). Senden ist idempotent: der Client erzeugt die Nachrichten-ID, Wiederholungen und Realtime-Echos werden über die ID zusammengeführt. Verlauf: 50 Nachrichten, ältere cursorbasiert über `seq` (eindeutige, monotone Reihenfolge). Lesestatus: eine Position pro Mitglied und Unterhaltung (`conversation_read_states`), geschrieben nur bei sichtbarem Fenster, aktiver Unterhaltung und erreichtem Ende, gebündelt und nur bei Fortschritt.
+
+**Realtime**: dieselbe Supabase-Verbindung wie das Board. Die Liste abonniert nur `conversations`-Updates (Signal für Reihenfolge/Ungelesen) und eigene neue Mitgliedschaften; nur die *aktive* Unterhaltung abonniert `messages`. RLS (`can_access_conversation`) entscheidet pro Ereignis, wer es bekommt – entfernte Mitglieder erhalten nichts mehr. DELETE-Ereignisse werden nicht abonniert (nicht filterbar; Nachrichten werden ohnehin nur weich gelöscht). Nach Reconnect, `online` oder längerer Inaktivität werden nur die fehlenden Nachrichten (`afterSeq`) nachgeladen; kein Polling.
+
+### Dateianhänge
+
+Grundlage (offizielle Supabase-Doku, geprüft am 5. 11. 2026): Free-Plan 1 GB Dateispeicher, 5 GB ungecachter + 5 GB gecachter Egress, globales Dateilimit 50 MB; bei Überschreitung Kulanzfrist und Einschränkungen, keine automatischen Kosten. Die Produktionsinstanz hatte zum Zeitpunkt der Prüfung keinen Bucket und 0 Byte Storage-Nutzung (nur lesend geprüft).
+
+| Limit | Wert | Ort |
+| --- | --- | --- |
+| Pro Datei | 10 MB | `src/lib/chat-config.ts` + Bucket-Limit |
+| Pro Nachricht | 3 Dateien | `src/lib/chat-config.ts` |
+| Budget pro Workspace | 500 MB (`CHAT_STORAGE_BUDGET_MB`), automatisch kleiner, wenn 90 % des Projektkontingents (`STORAGE_QUOTA_MB`) abzüglich anderer Buckets weniger übrig lassen | `src/server/services/chat-files.ts` |
+| Erlaubte Typen | JPEG, PNG, WebP, PDF, TXT, CSV, DOCX, XLSX, PPTX | Allowlist + Bucket `allowed_mime_types` |
+
+Ablauf (Storage und Datenbank haben keine gemeinsame Transaktion):
+1. `reserveUpload` prüft Zugriff, Typ (nach Endung, nicht nach Browser-Angabe) und Budget unter einer Workspace-Sperre (`SELECT … FOR UPDATE`) – parallele Uploads können das Budget nicht überbuchen – und legt eine Reservierung an (Status `reserved`, 15 min).
+2. Der Browser lädt **direkt zu Supabase Storage** hoch (signierte Upload-URL für einen zufälligen Pfad, kein Überschreiben, kein Umweg über Vercel).
+3. `finalizeUpload` prüft erneut die Teilnahme, liest Größe und die ersten Bytes (Dateisignatur bzw. „kein Binärinhalt“ für TXT/CSV) und verwirft Abweichungen sofort.
+4. `sendMessage` verknüpft nur eigene, fertige Uploads derselben Unterhaltung (`attached`).
+5. Bereinigung: abgelaufene Reservierungen, nie gesendete Uploads (24 h), gelöschte Anhänge (`deleting`, wiederholbar) und verwaiste Objekte ohne DB-Eintrag (> 3 h) werden entfernt – vor jedem Upload (begrenzt) und täglich per Vercel Cron.
+
+Bucket `chat-files` ist privat, ohne Storage-Policies: Browser können weder lesen noch schreiben. Downloads laufen über eine **60 Sekunden** gültige signierte URL nach erneuter Berechtigungsprüfung und werden immer als Download behandelt. Hinweis: Eine bereits ausgestellte URL bleibt bis zu ihrem Ablauf gültig. Admins sehen die Speichernutzung unten in der Chat-Liste (Warnung ab 80 %, Uploads gesperrt bei 100 % – Text funktioniert weiter).
+
+### Einrichtung für Produktion
+1. Migrationen anwenden (`npm run db:migrate` mit `DIRECT_DATABASE_URL`): legt Tabellen, RLS, Realtime-Publication, den privaten Bucket und „Allgemein“ an. Die Migration ist rein additiv.
+2. Vercel: `CRON_SECRET` setzen (beliebiger langer Zufallswert). Der Cron ist in `vercel.json` hinterlegt (täglich 03:30 UTC).
+3. Optional `CHAT_STORAGE_BUDGET_MB` / `STORAGE_QUOTA_MB` anpassen.

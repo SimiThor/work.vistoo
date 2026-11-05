@@ -1,7 +1,5 @@
-import { LogOut } from "lucide-react";
-import { signOutAction } from "@/app/actions/auth";
 import { MemberAvatar } from "@/components/member-avatar";
-import { Button } from "@/components/ui/button";
+import { SignOutButton } from "./sign-out-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { displayName, ROLE_LABEL } from "@/lib/domain";
 import { getViewer } from "@/server/queries";
@@ -15,11 +13,7 @@ export async function UserMenu() {
         <p className="truncate text-sm font-medium">{displayName(me)}</p>
         <p className="truncate text-xs text-muted-foreground">{ROLE_LABEL[me.role]}</p>
       </div>
-      <form action={signOutAction}>
-        <Button type="submit" variant="ghost" size="icon" aria-label="Abmelden" title="Abmelden">
-          <LogOut aria-hidden />
-        </Button>
-      </form>
+      <SignOutButton />
     </div>
   );
 }

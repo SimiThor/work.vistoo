@@ -1,20 +1,10 @@
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
 import type { RealtimeChannel, RealtimePostgresChangesPayload, SupabaseClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import type { TaskDTO, TaskStatus } from "@/lib/domain";
-import { getPublicSupabaseEnv } from "@/lib/env";
-
-let browserClient: SupabaseClient | null = null;
-function getBrowserSupabase(): SupabaseClient {
-  if (!browserClient) {
-    const { url, key } = getPublicSupabaseEnv();
-    browserClient = createBrowserClient(url, key);
-  }
-  return browserClient;
-}
+import { authorizeRealtime, getBrowserSupabase } from "@/lib/supabase-browser";
 
 type TaskRow = {
   id: string;
@@ -100,11 +90,7 @@ export function useRealtimeSync({
     void (async () => {
       // Join with the user's JWT, not the anonymous key: RLS decides what is delivered.
       // (Token refreshes are forwarded to realtime by supabase-js automatically.)
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (!data.session) return;
-      await supabase.realtime.setAuth(data.session.access_token);
-      if (cancelled) return;
+      if (!(await authorizeRealtime(supabase)) || cancelled) return;
 
       channel = supabase
         .channel(`workspace:${workspaceId}:${Math.random().toString(36).slice(2)}`)
