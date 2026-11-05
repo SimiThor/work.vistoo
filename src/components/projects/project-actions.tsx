@@ -1,0 +1,98 @@
+"use client";
+
+import { MoreHorizontal } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
+import { setProjectArchivedAction } from "@/app/actions/projects";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useWork } from "@/components/work/work-context";
+import { GroupsDialog } from "./groups-dialog";
+import { ProjectDialog } from "./project-dialog";
+
+/** Header actions on a project page: edit, groups, archive / restore. */
+export function ProjectActions({ projectId }: { projectId: string }) {
+  const { projectById, tasks } = useWork();
+  const project = projectById.get(projectId);
+  const [dialog, setDialog] = useState<"edit" | "groups" | "archive" | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const taskCountByGroup = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of tasks) if (t.groupId) m.set(t.groupId, (m.get(t.groupId) ?? 0) + 1);
+    return m;
+  }, [tasks]);
+
+  if (!project) return null;
+
+  const setArchived = (archived: boolean) =>
+    startTransition(async () => {
+      const res = await setProjectArchivedAction({ id: project.id, archived });
+      if (!res.ok) toast.error(res.error.message);
+      else toast.success(archived ? "Projekt archiviert" : "Projekt wiederhergestellt");
+    });
+
+  if (project.archived) {
+    return (
+      <Button variant="outline" className="h-8" onClick={() => setArchived(false)} disabled={pending}>
+        Wiederherstellen
+      </Button>
+    );
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="size-8" aria-label="Projektaktionen">
+            <MoreHorizontal aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onSelect={() => setDialog("edit")}>Projekt bearbeiten</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setDialog("groups")}>Gruppen verwalten</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setDialog("archive")}>Archivieren …</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ProjectDialog open={dialog === "edit"} onOpenChange={(o) => setDialog(o ? "edit" : null)} project={project} />
+      <GroupsDialog
+        open={dialog === "groups"}
+        onOpenChange={(o) => setDialog(o ? "groups" : null)}
+        project={project}
+        taskCountByGroup={taskCountByGroup}
+      />
+      <AlertDialog open={dialog === "archive"} onOpenChange={(o) => setDialog(o ? "archive" : null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>„{project.name}“ archivieren?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Das Projekt und seine Aufgaben werden ausgeblendet und schreibgeschützt. Du kannst es jederzeit
+              unter „Projekte“ wiederherstellen.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={() => setArchived(true)}>Archivieren</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
