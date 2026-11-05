@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gt } from "drizzle-orm";
 import type { MemberRole } from "@/lib/domain";
 import type { AuthUser } from "../auth";
 import { resolveMembership } from "../auth";
@@ -54,6 +54,22 @@ export async function getInvitationState(user: AuthUser): Promise<InvitationStat
     },
     fullName: profile?.fullName ?? null,
   };
+}
+
+/** Pre-auth check used by the login flow; reveals nothing to the caller. */
+export async function hasValidPendingInvitation(email: string): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ id: workspaceInvitations.id })
+    .from(workspaceInvitations)
+    .where(
+      and(
+        eq(workspaceInvitations.email, email.trim().toLowerCase()),
+        eq(workspaceInvitations.status, "pending"),
+        gt(workspaceInvitations.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
 }
 
 export async function acceptInvitation(

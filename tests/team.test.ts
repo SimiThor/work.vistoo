@@ -185,3 +185,16 @@ describe("invitations", () => {
     expect(await resolveMembership(user)).not.toBeNull();
   });
 });
+
+describe("login fallback for invited, unconfirmed users", () => {
+  it("detects only valid pending invitations", async () => {
+    const { hasValidPendingInvitation } = await import("@/server/services/invitations");
+    const ws = await makeWorkspace();
+    const { ctx: admin } = await makeMemberCtx(ws.id, "admin");
+    const inv = await inviteMember(admin, { email: "neu-login@example.com", role: "member" }, noSend);
+    expect(await hasValidPendingInvitation("Neu-Login@Example.com")).toBe(true);
+    await revokeInvitation(admin, inv.id);
+    expect(await hasValidPendingInvitation("neu-login@example.com")).toBe(false);
+    expect(await hasValidPendingInvitation("unbekannt@example.com")).toBe(false);
+  });
+});

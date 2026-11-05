@@ -7,7 +7,8 @@ import { emailSchema } from "@/lib/validation";
 import { toActionError } from "@/server/action";
 import { getAuthUser } from "@/server/auth";
 import { AppError } from "@/server/errors";
-import { acceptInvitation } from "@/server/services/invitations";
+import { sendInvitationEmail } from "@/server/mailer";
+import { acceptInvitation, hasValidPendingInvitation } from "@/server/services/invitations";
 import { createSupabaseServerClient, getSiteUrl } from "@/server/supabase";
 
 /**
@@ -29,6 +30,16 @@ export async function requestLoginAction(input: unknown): Promise<ActionResult<{
       ok: false,
       error: { code: "VALIDATION", message: "Zu viele Versuche. Bitte warte kurz und versuche es erneut." },
     };
+  }
+  // Invited but never confirmed: with sign-ups disabled, Supabase refuses the
+  // magic link. If a valid invitation exists, re-send the invitation e-mail
+  // instead (its link confirms the account).
+  if (error && (error.code === "signup_disabled" || error.code === "otp_disabled")) {
+    try {
+      if (await hasValidPendingInvitation(email)) await sendInvitationEmail(email);
+    } catch (err) {
+      console.error("[login] invitation resend failed:", err instanceof Error ? err.message : String(err));
+    }
   }
   // Unknown addresses produce an error from Supabase; we deliberately do not reveal it.
   return { ok: true, data: { email } };
