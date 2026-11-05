@@ -53,7 +53,8 @@ export async function loginWithCode(page: Page, email: string) {
   await page.getByRole("button", { name: "Anmelden" }).click();
 }
 
+/** Visible cards only (React may keep hidden streamed copies in the DOM). */
 export const card = (page: Page, title: string) =>
-  page.locator('[aria-roledescription="verschiebbare Aufgabe"]', { hasText: title });
+  page.locator('[aria-roledescription="verschiebbare Aufgabe"]', { hasText: title }).filter({ visible: true });
 
 export const column = (page: Page, label: string) => page.getByRole("region", { name: new RegExp(`^${label}`) });

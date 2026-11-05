@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHAT_LIMITS } from "./chat-config";
 import { isIsoDate } from "./dates";
 import { MEMBER_ROLES, PROJECT_COLOR_KEYS, TASK_STATUSES } from "./domain";
 
@@ -116,3 +117,64 @@ export function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Chat
+// ---------------------------------------------------------------------------
+
+export const channelNameSchema = z
+  .string()
+  .trim()
+  .min(1, { error: "Bitte gib einen Namen ein." })
+  .max(CHAT_LIMITS.channelNameMax, { error: `Der Name darf höchstens ${CHAT_LIMITS.channelNameMax} Zeichen lang sein.` });
+
+const channelDescription = z
+  .string()
+  .trim()
+  .max(CHAT_LIMITS.channelDescriptionMax, {
+    error: `Die Beschreibung darf höchstens ${CHAT_LIMITS.channelDescriptionMax} Zeichen lang sein.`,
+  });
+
+export const createChannelSchema = z.object({
+  name: channelNameSchema,
+  description: channelDescription.default(""),
+  visibility: z.enum(["open", "private"]),
+  memberIds: z.array(uuid).max(200).default([]),
+});
+export const updateChannelSchema = z.object({ id: uuid, name: channelNameSchema, description: channelDescription });
+export const archiveChannelSchema = z.object({ id: uuid, archived: z.boolean() });
+export const channelMembersSchema = z.object({ id: uuid, userIds: z.array(uuid).min(1).max(200) });
+export const removeChannelMemberSchema = z.object({
+  id: uuid,
+  userId: uuid,
+  /** Required when the responsible member leaves and others remain (unless archiving). */
+  newOwnerId: uuid.nullable().default(null),
+  archive: z.boolean().default(false),
+});
+export const openDmSchema = z.object({ userId: uuid });
+
+export const messageBodySchema = z
+  .string()
+  .max(CHAT_LIMITS.maxMessageLength, {
+    error: `Eine Nachricht darf höchstens ${CHAT_LIMITS.maxMessageLength.toLocaleString("de-DE")} Zeichen lang sein.`,
+  });
+export const sendMessageSchema = z.object({
+  id: uuid,
+  conversationId: uuid,
+  body: messageBodySchema,
+  attachmentIds: z.array(uuid).max(CHAT_LIMITS.maxFilesPerMessage, {
+    error: `Höchstens ${CHAT_LIMITS.maxFilesPerMessage} Dateien pro Nachricht.`,
+  }).default([]),
+});
+export const editMessageSchema = z.object({ id: uuid, body: messageBodySchema });
+export const listMessagesSchema = z.object({
+  conversationId: uuid,
+  beforeSeq: z.number().int().positive().nullable().default(null),
+  afterSeq: z.number().int().nonnegative().nullable().default(null),
+});
+export const markReadSchema = z.object({ conversationId: uuid, seq: z.number().int().nonnegative() });
+export const reserveUploadSchema = z.object({
+  conversationId: uuid,
+  fileName: z.string().trim().min(1).max(255),
+  sizeBytes: z.number().int().positive(),
+});

@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * without a session to /login. This is only a convenience redirect: actual
  * authorization (membership + role) happens in the server data layer.
  */
-const PUBLIC_PATHS = ["/login", "/auth/"];
+const PUBLIC_PATHS = ["/login", "/auth/", "/api/cron/"];
 
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

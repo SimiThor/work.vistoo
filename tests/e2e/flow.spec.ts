@@ -139,7 +139,7 @@ test("invite a member who accepts in a second browser", async ({ browser }) => {
   await expect(card(memberPage, TASK)).toBeVisible();
   // Members cannot manage the team
   await memberPage.goto("/team");
-  await expect(memberPage.getByText("Nur Admins können Mitglieder einladen")).toBeVisible();
+  await expect(memberPage.getByText("Nur Admins können Mitglieder einladen").filter({ visible: true })).toBeVisible();
   await expect(memberPage.getByRole("button", { name: "Mitglied einladen" })).toHaveCount(0);
   await memberPage.goto("/tasks");
 });

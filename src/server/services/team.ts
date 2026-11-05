@@ -8,6 +8,7 @@ import { getDb, type Tx } from "../db";
 import { profiles, tasks, workspaceInvitations, workspaceMembers } from "../db/schema";
 import { AppError, invalid, notFound } from "../errors";
 import { sendInvitationEmail } from "../mailer";
+import { handleWorkspaceMemberRemoval } from "./chat";
 
 export type TeamOverview = { members: MemberDTO[]; invitations: InvitationDTO[] };
 
@@ -267,6 +268,8 @@ export async function removeMember(ctx: AuthContext, userId: string): Promise<{ 
       .update(workspaceMembers)
       .set({ status: "removed", removedAt: now, updatedAt: now })
       .where(and(eq(workspaceMembers.workspaceId, ctx.workspaceId), eq(workspaceMembers.userId, userId)));
+    // Chat: leave private channels, hand over responsibility (or archive).
+    await handleWorkspaceMemberRemoval(tx, ctx.workspaceId, userId);
     return { unassignedTasks: unassigned.length };
   });
 }
