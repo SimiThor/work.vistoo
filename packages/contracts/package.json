@@ -1,0 +1,24 @@
+{
+  "name": "@vistoo/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Versioned HTTP API contract (/api/v1): endpoint definitions as zod schemas → generated OpenAPI 3.1 document and generated Swift models/endpoints for iOS.",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/endpoints.ts",
+    "./openapi": "./src/openapi.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "generate": "tsx scripts/generate.ts"
+  },
+  "dependencies": {
+    "@vistoo/domain": "*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "vitest": "^4.1.12"
+  }
+}

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { runAction } from "@/server/action";
-import * as tasks from "@/server/services/tasks";
+import * as tasks from "@vistoo/backend/services/tasks";
 import {
   createTaskSchema,
   idSchema,
@@ -11,7 +11,7 @@ import {
   setStatusSchema,
   updateTaskSchema,
   uuid,
-} from "@/lib/validation";
+} from "@vistoo/domain/validation";
 
 export async function createTaskAction(input: unknown) {
   return runAction(createTaskSchema, input, (ctx, data) => tasks.createTask(ctx, data));

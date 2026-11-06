@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PROJECT_COLOR_KEYS, PROJECT_COLORS, type ProjectColor, type ProjectDTO } from "@/lib/domain";
+import { PROJECT_COLOR_KEYS, PROJECT_COLORS, type ProjectColor, type ProjectDTO } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 
 export function ProjectDialog({

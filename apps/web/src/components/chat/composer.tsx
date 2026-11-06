@@ -3,8 +3,8 @@
 import { Paperclip, SendHorizontal } from "lucide-react";
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ACCEPT_ATTRIBUTE, CHAT_LIMITS } from "@/lib/chat-config";
-import type { AttachmentDTO } from "@/lib/chat-types";
+import { ACCEPT_ATTRIBUTE, CHAT_LIMITS } from "@vistoo/domain/chat-config";
+import type { AttachmentDTO } from "@vistoo/domain/chat-types";
 import { UploadChip } from "./attachment-card";
 import { discardUpload, precheckFile, uploadFile, type PendingUpload } from "./uploads";
 

@@ -3,12 +3,11 @@ import { config as loadEnv } from "dotenv";
 import { defineConfig } from "vitest/config";
 
 // Optional local overrides, e.g. TEST_DATABASE_ADMIN_URL (never commit secrets).
-loadEnv({ path: ".env.test.local", quiet: true });
+loadEnv({ path: path.resolve(import.meta.dirname, "../../apps/web/.env.test.local"), quiet: true });
 
 export default defineConfig({
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "src"),
       "server-only": path.resolve(import.meta.dirname, "tests/support/empty.ts"),
     },
   },

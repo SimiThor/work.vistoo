@@ -10,6 +10,8 @@ export const uuid = z.uuid({ error: "Ungültige ID." });
 const calendarDate = z
   .string()
   .refine(isIsoDate, { error: "Ungültiges Datum." })
+  // Calendar day "YYYY-MM-DD" (API contract: format "date").
+  .meta({ format: "date" })
   .nullable();
 
 const trimmed = (max: number, label: string) =>
@@ -34,8 +36,15 @@ function dateRangeRefinement<T extends { startDate?: string | null; endDate?: st
   }
 }
 
+/**
+ * Optional client-generated id for creates: makes retries idempotent (a
+ * repeated request returns the already stored record instead of a duplicate).
+ */
+const clientId = uuid.optional();
+
 export const createTaskSchema = z
   .object({
+    id: clientId,
     projectId: uuid,
     title: taskTitle,
     description: taskDescription.default(""),
@@ -88,11 +97,12 @@ export const projectSchema = z.object({
   description: trimmed(500, "Die Beschreibung").default(""),
   color: z.enum(PROJECT_COLOR_KEYS as [string, ...string[]]).default("slate"),
 });
+export const createProjectSchema = projectSchema.extend({ id: clientId });
 export const updateProjectSchema = projectSchema.extend({ id: uuid });
 export const archiveProjectSchema = z.object({ id: uuid, archived: z.boolean() });
 
 export const groupNameSchema = trimmed(80, "Der Name").min(1, { error: "Bitte gib einen Namen ein." });
-export const createGroupSchema = z.object({ projectId: uuid, name: groupNameSchema });
+export const createGroupSchema = z.object({ id: clientId, projectId: uuid, name: groupNameSchema });
 export const renameGroupSchema = z.object({ id: uuid, name: groupNameSchema });
 
 export const emailSchema = z
@@ -136,6 +146,7 @@ const channelDescription = z
   });
 
 export const createChannelSchema = z.object({
+  id: clientId,
   name: channelNameSchema,
   description: channelDescription.default(""),
   visibility: z.enum(["open", "private"]),
@@ -177,4 +188,27 @@ export const reserveUploadSchema = z.object({
   conversationId: uuid,
   fileName: z.string().trim().min(1).max(255),
   sizeBytes: z.number().int().positive(),
+});
+
+// ---------------------------------------------------------------------------
+// Push notifications
+// ---------------------------------------------------------------------------
+
+/** APNs device token (hex). */
+export const deviceTokenSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[0-9a-f]{16,200}$/, { error: "Ungültiges Geräte-Token." });
+
+export const registerDeviceSchema = z.object({
+  token: deviceTokenSchema,
+  /** sandbox = Xcode/debug builds, production = TestFlight/App Store. */
+  environment: z.enum(["sandbox", "production"]),
+});
+
+export const notificationSettingsPatchSchema = z.object({
+  directMessages: z.boolean().optional(),
+  channelMessages: z.boolean().optional(),
+  taskAssignments: z.boolean().optional(),
 });

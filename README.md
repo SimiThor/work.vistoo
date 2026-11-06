@@ -1,8 +1,12 @@
-# Vistoo – internes Projektmanagement
+# Vistoo Work – internes Projektmanagement (Web + iOS)
 
-Ein bewusst schlankes Tool für ein kleines Team: Kanban-Board und Timeline über denselben Aufgaben, Projekte mit Gruppen, einfache Filter und eine Teamverwaltung mit Einladungen.
+Ein bewusst schlankes Tool für ein kleines Team: Kanban-Board und Timeline über denselben Aufgaben, Projekte mit Gruppen, einfache Filter, Teamverwaltung mit Einladungen und Team-Chat. Es gibt die **Webapp** und eine **native iOS-App**; beide nutzen dasselbe Backend und dieselben Daten.
 
-**Stack:** Next.js 16 (App Router, Cache Components) · TypeScript strict · Supabase (Postgres, Auth, Realtime) · Drizzle ORM · Tailwind CSS 4 · shadcn/ui (Radix) · dnd-kit · Zod · Vercel.
+**Web:** Next.js 16 (App Router, Cache Components) · TypeScript strict · Tailwind CSS 4 · shadcn/ui (Radix) · dnd-kit · Zod · Vercel.
+**Backend:** Supabase (Postgres, Auth, Realtime, Storage) · Drizzle ORM · gemeinsame Service-Schicht · versionierte HTTP-API `/api/v1` (OpenAPI).
+**iOS:** Swift 6 · SwiftUI · iOS 18 · supabase-swift (Auth/Keychain, Realtime).
+
+> **Monorepo:** Struktur, Regeln für Änderungen an beiden oder einzelnen Plattformen und Befehle stehen in [AGENTS.md](AGENTS.md). Architektur: [docs/architecture/overview.md](docs/architecture/overview.md) · Funktionsmatrix: [docs/features/matrix.md](docs/features/matrix.md) · Entwicklung: [docs/development.md](docs/development.md) · iOS: [apps/ios/README.md](apps/ios/README.md) · offene externe Schritte: [docs/setup/remaining-steps.md](docs/setup/remaining-steps.md).
 
 ---
 
@@ -24,33 +28,32 @@ Ein bewusst schlankes Tool für ein kleines Team: Kanban-Board und Timeline übe
 ## Architektur in Kürze
 
 ```
-Browser ──(Server Actions)──▶ Next.js Server ──(Drizzle, privilegierte Verbindung)──▶ Postgres
-   │                                │
-   │                                └─ verifiziert JWT (Supabase Auth) + prüft Mitgliedschaft bei JEDEM Zugriff
-   └──(Auth, Realtime: nur SELECT via RLS)──▶ Supabase
+Browser ──(Server Actions)──┐
+                            ├─▶ Next.js (apps/web) ─▶ packages/backend ─(Drizzle, privilegierte Verbindung)─▶ Postgres
+iPhone ──(/api/v1, Bearer)──┘          └─ verifiziert JWT (Supabase Auth) + prüft Mitgliedschaft bei JEDEM Zugriff
+Browser + iPhone ──(Auth, Realtime: nur SELECT via RLS)──▶ Supabase
 ```
 
-- **Autorisierung im Server:** Drizzle verbindet sich mit einer privilegierten Rolle, RLS greift dort also *nicht*. Deshalb läuft jeder Lese- und Schreibzugriff über die Service-Schicht in `src/server/services/*`. Sie bekommt einen `AuthContext`, der ausschließlich serverseitig gebaut wird: Der JWT wird verifiziert (`getClaims`), danach folgt ein frischer DB-Lookup der **aktiven** Mitgliedschaft. Alle Queries sind auf `ctx.workspaceId` beschränkt. IDs aus dem Client sind nie ein Berechtigungsnachweis; fremde IDs verhalten sich wie nicht existierende.
-- **Mutationen:** Server Actions (`src/app/actions/*`) → `runAction` (Auth, optional Admin-Rolle, Zod-Validierung, Fehler-Mapping) → Service.
+- **Autorisierung im Server:** Drizzle verbindet sich mit einer privilegierten Rolle, RLS greift dort also *nicht*. Deshalb läuft jeder Lese- und Schreibzugriff über die Service-Schicht in `packages/backend/src/services/*`. Sie bekommt einen `AuthContext`, der ausschließlich serverseitig gebaut wird: Der JWT wird verifiziert (`getClaims`), danach folgt ein frischer DB-Lookup der **aktiven** Mitgliedschaft. Alle Queries sind auf `ctx.workspaceId` beschränkt. IDs aus dem Client sind nie ein Berechtigungsnachweis; fremde IDs verhalten sich wie nicht existierende.
+- **Mutationen:** Server Actions (`apps/web/src/app/actions/*`) → `runAction` (Auth, optional Admin-Rolle, Zod-Validierung, Fehler-Mapping) → Service. Die iOS-App ruft dieselben Services über `/api/v1` auf (`packages/backend/src/http`, Vertrag in `packages/contracts`).
 - **RLS als zweite Linie:** RLS ist auf allen Tabellen aktiv. Über die Supabase-API bekommen angemeldete Nutzer **nur SELECT** auf Zeilen ihres Workspaces, und nur als aktive Mitglieder. Mehr braucht Realtime nicht. Es gibt keine Insert-, Update- oder Delete-Policies; `profiles` und `workspace_invitations` sind über die API gar nicht erreichbar.
 - **Integrität in der DB:** zusammengesetzte Foreign Keys (Task ↔ Projekt ↔ Workspace, Task ↔ Gruppe desselben Projekts, Assignee ↔ Mitgliedschaft im Workspace), Trigger „Assignee muss aktiv sein“, Trigger „beim Entfernen Zuweisungen lösen“, Check `end_date >= start_date`, eindeutige Mitgliedschaften und offene Einladungen.
 - **Konflikte:** Jede Task hat eine `version`. Das Speichern im Detailpanel ist ein bedingtes Update (`WHERE version = expected`). Bei einem Konflikt zeigt die UI einen Hinweis mit „Aktuelle Version laden“ oder „Trotzdem speichern“.
-- **Client-State:** ein schlanker Store (`src/components/work/work-context.tsx`) mit Optimistic Updates und Rollback. Realtime-Ereignisse und Server-Antworten werden über die Version zusammengeführt, ohne Duplikate.
+- **Client-State:** ein schlanker Store (`apps/web/src/components/work/work-context.tsx`) mit Optimistic Updates und Rollback. Realtime-Ereignisse und Server-Antworten werden über die Version zusammengeführt, ohne Duplikate.
 - **Rendering:** Cache Components / Partial Prerendering. Statische Shell (Navigation, Skeletons), benutzerbezogene Inhalte streamen hinter `<Suspense>`. Nutzerdaten werden nie mit `use cache` gecacht; React `cache()` dedupliziert nur innerhalb eines Requests.
-- **Ein Migrationssystem:** `drizzle-kit`. Das Schema liegt in `src/server/db/schema.ts`. RLS, Funktionen, Trigger und die Realtime-Publication stehen als *custom migration* in derselben Kette (`drizzle/0001_security.sql`). Die Supabase-CLI dient nur dem lokalen Stack, ihre Migrations werden nicht verwendet.
+- **Ein Migrationssystem:** `drizzle-kit`. Das Schema liegt in `packages/database/src/schema.ts`. RLS, Funktionen, Trigger und die Realtime-Publication stehen als *custom migration* in derselben Kette (`packages/database/migrations/0001_security.sql`). Die Supabase-CLI dient nur dem lokalen Stack, ihre Migrations werden nicht verwendet.
 
 Verzeichnisse:
 
 | Pfad | Inhalt |
 | --- | --- |
-| `src/server/` | DB-Client, Schema, Auth-Kontext, Service-Schicht, Mailer (nur Server) |
-| `src/app/actions/` | Server Actions |
-| `src/app/(app)/` | Arbeitsseiten: Alle Aufgaben, Projekte, Team |
-| `src/components/work/` | Board, Timeline, Filter, Task-Panel, Store, Realtime |
-| `src/lib/` | Domänen-Konstanten, Validierung, Kalenderdatum-Logik (Client + Server) |
-| `drizzle/` | versionierte Migrationen inkl. RLS |
-| `scripts/` | Bootstrap des ersten Admins, Development-Seed |
-| `tests/` | Integrationstests (Vitest, echte Postgres-DB), `tests/e2e` (Playwright) |
+| `apps/web/` | Next.js-App: Seiten, Komponenten, Server Actions, `/api/v1`-Route, Cron, E2E-Tests |
+| `apps/ios/` | SwiftUI-App (`Packages/VistooKit`, App-Target via XcodeGen) |
+| `packages/backend/` | DB-Client, Auth-Kontext, Service-Schicht, HTTP-API, Mailer, Storage (nur Server) + Integrationstests |
+| `packages/domain/` | Domänen-Konstanten, DTO-Schemas, Validierung, Kalendertage, Filter (Client + Server) |
+| `packages/database/` | Drizzle-Schema, versionierte Migrationen inkl. RLS, Bootstrap/Seed |
+| `packages/contracts/` | API-Vertrag v1, generierte OpenAPI und Swift-Modelle, gemeinsame Test-Fixtures |
+| `packages/design-tokens/` | Design-Tokens mit Plattform-Overrides → CSS + Swift |
 
 ---
 
@@ -63,7 +66,7 @@ npm install
 npm run supabase:start          # startet Postgres, Auth, Realtime, Mailpit lokal
 ```
 
-`supabase start` gibt URLs und Schlüssel aus. Lege `.env.local` an:
+`supabase start` gibt URLs und Schlüssel aus. Lege `apps/web/.env.local` an (dieselbe Datei nutzen Migrationen, Skripte und Tests):
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
@@ -107,7 +110,7 @@ Lokale Auth-Einstellungen (keine öffentliche Registrierung, E-Mail-Templates, R
 7. **Auth → Emails → Templates:** siehe unten.
 8. **SMTP:** Der eingebaute Supabase-Mailer ist stark limitiert (wenige Mails pro Stunde) und nur für Tests gedacht. Für den Betrieb unter Auth → SMTP Settings einen eigenen Anbieter eintragen (z. B. Postmark, Resend, SES).
 
-> **Hinweis zu neuen Tabellen:** Supabase gibt neu angelegten Tabellen im Schema `public` standardmäßig Rechte für `anon`/`authenticated`. Jede künftige Tabelle braucht in ihrer Migration `ENABLE ROW LEVEL SECURITY`, ein explizites `REVOKE` und nur die nötigen Policies (Vorbild: `drizzle/0001_security.sql`).
+> **Hinweis zu neuen Tabellen:** Supabase gibt neu angelegten Tabellen im Schema `public` standardmäßig Rechte für `anon`/`authenticated`. Jede künftige Tabelle braucht in ihrer Migration `ENABLE ROW LEVEL SECURITY`, ein explizites `REVOKE` und nur die nötigen Policies (Vorbild: `packages/database/migrations/0001_security.sql`).
 
 ---
 
@@ -130,24 +133,25 @@ Ohne Projekt-Secrets (`DATABASE_URL`, `SUPABASE_SECRET_KEY`) lässt sich das Skr
 **URL Configuration** (Auth → URL Configuration):
 
 - *Site URL*: `https://<deine-domain>` (wird in den E-Mail-Templates als `{{ .SiteURL }}` verwendet)
-- *Redirect URLs*: `https://<deine-domain>/auth/confirm`, für Preview-Deployments optional `https://*-<team>.vercel.app/auth/confirm`
+- *Redirect URLs*: `https://<deine-domain>/auth/confirm`, `https://<deine-domain>/auth/ios/confirm` (iOS-App), für Preview-Deployments optional `https://*-<team>.vercel.app/auth/confirm`
 
 **E-Mail-Templates** (Auth → Emails). Die Links verwenden `token_hash`, damit sie auch in einem anderen Browser funktionieren, als die Anmeldung angefordert wurde:
 
 *Magic Link*, Betreff „Dein Anmeldelink für Vistoo“:
 ```html
 <h2>Anmeldung bei Vistoo</h2>
-<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email">Jetzt anmelden</a></p>
-<p>Oder gib diesen Code auf der Anmeldeseite ein: <strong>{{ .Token }}</strong></p>
+<p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=email">Jetzt anmelden</a></p>
+<p>Oder gib diesen Code auf der Anmeldeseite bzw. in der App ein: <strong>{{ .Token }}</strong></p>
 ```
 
 *Invite user*, Betreff „Einladung zu Vistoo“:
 ```html
 <h2>Du wurdest zu Vistoo eingeladen</h2>
-<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=invite">Einladung annehmen</a></p>
+<p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=invite">Einladung annehmen</a></p>
+<p>Oder gib in der Vistoo-App diesen Code ein: <strong>{{ .Token }}</strong></p>
 ```
 
-(Identisch zu `supabase/templates/*.html`.) Mit den Standard-Templates funktioniert die Anmeldung über einen Fallback (Tokens im URL-Fragment) ebenfalls, die obigen Templates sind aber robuster.
+(Identisch zu `supabase/templates/*.html`. **Neu:** Die Templates verwenden `{{ .RedirectTo }}` statt `{{ .SiteURL }}/auth/confirm`, damit Links auf der anfragenden Plattform landen (Web `/auth/confirm`, iOS `/auth/ios/confirm`), und die Einladung enthält den Code für die App. Die maßgebliche Fassung sind die Dateien in `supabase/templates/`.) Mit den Standard-Templates funktioniert die Anmeldung über einen Fallback (Tokens im URL-Fragment) ebenfalls, die obigen Templates sind aber robuster.
 
 **Ablauf:** Login-Seite → E-Mail → Link oder 6-stelliger Code → `/auth/confirm` setzt die Session → ohne Mitgliedschaft geht es zu `/invite`. Dort wird nur eine offene, nicht abgelaufene Einladung angezeigt, die an genau diese verifizierte Adresse gebunden ist. Eine erfolgreiche Anmeldung allein gibt keinen Zugriff auf Workspace-Daten.
 
@@ -164,7 +168,7 @@ Ohne Projekt-Secrets (`DATABASE_URL`, `SUPABASE_SECRET_KEY`) lässt sich das Skr
 
 ## Deployment auf Vercel
 
-1. Repository in Vercel importieren (Framework: Next.js, Build: `next build`).
+1. Repository in Vercel importieren (Framework: Next.js, **Root Directory: `apps/web`**, Build: `next build`; Dateien außerhalb des Root-Verzeichnisses einschließen).
 2. Environment Variables setzen (Production und Preview):
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `DATABASE_URL` (Transaction Pooler, 6543), `SITE_URL` (z. B. `https://work.vistoo.de`).
 3. Migrationen werden **nicht** automatisch beim Build ausgeführt. Vor dem Deploy einer Schemaänderung manuell ausführen: `npm run db:migrate` mit `DIRECT_DATABASE_URL`.
@@ -186,6 +190,9 @@ Fehlt die Supabase-Konfiguration, antwortet die App mit einer klaren Fehlermeldu
 | `npm run test:e2e` | End-to-End (Playwright, lokaler Supabase-Stack + laufender Server) |
 | `npm run check` | Typecheck, Lint, Tests, Build |
 | `npm run db:generate` | Migration aus Schemaänderung erzeugen (`-- --custom --name=x` für eigenes SQL) |
+| `npm run generate` | API-Vertrag (OpenAPI), Swift-Modelle und Design-Tokens erzeugen |
+| `npm run ios:generate-project` | Xcode-Projekt aus `apps/ios/project.yml` erzeugen |
+| `npm run ios:test-kit` | Swift-Paket VistooKit bauen und testen |
 | `npm run db:migrate` | Migrationen anwenden |
 | `npm run db:seed` | Demo-Daten (nur lokal) |
 | `npm run bootstrap:admin -- <email>` | ersten Admin einladen |
@@ -195,7 +202,7 @@ Fehlt die Supabase-Konfiguration, antwortet die App mit einer klaren Fehlermeldu
 
 ## Tests
 
-**Integrationstests** (`tests/*.test.ts`) laufen gegen eine echte, wegwerfbare Postgres-Datenbank. Bei jedem Lauf wird `vistoo_test` neu erzeugt, mit minimalen Supabase-Stubs (`auth.uid()`, Rollen, Publication) versehen und mit den **echten** Drizzle-Migrationen aufgesetzt. Geprüft werden unter anderem:
+**Integrationstests** (`packages/backend/tests/*.test.ts`, inkl. `/api/v1`) laufen gegen eine echte, wegwerfbare Postgres-Datenbank. Bei jedem Lauf wird `vistoo_test` neu erzeugt, mit minimalen Supabase-Stubs (`auth.uid()`, Rollen, Publication) versehen und mit den **echten** Drizzle-Migrationen aufgesetzt. Geprüft werden unter anderem:
 
 - Zugriff ohne bzw. mit entfernter Mitgliedschaft, workspace-fremde IDs
 - RLS: Mitglieder lesen, Entfernte, Fremde und `anon` sehen nichts, kein Schreiben über die API
@@ -211,9 +218,9 @@ Fehlt die Supabase-Konfiguration, antwortet die App mit einer klaren Fehlermeldu
 TEST_DATABASE_ADMIN_URL=postgres://postgres:postgres@127.0.0.1:54322/postgres npm test
 ```
 
-Lokale Overrides können in `.env.test.local` stehen (wird nicht committet).
+Lokale Overrides können in `apps/web/.env.test.local` stehen (wird nicht committet).
 
-**End-to-End** (`tests/e2e`) braucht den lokalen Supabase-Stack mit Mailpit und einen laufenden Server:
+**End-to-End** (`apps/web/tests/e2e`, inkl. Web ↔ iOS-Protokoll in `cross-platform.spec.ts`) braucht den lokalen Supabase-Stack mit Mailpit und einen laufenden Server:
 
 ```bash
 npm run supabase:start && npm run db:migrate
@@ -229,7 +236,7 @@ npm run test:e2e
 - **Schnellaktionen** (Status, Person, Verschieben) speichern sofort und bewusst ohne Versionsprüfung, weil sie jeweils genau ein Feld setzen. Das Detailformular speichert explizit mit Versionsprüfung.
 - **Neue Aufgaben** übernehmen eindeutige Filterwerte (Projekt, Gruppe, Person), damit sie sichtbar bleiben.
 - **Archivierte Projekte** sind in „Alle Aufgaben“ ausgeblendet und schreibgeschützt, bleiben aber über die Projektliste erreichbar.
-- **Zurückgestellt:** Task-Abhängigkeiten (optional laut Briefing), Drag zum Verschieben von Timeline-Balken, Dark Mode. Für zurückgestellte Funktionen gibt es keine Bedienelemente.
+- **Zurückgestellt:** Task-Abhängigkeiten (optional laut Briefing), Drag zum Verschieben von Timeline-Balken, Dark Mode, Push-Benachrichtigungen. Für zurückgestellte Funktionen gibt es keine Bedienelemente (auch nicht in der iOS-App).
 - **Nicht Teil des MVP:** Billing, öffentliche Registrierung, Gäste, Kommentare, Anhänge, Zeiterfassung, Automationen, Benachrichtigungen, Custom Fields, Workflows, Unteraufgaben, KI, Reporting.
 
 ---
@@ -255,9 +262,9 @@ Grundlage (offizielle Supabase-Doku, geprüft am 5. 11. 2026): Free-Plan 1 GB Da
 
 | Limit | Wert | Ort |
 | --- | --- | --- |
-| Pro Datei | 10 MB | `src/lib/chat-config.ts` + Bucket-Limit |
-| Pro Nachricht | 3 Dateien | `src/lib/chat-config.ts` |
-| Budget pro Workspace | 500 MB (`CHAT_STORAGE_BUDGET_MB`), automatisch kleiner, wenn 90 % des Projektkontingents (`STORAGE_QUOTA_MB`) abzüglich anderer Buckets weniger übrig lassen | `src/server/services/chat-files.ts` |
+| Pro Datei | 10 MB | `packages/domain/src/chat-config.ts` + Bucket-Limit |
+| Pro Nachricht | 3 Dateien | `packages/domain/src/chat-config.ts` |
+| Budget pro Workspace | 500 MB (`CHAT_STORAGE_BUDGET_MB`), automatisch kleiner, wenn 90 % des Projektkontingents (`STORAGE_QUOTA_MB`) abzüglich anderer Buckets weniger übrig lassen | `packages/backend/src/services/chat-files.ts` |
 | Erlaubte Typen | JPEG, PNG, WebP, PDF, TXT, CSV, DOCX, XLSX, PPTX | Allowlist + Bucket `allowed_mime_types` |
 
 Ablauf (Storage und Datenbank haben keine gemeinsame Transaktion):

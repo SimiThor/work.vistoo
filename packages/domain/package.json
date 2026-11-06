@@ -1,0 +1,27 @@
+{
+  "name": "@vistoo/domain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isomorphic domain rules: constants, DTO schemas, input validation, calendar dates. Used by web (client + server) and the backend; source of the API contract.",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/domain.ts",
+    "./validation": "./src/validation.ts",
+    "./chat-config": "./src/chat-config.ts",
+    "./chat-types": "./src/chat-types.ts",
+    "./dates": "./src/dates.ts",
+    "./result": "./src/result.ts",
+    "./dto": "./src/dto.ts",
+    "./filters": "./src/filters.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.12"
+  }
+}

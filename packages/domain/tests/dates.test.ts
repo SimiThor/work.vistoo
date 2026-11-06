@@ -8,7 +8,7 @@ import {
   toDayNumber,
   todayIso,
   weekdayIndex,
-} from "@/lib/dates";
+} from "../src/dates";
 
 describe("calendar dates", () => {
   it("validates real calendar days only", () => {

@@ -1,15 +1,15 @@
 import "server-only";
 import { and, asc, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import type { z } from "zod";
-import { CHAT_LIMITS } from "@/lib/chat-config";
+import { CHAT_LIMITS } from "@vistoo/domain/chat-config";
 import type {
   AttachmentDTO,
   ChatPerson,
   ConversationDetail,
   ConversationSummary,
   MessageDTO,
-} from "@/lib/chat-types";
-import { displayName } from "@/lib/domain";
+} from "@vistoo/domain/chat-types";
+import { displayName } from "@vistoo/domain";
 import type {
   archiveChannelSchema,
   channelMembersSchema,
@@ -20,7 +20,7 @@ import type {
   removeChannelMemberSchema,
   sendMessageSchema,
   updateChannelSchema,
-} from "@/lib/validation";
+} from "@vistoo/domain/validation";
 import type { AuthContext } from "../auth";
 import { getDb, type DbOrTx, type Tx } from "../db";
 import {
@@ -33,9 +33,10 @@ import {
   workspaceMembers,
   type Conversation,
   type Message,
-} from "../db/schema";
+} from "@vistoo/database/schema";
 import { AppError, invalid } from "../errors";
 import { deleteAttachmentFiles } from "./chat-files";
+import { notifyNewMessage } from "./notifications";
 
 /*
  * Authorization rules (also mirrored by RLS for Realtime):
@@ -282,12 +283,26 @@ export async function createChannel(
   input: z.output<typeof createChannelSchema>,
 ): Promise<{ id: string }> {
   return getDb().transaction(async (tx) => {
+    if (input.id) {
+      // Idempotent retry: the caller's channel with this id already exists.
+      const [existing] = await tx
+        .select({ id: conversations.id, workspaceId: conversations.workspaceId, createdBy: conversations.createdBy })
+        .from(conversations)
+        .where(eq(conversations.id, input.id));
+      if (existing) {
+        if (existing.workspaceId !== ctx.workspaceId || existing.createdBy !== ctx.userId) {
+          throw new AppError("CONFLICT", "Dieser Kanal konnte nicht angelegt werden.");
+        }
+        return { id: existing.id };
+      }
+    }
     const isPrivate = input.visibility === "private";
     const memberIds = isPrivate ? [...new Set([ctx.userId, ...input.memberIds])] : [];
     await assertActiveMembers(tx, ctx, memberIds);
     const [conv] = await tx
       .insert(conversations)
       .values({
+        ...(input.id ? { id: input.id } : {}),
         workspaceId: ctx.workspaceId,
         kind: isPrivate ? "private_channel" : "open_channel",
         name: input.name,
@@ -627,7 +642,8 @@ export async function sendMessage(ctx: AuthContext, input: z.output<typeof sendM
   const attachmentIds = [...new Set(input.attachmentIds)];
   if (!body.trim() && attachmentIds.length === 0) throw invalid("Die Nachricht ist leer.", { body: "Die Nachricht ist leer." });
 
-  return getDb().transaction(async (tx) => {
+  let created = false;
+  const result = await getDb().transaction(async (tx) => {
     const conv = await getAccessibleConversation(tx, ctx, input.conversationId, { lock: true });
 
     const [existing] = await tx.select().from(messages).where(eq(messages.id, input.id));
@@ -638,6 +654,7 @@ export async function sendMessage(ctx: AuthContext, input: z.output<typeof sendM
       const att = await attachmentsFor(tx, [existing.id]);
       return toMessageDTO(existing, att.get(existing.id) ?? []);
     }
+    created = true;
 
     assertWritable(await postability(tx, conv, ctx));
 
@@ -691,6 +708,9 @@ export async function sendMessage(ctx: AuthContext, input: z.output<typeof sendM
     const att = await attachmentsFor(tx, [msg.id]);
     return toMessageDTO(msg, att.get(msg.id) ?? []);
   });
+  // After commit and only for new messages (a retried send must not notify twice).
+  if (created) notifyNewMessage(result.id);
+  return result;
 }
 
 async function lockOwnMessage(tx: Tx, ctx: AuthContext, id: string): Promise<{ msg: Message; conv: Conversation }> {

@@ -2,8 +2,8 @@
 
 import { MemberAvatar } from "@/components/member-avatar";
 import { ProjectDot } from "@/components/project-dot";
-import { displayName, type TaskDTO } from "@/lib/domain";
-import { formatShortDate } from "@/lib/dates";
+import { displayName, type TaskDTO } from "@vistoo/domain";
+import { formatShortDate } from "@vistoo/domain/dates";
 import { useToday } from "@/lib/use-today";
 import { cn } from "@/lib/utils";
 import { useWork } from "./work-context";

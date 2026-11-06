@@ -14,7 +14,7 @@
  * holds the project secrets.
  */
 import { and, eq } from "drizzle-orm";
-import { INVITATION_TTL_DAYS } from "../src/lib/domain";
+import { INVITATION_TTL_DAYS } from "@vistoo/domain";
 import { adminSupabase, connect, siteUrl, WORKSPACE_SLUG, schema } from "./lib";
 
 const { workspaces, workspaceMembers, workspaceInvitations } = schema;

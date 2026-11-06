@@ -25,8 +25,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { AttachmentDTO, ChatPerson, ConversationDetail, MessageDTO } from "@/lib/chat-types";
-import { displayName } from "@/lib/domain";
+import type { AttachmentDTO, ChatPerson, ConversationDetail, MessageDTO } from "@vistoo/domain/chat-types";
+import { displayName } from "@vistoo/domain";
 import { authorizeRealtime, getBrowserSupabase } from "@/lib/supabase-browser";
 import { cn } from "@/lib/utils";
 import { useChat } from "./chat-context";

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { setProjectArchivedAction } from "@/app/actions/projects";
 import { ProjectDot } from "@/components/project-dot";
 import { Button } from "@/components/ui/button";
-import type { ProjectDTO } from "@/lib/domain";
+import type { ProjectDTO } from "@vistoo/domain";
 import { ProjectDialog } from "./project-dialog";
 
 type Stats = Record<string, { total: number; done: number }>;

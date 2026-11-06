@@ -1,0 +1,4 @@
+// Copy to Signing.local.xcconfig (git-ignored) and fill in. Never commit certificates or keys.
+DEVELOPMENT_TEAM = ABCDE12345
+// Optional: own bundle id for local experiments (also change IOS_BUNDLE_ID on the server).
+// VISTOO_BUNDLE_ID = de.example.vistoo

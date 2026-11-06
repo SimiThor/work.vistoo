@@ -3,7 +3,7 @@
 import type { RealtimeChannel, RealtimePostgresChangesPayload, SupabaseClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
-import type { TaskDTO, TaskStatus } from "@/lib/domain";
+import type { TaskDTO, TaskStatus } from "@vistoo/domain";
 import { authorizeRealtime, getBrowserSupabase } from "@/lib/supabase-browser";
 
 type TaskRow = {

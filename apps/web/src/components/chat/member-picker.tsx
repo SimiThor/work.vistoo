@@ -3,7 +3,7 @@
 import { Check } from "lucide-react";
 import { MemberAvatar } from "@/components/member-avatar";
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { displayName, type MemberDTO } from "@/lib/domain";
+import { displayName, type MemberDTO } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 
 /** Searchable list of workspace members (single or multiple selection). */

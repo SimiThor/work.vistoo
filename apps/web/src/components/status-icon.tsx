@@ -1,4 +1,4 @@
-import { STATUS_LABEL, type TaskStatus } from "@/lib/domain";
+import { STATUS_LABEL, type TaskStatus } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 
 const COLOR: Record<TaskStatus, string> = {

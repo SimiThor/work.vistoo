@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { ProjectDot } from "@/components/project-dot";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { STATUS_LABEL, type TaskStatus } from "@/lib/domain";
+import { STATUS_LABEL, type TaskStatus } from "@vistoo/domain";
 import { useWork } from "./work-context";
 
 /** Values derived from scope + active filters, so a new task stays visible. */

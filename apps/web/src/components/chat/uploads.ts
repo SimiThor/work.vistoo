@@ -1,7 +1,7 @@
 "use client";
 
 import { discardUploadAction, finalizeUploadAction, reserveUploadAction } from "@/app/actions/chat";
-import { CHAT_LIMITS, fileTypeForName } from "@/lib/chat-config";
+import { CHAT_LIMITS, fileTypeForName } from "@vistoo/domain/chat-config";
 
 export type PendingUpload = {
   localId: string;

@@ -1,5 +1,5 @@
 import "server-only";
-import { ALLOWED_FILE_TYPES, CHAT_LIMITS } from "@/lib/chat-config";
+import { ALLOWED_FILE_TYPES, CHAT_LIMITS } from "@vistoo/domain/chat-config";
 import { createSupabaseAdminClient } from "./supabase";
 
 export const CHAT_BUCKET = "chat-files";

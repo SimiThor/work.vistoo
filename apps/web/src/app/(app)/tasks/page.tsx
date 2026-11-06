@@ -4,7 +4,7 @@ import { WorkProvider } from "@/components/work/work-context";
 import { WorkSkeleton } from "@/components/work/work-skeleton";
 import { WorkView } from "@/components/work/work-view";
 import { getPeopleForViewer, getProjectsForViewer, getViewer } from "@/server/queries";
-import { listTasks } from "@/server/services/tasks";
+import { listTasks } from "@vistoo/backend/services/tasks";
 
 export const metadata: Metadata = { title: "Alle Aufgaben" };
 

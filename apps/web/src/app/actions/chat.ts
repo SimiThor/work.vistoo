@@ -3,9 +3,9 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { runAction } from "@/server/action";
-import * as chat from "@/server/services/chat";
-import * as files from "@/server/services/chat-files";
-import { listMembers } from "@/server/services/team";
+import * as chat from "@vistoo/backend/services/chat";
+import * as files from "@vistoo/backend/services/chat-files";
+import { listMembers } from "@vistoo/backend/services/team";
 import {
   archiveChannelSchema,
   channelMembersSchema,
@@ -19,7 +19,7 @@ import {
   reserveUploadSchema,
   sendMessageSchema,
   updateChannelSchema,
-} from "@/lib/validation";
+} from "@vistoo/domain/validation";
 
 const empty = z.object({});
 

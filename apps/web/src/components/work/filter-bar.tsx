@@ -15,7 +15,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { displayName, STATUS_LABEL, TASK_STATUSES } from "@/lib/domain";
+import { displayName, STATUS_LABEL, TASK_STATUSES } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 import { hasActiveFilters, NO_GROUP, UNASSIGNED, type Filters, type WorkUrlState } from "./filters";
 import { useWork } from "./work-context";

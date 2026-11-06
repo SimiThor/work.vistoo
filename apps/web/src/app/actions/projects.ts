@@ -2,15 +2,15 @@
 
 import { refresh } from "next/cache";
 import { runAction } from "@/server/action";
-import * as projects from "@/server/services/projects";
+import * as projects from "@vistoo/backend/services/projects";
 import {
   archiveProjectSchema,
   createGroupSchema,
   idSchema,
-  projectSchema,
+  createProjectSchema,
   renameGroupSchema,
   updateProjectSchema,
-} from "@/lib/validation";
+} from "@vistoo/domain/validation";
 
 // Project/group changes affect server-rendered navigation and pickers,
 // so the router is refreshed after each successful mutation.
@@ -22,7 +22,7 @@ async function withRefresh<T extends { ok: boolean }>(p: Promise<T>): Promise<T>
 }
 
 export async function createProjectAction(input: unknown) {
-  return withRefresh(runAction(projectSchema, input, (ctx, data) => projects.createProject(ctx, data)));
+  return withRefresh(runAction(createProjectSchema, input, (ctx, data) => projects.createProject(ctx, data)));
 }
 
 export async function updateProjectAction(input: unknown) {

@@ -5,11 +5,11 @@ import { ProjectActions } from "@/components/projects/project-actions";
 import { WorkProvider } from "@/components/work/work-context";
 import { WorkSkeleton } from "@/components/work/work-skeleton";
 import { WorkView } from "@/components/work/work-view";
-import { uuid } from "@/lib/validation";
-import { AppError } from "@/server/errors";
+import { uuid } from "@vistoo/domain/validation";
+import { AppError } from "@vistoo/backend/errors";
 import { getPeopleForViewer, getProjectsForViewer, getViewer } from "@/server/queries";
-import { getProject } from "@/server/services/projects";
-import { listTasks } from "@/server/services/tasks";
+import { getProject } from "@vistoo/backend/services/projects";
+import { listTasks } from "@vistoo/backend/services/tasks";
 
 export const metadata: Metadata = { title: "Projekt" };
 

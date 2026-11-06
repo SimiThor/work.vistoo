@@ -1,0 +1,72 @@
+# XcodeGen spec — the Xcode project is generated from this file and not committed.
+#   brew install xcodegen && cd apps/ios && xcodegen generate   (or: npm run ios:generate-project)
+name: VistooWork
+options:
+  bundleIdPrefix: de.vistoo
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  developmentLanguage: de
+configs:
+  Debug: debug
+  Release: release
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+packages:
+  VistooKit:
+    path: Packages/VistooKit
+targets:
+  VistooWork:
+    type: application
+    platform: iOS
+    sources:
+      - VistooWork
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(VISTOO_BUNDLE_ID)
+        PRODUCT_NAME: VistooWork
+        INFOPLIST_FILE: VistooWork/Info.plist
+        CODE_SIGN_ENTITLEMENTS: VistooWork/VistooWork.entitlements
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    dependencies:
+      - package: VistooKit
+        product: VistooCore
+      - package: VistooKit
+        product: VistooUI
+  VistooWorkUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - VistooWorkUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(VISTOO_BUNDLE_ID).uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: VistooWork
+    dependencies:
+      - target: VistooWork
+schemes:
+  VistooWork:
+    build:
+      targets:
+        VistooWork: all
+    test:
+      config: Debug
+      targets:
+        - package: VistooKit/VistooCoreTests
+        - VistooWorkUITests
+    run:
+      config: Debug
+    archive:
+      config: Release

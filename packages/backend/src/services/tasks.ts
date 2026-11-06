@@ -1,6 +1,6 @@
 import "server-only";
 import { and, asc, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
-import type { TaskDTO, TaskStatus } from "@/lib/domain";
+import type { TaskDTO, TaskStatus } from "@vistoo/domain";
 import type { z } from "zod";
 import type {
   createTaskSchema,
@@ -8,12 +8,13 @@ import type {
   setAssigneeSchema,
   setStatusSchema,
   updateTaskSchema,
-} from "@/lib/validation";
+} from "@vistoo/domain/validation";
 import type { AuthContext } from "../auth";
 import { getDb, type DbOrTx, type Tx } from "../db";
-import { projects, tasks, type Task } from "../db/schema";
+import { projects, tasks, type Task } from "@vistoo/database/schema";
 import { AppError, invalid, notFound } from "../errors";
 import { assertActiveMember, assertGroupInProject, getWritableProject } from "./guards";
+import { notifyAssignment } from "./notifications";
 
 const POSITION_STEP = 1024;
 const MIN_GAP = 1e-6;
@@ -83,8 +84,22 @@ async function endOfColumn(db: DbOrTx, ctx: AuthContext, status: TaskStatus): Pr
   return (r?.max ?? 0) + POSITION_STEP;
 }
 
+/** Retried create with a client id: the stored record if it is the caller's, otherwise a conflict. */
+async function existingOwnTask(db: DbOrTx, ctx: AuthContext, id: string | undefined): Promise<Task | null> {
+  if (!id) return null;
+  const [row] = await db.select().from(tasks).where(eq(tasks.id, id));
+  if (!row) return null;
+  if (row.workspaceId !== ctx.workspaceId || row.createdBy !== ctx.userId) {
+    throw new AppError("CONFLICT", "Diese Aufgabe konnte nicht angelegt werden.");
+  }
+  return row;
+}
+
 export async function createTask(ctx: AuthContext, input: z.output<typeof createTaskSchema>): Promise<TaskDTO> {
-  return getDb().transaction(async (tx) => {
+  let created = false;
+  const task = await getDb().transaction(async (tx) => {
+    const existing = await existingOwnTask(tx, ctx, input.id);
+    if (existing) return toTaskDTO(existing);
     await getWritableProject(tx, ctx, input.projectId);
     if (input.groupId) await assertGroupInProject(tx, ctx, input.groupId, input.projectId);
     if (input.assigneeId) await assertActiveMember(tx, ctx, input.assigneeId);
@@ -92,6 +107,7 @@ export async function createTask(ctx: AuthContext, input: z.output<typeof create
     const [row] = await tx
       .insert(tasks)
       .values({
+        ...(input.id ? { id: input.id } : {}),
         workspaceId: ctx.workspaceId,
         projectId: input.projectId,
         groupId: input.groupId,
@@ -106,8 +122,11 @@ export async function createTask(ctx: AuthContext, input: z.output<typeof create
         updatedBy: ctx.userId,
       })
       .returning();
+    created = true;
     return toTaskDTO(row);
   });
+  if (created && task.assigneeId) notifyAssignment(ctx, task);
+  return task;
 }
 
 /**
@@ -116,7 +135,8 @@ export async function createTask(ctx: AuthContext, input: z.output<typeof create
  */
 export async function updateTask(ctx: AuthContext, input: z.output<typeof updateTaskSchema>): Promise<TaskDTO> {
   const { id, expectedVersion, patch } = input;
-  return getDb().transaction(async (tx) => {
+  let previousAssignee: string | null = null;
+  const task = await getDb().transaction(async (tx) => {
     const current = await lockTask(tx, ctx, id);
     if (current.version !== expectedVersion) {
       throw new AppError(
@@ -126,6 +146,7 @@ export async function updateTask(ctx: AuthContext, input: z.output<typeof update
       );
     }
     await getWritableProject(tx, ctx, current.projectId);
+    previousAssignee = current.assigneeId;
 
     const next = {
       projectId: patch.projectId ?? current.projectId,
@@ -171,6 +192,8 @@ export async function updateTask(ctx: AuthContext, input: z.output<typeof update
     if (!row) throw new AppError("CONFLICT", "Diese Aufgabe wurde inzwischen von jemand anderem geändert.");
     return toTaskDTO(row);
   });
+  if (task.assigneeId && task.assigneeId !== previousAssignee) notifyAssignment(ctx, task);
+  return task;
 }
 
 /** Quick action: change status, task goes to the end of the target column. */
@@ -197,8 +220,10 @@ export async function setTaskStatus(ctx: AuthContext, input: z.output<typeof set
 
 /** Quick action: change the responsible person. */
 export async function setTaskAssignee(ctx: AuthContext, input: z.output<typeof setAssigneeSchema>): Promise<TaskDTO> {
-  return getDb().transaction(async (tx) => {
+  let previousAssignee: string | null = null;
+  const task = await getDb().transaction(async (tx) => {
     const current = await lockTask(tx, ctx, input.id);
+    previousAssignee = current.assigneeId;
     await getWritableProject(tx, ctx, current.projectId);
     if (input.assigneeId) await assertActiveMember(tx, ctx, input.assigneeId);
     const [row] = await tx
@@ -213,6 +238,8 @@ export async function setTaskAssignee(ctx: AuthContext, input: z.output<typeof s
       .returning();
     return toTaskDTO(row);
   });
+  if (task.assigneeId && task.assigneeId !== previousAssignee) notifyAssignment(ctx, task);
+  return task;
 }
 
 async function neighbourPosition(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { todayIso } from "./dates";
+import { todayIso } from "@vistoo/domain/dates";
 
 /**
  * Today's calendar date in the *viewer's* time zone.

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { AuthContext } from "@/server/auth";
-import { getDb } from "@/server/db";
-import { tasks } from "@/server/db/schema";
-import { createGroup, deleteGroup, setProjectArchived } from "@/server/services/projects";
+import type { AuthContext } from "../src/auth";
+import { getDb } from "../src/db";
+import { tasks } from "@vistoo/database/schema";
+import { createGroup, deleteGroup, setProjectArchived } from "../src/services/projects";
 import {
   createTask,
   deleteTask,
@@ -11,8 +11,8 @@ import {
   setTaskAssignee,
   setTaskStatus,
   updateTask,
-} from "@/server/services/tasks";
-import { createTaskSchema, updateTaskSchema } from "@/lib/validation";
+} from "../src/services/tasks";
+import { createTaskSchema, updateTaskSchema } from "@vistoo/domain/validation";
 import { makeGroup, makeMemberCtx, makeProject, makeUser, makeWorkspace, addMember } from "./support/fixtures";
 
 let ctx: AuthContext;

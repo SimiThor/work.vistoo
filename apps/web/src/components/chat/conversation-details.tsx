@@ -28,10 +28,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { CHAT_LIMITS } from "@/lib/chat-config";
-import type { ChatPerson, ConversationDetail } from "@/lib/chat-types";
-import { formatInstantDate } from "@/lib/dates";
-import { displayName } from "@/lib/domain";
+import { CHAT_LIMITS } from "@vistoo/domain/chat-config";
+import type { ChatPerson, ConversationDetail } from "@vistoo/domain/chat-types";
+import { formatInstantDate } from "@vistoo/domain/dates";
+import { displayName } from "@vistoo/domain";
 import { useChat } from "./chat-context";
 import { MemberPicker } from "./member-picker";
 

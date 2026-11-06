@@ -31,6 +31,6 @@ export default async function setup() {
     GRANT USAGE ON SCHEMA public TO anon, authenticated;
     CREATE PUBLICATION supabase_realtime;
   `);
-  await migrate(drizzle(sql), { migrationsFolder: "./drizzle" });
+  await migrate(drizzle(sql), { migrationsFolder: new URL("../../../database/migrations", import.meta.url).pathname });
   await sql.end();
 }

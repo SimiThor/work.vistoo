@@ -26,7 +26,7 @@ import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { StatusIcon } from "@/components/status-icon";
 import { Button } from "@/components/ui/button";
-import { STATUS_LABEL, TASK_STATUSES, type TaskDTO, type TaskStatus } from "@/lib/domain";
+import { STATUS_LABEL, TASK_STATUSES, type TaskDTO, type TaskStatus } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 import { QuickAdd, type QuickAddDefaults } from "./quick-add";
 import { cardClass, TaskCardBody } from "./task-card";

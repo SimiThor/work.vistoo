@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+/* Colours, shadows, base radius and type scale: packages/design-tokens (generated). */
+@import "./tokens.generated.css";
 
 /*
  * Vistoo design tokens
@@ -10,41 +12,7 @@
  */
 
 :root {
-  /* Surfaces */
-  --background: #ffffff;
-  --surface-subtle: #f5f5f7; /* sidebar, board columns */
-  --surface-sunken: #ececf0; /* hover on subtle surfaces */
-  --foreground: #1d1d1f;
-  --muted-foreground: #6e6e73; /* 5.0:1 on white */
-
-  /* Lines */
-  --border: #e3e3e8;
-  --border-strong: #d1d1d6;
-  --input: #d1d1d6;
-
-  /* Accent (interaction) */
-  --accent-blue: #0071e3; /* 4.7:1 with white text */
-  --accent-blue-hover: #0062c4;
-  --accent-blue-soft: #e8f1fc;
-  --accent-blue-text: #0058b0; /* 6.6:1 on white */
-
-  /* Status (icon colour; text stays neutral) */
-  --status-open: #8e8e93;
-  --status-progress: #0071e3;
-  --status-review: #b86e00;
-  --status-done: #248a3d;
-
-  --destructive: #d70015;
-  --warning-bg: #fff6e5;
-  --warning-fg: #7a4a00;
-
-  /* Elevation */
-  --shadow-card: 0 1px 1px rgb(0 0 0 / 0.03), 0 1px 3px rgb(0 0 0 / 0.04);
-  --shadow-raised: 0 8px 24px rgb(0 0 0 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.04);
-  --shadow-overlay: 0 16px 48px rgb(0 0 0 / 0.14), 0 0 0 1px rgb(0 0 0 / 0.05);
-
-  /* Shape */
-  --radius: 0.5rem; /* 8px; derived sm/md/lg/xl below */
+  /* Raw palette, shadows and --radius: tokens.generated.css */
 
   /* shadcn/ui semantic mapping */
   --card: var(--background);
@@ -102,17 +70,7 @@
   --font-mono: var(--font-system-mono);
   --font-heading: var(--font-system);
 
-  /* Type scale (compact, tool-like) */
-  --text-xs: 0.75rem;
-  --text-xs--line-height: 1rem;
-  --text-sm: 0.8125rem; /* 13px: dense UI text */
-  --text-sm--line-height: 1.25rem;
-  --text-base: 0.875rem; /* 14px: body */
-  --text-base--line-height: 1.375rem;
-  --text-lg: 1.0625rem; /* 17px: section titles */
-  --text-lg--line-height: 1.5rem;
-  --text-xl: 1.375rem; /* 22px: page titles */
-  --text-xl--line-height: 1.75rem;
+  /* Type scale (compact, tool-like): tokens.generated.css */
 
   --shadow-card: var(--shadow-card);
   --shadow-raised: var(--shadow-raised);

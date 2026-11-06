@@ -1,18 +1,18 @@
 import "server-only";
 import { and, asc, count, eq, sql } from "drizzle-orm";
 import type { z } from "zod";
-import type { GroupDTO, ProjectDTO } from "@/lib/domain";
+import type { GroupDTO, ProjectDTO } from "@vistoo/domain";
 import type {
   archiveProjectSchema,
   createGroupSchema,
-  projectSchema,
+  createProjectSchema,
   renameGroupSchema,
   updateProjectSchema,
-} from "@/lib/validation";
+} from "@vistoo/domain/validation";
 import type { AuthContext } from "../auth";
 import { getDb, type Tx } from "../db";
-import { projectGroups, projects, tasks, type Project, type ProjectGroup } from "../db/schema";
-import { notFound } from "../errors";
+import { projectGroups, projects, tasks, type Project, type ProjectGroup } from "@vistoo/database/schema";
+import { AppError, notFound } from "../errors";
 import { getProjectInWorkspace, getWritableProject } from "./guards";
 
 function toGroupDTO(g: ProjectGroup): GroupDTO {
@@ -76,10 +76,24 @@ export async function getProject(ctx: AuthContext, id: string): Promise<ProjectD
   return toProjectDTO(project, groups);
 }
 
-export async function createProject(ctx: AuthContext, input: z.output<typeof projectSchema>): Promise<ProjectDTO> {
+export async function createProject(
+  ctx: AuthContext,
+  input: z.output<typeof createProjectSchema>,
+): Promise<ProjectDTO> {
+  if (input.id) {
+    // Idempotent retry: return the caller's stored project.
+    const [existing] = await getDb().select().from(projects).where(eq(projects.id, input.id));
+    if (existing) {
+      if (existing.workspaceId !== ctx.workspaceId || existing.createdBy !== ctx.userId) {
+        throw new AppError("CONFLICT", "Dieses Projekt konnte nicht angelegt werden.");
+      }
+      return getProject(ctx, existing.id);
+    }
+  }
   const [row] = await getDb()
     .insert(projects)
     .values({
+      ...(input.id ? { id: input.id } : {}),
       workspaceId: ctx.workspaceId,
       name: input.name,
       description: input.description,
@@ -120,6 +134,15 @@ export async function setProjectArchived(
 
 export async function createGroup(ctx: AuthContext, input: z.output<typeof createGroupSchema>): Promise<GroupDTO> {
   return getDb().transaction(async (tx) => {
+    if (input.id) {
+      const [existing] = await tx.select().from(projectGroups).where(eq(projectGroups.id, input.id));
+      if (existing) {
+        if (existing.workspaceId !== ctx.workspaceId || existing.projectId !== input.projectId) {
+          throw new AppError("CONFLICT", "Diese Gruppe konnte nicht angelegt werden.");
+        }
+        return toGroupDTO(existing);
+      }
+    }
     await getWritableProject(tx, ctx, input.projectId);
     const [r] = await tx
       .select({ max: sql<number | null>`max(${projectGroups.position})` })
@@ -128,6 +151,7 @@ export async function createGroup(ctx: AuthContext, input: z.output<typeof creat
     const [row] = await tx
       .insert(projectGroups)
       .values({
+        ...(input.id ? { id: input.id } : {}),
         workspaceId: ctx.workspaceId,
         projectId: input.projectId,
         name: input.name,

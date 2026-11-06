@@ -2,7 +2,10 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
-import { TASK_STATUSES, type TaskDTO, type TaskStatus } from "@/lib/domain";
+import { TASK_STATUSES, type TaskStatus } from "@vistoo/domain";
+import type { Filters } from "@vistoo/domain/filters";
+
+export { applyFilters, hasActiveFilters, NO_GROUP, UNASSIGNED, type Filters } from "@vistoo/domain/filters";
 
 /**
  * View + filter state lives in the URL (shareable, back/forward works).
@@ -14,17 +17,6 @@ import { TASK_STATUSES, type TaskDTO, type TaskStatus } from "@/lib/domain";
 
 export type View = "board" | "timeline";
 export type Scale = "day" | "week";
-export const UNASSIGNED = "none";
-export const NO_GROUP = "none";
-
-export type Filters = {
-  q: string;
-  projects: string[];
-  groups: string[]; // group ids or NO_GROUP
-  assignees: string[]; // user ids or UNASSIGNED
-  statuses: TaskStatus[];
-};
-
 export type WorkUrlState = Filters & {
   view: View;
   scale: Scale;
@@ -76,22 +68,6 @@ export function buildSearch(current: URLSearchParams, patch: Partial<WorkUrlStat
   }
   const s = next.toString();
   return s ? `?${s}` : "";
-}
-
-export function hasActiveFilters(f: Filters): boolean {
-  return Boolean(f.q.trim() || f.projects.length || f.groups.length || f.assignees.length || f.statuses.length);
-}
-
-export function applyFilters(tasks: TaskDTO[], f: Filters): TaskDTO[] {
-  const q = f.q.trim().toLocaleLowerCase("de");
-  return tasks.filter((t) => {
-    if (q && !t.title.toLocaleLowerCase("de").includes(q)) return false;
-    if (f.projects.length && !f.projects.includes(t.projectId)) return false;
-    if (f.groups.length && !f.groups.includes(t.groupId ?? NO_GROUP)) return false;
-    if (f.assignees.length && !f.assignees.includes(t.assigneeId ?? UNASSIGNED)) return false;
-    if (f.statuses.length && !f.statuses.includes(t.status)) return false;
-    return true;
-  });
 }
 
 export function useWorkUrl() {

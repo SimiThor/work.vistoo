@@ -1,4 +1,4 @@
-import { projectColorHex } from "@/lib/domain";
+import { projectColorHex } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 
 export function ProjectDot({ color, className }: { color: string; className?: string }) {

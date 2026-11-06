@@ -5,10 +5,11 @@ import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "../src/server/db/schema";
+import * as schema from "../src/schema";
 
-config({ path: ".env.local", quiet: true });
-config({ quiet: true });
+// Run via `npm run … -w @vistoo/database` (cwd = packages/database). Same env files as the web app.
+config({ path: "../../apps/web/.env.local", quiet: true });
+config({ path: "../../apps/web/.env", quiet: true });
 
 export function requireEnv(name: string): string {
   const v = process.env[name];

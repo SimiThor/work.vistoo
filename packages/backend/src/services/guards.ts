@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import type { AuthContext } from "../auth";
 import type { DbOrTx } from "../db";
-import { projectGroups, projects, workspaceMembers } from "../db/schema";
+import { projectGroups, projects, workspaceMembers } from "@vistoo/database/schema";
 import { AppError, invalid, notFound } from "../errors";
 
 /** Loads a project of the caller's workspace. Foreign IDs behave like missing ones. */

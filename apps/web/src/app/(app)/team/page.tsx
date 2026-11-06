@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { TeamView } from "@/components/team/team-view";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getViewer } from "@/server/queries";
-import { listTeam } from "@/server/services/team";
+import { listTeam } from "@vistoo/backend/services/team";
 
 export const metadata: Metadata = { title: "Team" };
 

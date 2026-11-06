@@ -385,6 +385,44 @@ export const conversationReadStates = pgTable(
   ],
 );
 
+// ---------------------------------------------------------------------------
+// Push notifications (native apps)
+// ---------------------------------------------------------------------------
+
+export const pushEnvironment = pgEnum("push_environment", ["sandbox", "production"]);
+
+/**
+ * APNs device tokens. One row per device; re-registering a token from another
+ * account moves it (account switch on the same iPhone). Server-only table.
+ */
+export const pushDevices = pgTable(
+  "push_devices",
+  {
+    token: text("token").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    platform: text("platform").notNull().default("ios"),
+    environment: pushEnvironment("environment").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index("push_devices_user_idx").on(t.userId),
+    check("push_devices_token_len", sql`char_length(${t.token}) between 8 and 200`),
+  ],
+);
+
+/** Which events notify a user (missing row = all enabled). */
+export const notificationPreferences = pgTable("notification_preferences", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => profiles.id, { onDelete: "cascade" }),
+  directMessages: boolean("direct_messages").notNull().default(true),
+  channelMessages: boolean("channel_messages").notNull().default(true),
+  taskAssignments: boolean("task_assignments").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type Profile = typeof profiles.$inferSelect;
 export type Workspace = typeof workspaces.$inferSelect;
 export type WorkspaceMember = typeof workspaceMembers.$inferSelect;

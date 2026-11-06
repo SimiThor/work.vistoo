@@ -1,11 +1,9 @@
 import "server-only";
-import { eq } from "drizzle-orm";
 import { cache } from "react";
 import { requireMemberPage } from "./auth";
-import { getDb } from "./db";
-import { profiles } from "./db/schema";
-import { listProjects } from "./services/projects";
-import { listFormerMembers, listMembers } from "./services/team";
+import { listProjects } from "@vistoo/backend/services/projects";
+import { getViewerProfile } from "@vistoo/backend/services/session";
+import { listFormerMembers, listMembers } from "@vistoo/backend/services/team";
 
 /**
  * Request-scoped loaders for Server Components (React cache = per request,
@@ -14,13 +12,10 @@ import { listFormerMembers, listMembers } from "./services/team";
 
 export const getViewer = cache(async () => {
   const ctx = await requireMemberPage();
-  const [profile] = await getDb()
-    .select({ email: profiles.email, fullName: profiles.fullName })
-    .from(profiles)
-    .where(eq(profiles.id, ctx.userId));
+  const viewer = await getViewerProfile(ctx);
   return {
     ctx,
-    me: { userId: ctx.userId, email: profile?.email ?? ctx.email, fullName: profile?.fullName ?? null, role: ctx.role },
+    me: { userId: viewer.userId, email: viewer.email, fullName: viewer.fullName, role: viewer.role },
   };
 });
 

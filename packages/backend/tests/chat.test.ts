@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import postgres from "postgres";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import type { AuthContext } from "@/server/auth";
-import { resolveMembership } from "@/server/auth";
-import type { ChatStorage } from "@/server/chat-storage";
-import { getDb } from "@/server/db";
-import { conversations, messageAttachments, messages } from "@/server/db/schema";
+import type { AuthContext } from "../src/auth";
+import { resolveMembership } from "../src/auth";
+import type { ChatStorage } from "../src/chat-storage";
+import { getDb } from "../src/db";
+import { conversations, messageAttachments, messages } from "@vistoo/database/schema";
 import {
   addChannelMembers,
   createChannel,
@@ -20,7 +20,7 @@ import {
   removeChannelMember,
   sendMessage,
   setChannelArchived,
-} from "@/server/services/chat";
+} from "../src/services/chat";
 import {
   cleanupChatFiles,
   discardUpload,
@@ -28,8 +28,8 @@ import {
   getDownloadUrl,
   reserveUpload,
   setChatStorageForTests,
-} from "@/server/services/chat-files";
-import { removeMember } from "@/server/services/team";
+} from "../src/services/chat-files";
+import { removeMember } from "../src/services/team";
 import { testDatabaseUrl } from "./support/db-url";
 import { makeMemberCtx, makeWorkspace } from "./support/fixtures";
 
@@ -199,7 +199,7 @@ describe("messages", () => {
   it("validates length and emptiness", async () => {
     const ch = (await listConversations(anna)).find((c) => c.isDefault)!;
     await expect(send(anna, ch.id, "   ")).rejects.toMatchObject({ code: "VALIDATION" });
-    const { sendMessageSchema } = await import("@/lib/validation");
+    const { sendMessageSchema } = await import("@vistoo/domain/validation");
     expect(sendMessageSchema.safeParse({ id: randomUUID(), conversationId: ch.id, body: "x".repeat(10_001) }).success).toBe(false);
   });
 

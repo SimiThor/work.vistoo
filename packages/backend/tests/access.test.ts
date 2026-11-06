@@ -1,9 +1,9 @@
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { resolveMembership } from "@/server/auth";
-import { AppError } from "@/server/errors";
-import { createTask, getTask, listTasks, updateTask } from "@/server/services/tasks";
-import { getProject, listProjects } from "@/server/services/projects";
+import { resolveMembership } from "../src/auth";
+import { AppError } from "../src/errors";
+import { createTask, getTask, listTasks, updateTask } from "../src/services/tasks";
+import { getProject, listProjects } from "../src/services/projects";
 import { addMember, ctxFor, makeGroup, makeMemberCtx, makeProject, makeUser, makeWorkspace } from "./support/fixtures";
 import { testDatabaseUrl } from "./support/db-url";
 

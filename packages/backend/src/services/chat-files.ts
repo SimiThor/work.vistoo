@@ -2,13 +2,13 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { z } from "zod";
-import { CHAT_LIMITS, fileTypeForName, matchesSignature } from "@/lib/chat-config";
-import type { ChatStorageUsage, UploadTicket } from "@/lib/chat-types";
-import type { reserveUploadSchema } from "@/lib/validation";
+import { CHAT_LIMITS, fileTypeForName, matchesSignature } from "@vistoo/domain/chat-config";
+import type { ChatStorageUsage, UploadTicket } from "@vistoo/domain/chat-types";
+import type { reserveUploadSchema } from "@vistoo/domain/validation";
 import { assertAdmin, type AuthContext } from "../auth";
 import { CHAT_BUCKET, supabaseChatStorage, type ChatStorage } from "../chat-storage";
 import { getDb, type DbOrTx } from "../db";
-import { messageAttachments, workspaces } from "../db/schema";
+import { messageAttachments, workspaces } from "@vistoo/database/schema";
 import { AppError, invalid } from "../errors";
 import { getAccessibleConversation } from "./chat";
 

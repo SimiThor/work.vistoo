@@ -1,0 +1,54 @@
+# iOS app. Runs for iOS changes and for shared contract/domain/token changes
+# (they regenerate Swift sources). Pure web changes do not trigger it.
+name: iOS
+
+on:
+  pull_request:
+    paths:
+      - "apps/ios/**"
+      - "packages/contracts/**"
+      - "packages/domain/**"
+      - "packages/design-tokens/**"
+      - ".github/workflows/ios.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/ios/**"
+      - "packages/contracts/**"
+      - "packages/domain/**"
+      - "packages/design-tokens/**"
+      - ".github/workflows/ios.yml"
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generated Swift sources match the contract
+        run: npm run generate:check
+      - name: Toolchain
+        run: xcodebuild -version && swift --version
+      - name: VistooKit unit tests (SwiftPM)
+        working-directory: apps/ios/Packages/VistooKit
+        run: swift test
+      - name: Generate Xcode project
+        run: brew install xcodegen && cd apps/ios && xcodegen generate
+      - name: Build and test on the iOS simulator (no signing)
+        working-directory: apps/ios
+        run: |
+          DEVICE=$(xcrun simctl list devices available | grep -m1 -oE 'iPhone [^(]+' | sed 's/ *$//')
+          echo "Simulator: $DEVICE"
+          xcodebuild test -quiet \
+            -project VistooWork.xcodeproj -scheme VistooWork \
+            -destination "platform=iOS Simulator,name=$DEVICE" \
+            CODE_SIGNING_ALLOWED=NO

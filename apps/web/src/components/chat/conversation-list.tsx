@@ -7,7 +7,7 @@ import { MemberAvatar } from "@/components/member-avatar";
 import { UnreadDot } from "@/components/shell/nav";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ConversationSummary } from "@/lib/chat-types";
+import type { ConversationSummary } from "@vistoo/domain/chat-types";
 import { cn } from "@/lib/utils";
 import { useChat } from "./chat-context";
 import { NewChannelDialog } from "./new-channel-dialog";

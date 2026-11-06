@@ -5,9 +5,9 @@ import { signOutAction } from "@/app/actions/auth";
 import { BrandMark } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ROLE_LABEL } from "@/lib/domain";
+import { ROLE_LABEL } from "@vistoo/domain";
 import { getAuthUser } from "@/server/auth";
-import { getInvitationState } from "@/server/services/invitations";
+import { getInvitationState } from "@vistoo/backend/services/invitations";
 import { AcceptInvitationForm } from "./accept-form";
 
 export const metadata: Metadata = { title: "Einladung" };

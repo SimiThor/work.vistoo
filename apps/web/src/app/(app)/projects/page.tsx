@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { ProjectList } from "@/components/projects/project-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getProjectsForViewer, getViewer } from "@/server/queries";
-import { projectStats } from "@/server/services/projects";
+import { projectStats } from "@vistoo/backend/services/projects";
 
 export const metadata: Metadata = { title: "Projekte" };
 

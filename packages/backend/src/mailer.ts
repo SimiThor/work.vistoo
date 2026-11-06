@@ -1,5 +1,5 @@
 import "server-only";
-import { createSupabaseAdminClient, createSupabaseAnonClient, getSiteUrl } from "./supabase";
+import { authRedirectUrl, createSupabaseAdminClient, createSupabaseAnonClient, type AuthLinkTarget } from "./supabase";
 
 /**
  * Sends the invitation e-mail through Supabase Auth.
@@ -12,8 +12,8 @@ import { createSupabaseAdminClient, createSupabaseAnonClient, getSiteUrl } from 
  * Workspace access is granted only after the user accepts the invitation row
  * stored in our database; the e-mail itself grants nothing.
  */
-export async function sendInvitationEmail(email: string): Promise<void> {
-  const redirectTo = `${getSiteUrl()}/auth/confirm`;
+export async function sendInvitationEmail(email: string, target: AuthLinkTarget = "web"): Promise<void> {
+  const redirectTo = authRedirectUrl(target);
   const admin = createSupabaseAdminClient();
   const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
   if (!error) return;

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { chatStorageUsageAction } from "@/app/actions/chat";
-import { CHAT_LIMITS, formatBytes } from "@/lib/chat-config";
-import type { ChatStorageUsage } from "@/lib/chat-types";
+import { CHAT_LIMITS, formatBytes } from "@vistoo/domain/chat-config";
+import type { ChatStorageUsage } from "@vistoo/domain/chat-types";
 import { cn } from "@/lib/utils";
 
 /** Admins only: chat file storage usage, with a warning from 80 %. */

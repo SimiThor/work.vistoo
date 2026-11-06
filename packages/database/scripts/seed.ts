@@ -11,7 +11,7 @@
  * (lena@vistoo.test, jonas@vistoo.test) so assignments can be tried out.
  */
 import { and, eq, inArray } from "drizzle-orm";
-import { fromDayNumber, toDayNumber, todayIso } from "../src/lib/dates";
+import { fromDayNumber, toDayNumber, todayIso } from "@vistoo/domain/dates";
 import { adminSupabase, connect, isLocalUrl, WORKSPACE_SLUG, schema } from "./lib";
 
 const { workspaces, workspaceMembers, profiles, projects, projectGroups, tasks } = schema;

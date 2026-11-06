@@ -1,7 +1,10 @@
 /** Domain constants shared by server and client. No server-only imports here. */
 
-export const TASK_STATUSES = ["open", "in_progress", "in_review", "done"] as const;
-export type TaskStatus = (typeof TASK_STATUSES)[number];
+import type { MemberRole, TaskStatus } from "./constants";
+
+export { CONVERSATION_KINDS, MEMBER_ROLES, TASK_STATUSES } from "./constants";
+export type { ConversationKind, MemberRole, TaskStatus } from "./constants";
+export type { GroupDTO, InvitationDTO, MemberDTO, ProjectDTO, TaskDTO } from "./dto";
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
   open: "Offen",
@@ -10,8 +13,6 @@ export const STATUS_LABEL: Record<TaskStatus, string> = {
   done: "Erledigt",
 };
 
-export const MEMBER_ROLES = ["admin", "member"] as const;
-export type MemberRole = (typeof MEMBER_ROLES)[number];
 export const ROLE_LABEL: Record<MemberRole, string> = { admin: "Admin", member: "Mitglied" };
 
 /** Muted identification colours for projects (used for a small dot only). */
@@ -35,55 +36,6 @@ export function projectColorHex(color: string): string {
 
 /** Invitations are valid for 7 days after (re)sending. */
 export const INVITATION_TTL_DAYS = 7;
-
-// ---------------------------------------------------------------------------
-// DTOs sent to the client. Dates are ISO strings; calendar dates are YYYY-MM-DD.
-// ---------------------------------------------------------------------------
-
-export type TaskDTO = {
-  id: string;
-  projectId: string;
-  groupId: string | null;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  assigneeId: string | null;
-  startDate: string | null;
-  endDate: string | null;
-  position: number;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-  version: number;
-};
-
-export type GroupDTO = { id: string; projectId: string; name: string; position: number };
-
-export type ProjectDTO = {
-  id: string;
-  name: string;
-  description: string;
-  color: string;
-  archived: boolean;
-  groups: GroupDTO[];
-};
-
-export type MemberDTO = {
-  userId: string;
-  email: string;
-  fullName: string | null;
-  role: MemberRole;
-  active: boolean;
-};
-
-export type InvitationDTO = {
-  id: string;
-  email: string;
-  role: MemberRole;
-  expiresAt: string;
-  lastSentAt: string;
-  expired: boolean;
-};
 
 export function displayName(m: { fullName: string | null; email: string }): string {
   return m.fullName?.trim() || m.email.split("@")[0];

@@ -2,8 +2,8 @@
 
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { chatBootstrapAction, listConversationsAction } from "@/app/actions/chat";
-import type { ConversationKind, ConversationSummary } from "@/lib/chat-types";
-import type { MemberDTO, MemberRole } from "@/lib/domain";
+import type { ConversationKind, ConversationSummary } from "@vistoo/domain/chat-types";
+import type { MemberDTO, MemberRole } from "@vistoo/domain";
 import { authorizeRealtime, getBrowserSupabase } from "@/lib/supabase-browser";
 
 type ChatState = {

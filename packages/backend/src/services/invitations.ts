@@ -1,10 +1,10 @@
 import "server-only";
 import { and, desc, eq, gt } from "drizzle-orm";
-import type { MemberRole } from "@/lib/domain";
+import type { MemberRole } from "@vistoo/domain";
 import type { AuthUser } from "../auth";
 import { resolveMembership } from "../auth";
 import { getDb } from "../db";
-import { profiles, workspaceInvitations, workspaceMembers, workspaces } from "../db/schema";
+import { profiles, workspaceInvitations, workspaceMembers, workspaces } from "@vistoo/database/schema";
 import { AppError } from "../errors";
 
 /**

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { cleanupChatFiles } from "@/server/services/chat-files";
+import { cleanupChatFiles } from "@vistoo/backend/services/chat-files";
 
 /**
  * Daily housekeeping for chat files (Vercel Cron, see vercel.json).

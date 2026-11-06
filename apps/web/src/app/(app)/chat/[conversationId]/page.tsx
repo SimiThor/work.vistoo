@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ConversationSkeleton, ConversationView } from "@/components/chat/conversation-view";
-import { uuid } from "@/lib/validation";
+import { uuid } from "@vistoo/domain/validation";
 
 export default function ConversationPage({ params }: PageProps<"/chat/[conversationId]">) {
   return (

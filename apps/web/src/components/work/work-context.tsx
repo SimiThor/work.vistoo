@@ -21,9 +21,9 @@ import {
   setTaskStatusAction,
   updateTaskAction,
 } from "@/app/actions/tasks";
-import type { MemberDTO, ProjectDTO, TaskDTO, TaskStatus } from "@/lib/domain";
-import type { ActionError, ActionResult } from "@/lib/result";
-import type { CreateTaskInput } from "@/lib/validation";
+import type { MemberDTO, ProjectDTO, TaskDTO, TaskStatus } from "@vistoo/domain";
+import type { ActionError, ActionResult } from "@vistoo/domain/result";
+import type { CreateTaskInput } from "@vistoo/domain/validation";
 import { useRealtimeSync } from "./realtime";
 
 export type Scope = { kind: "all" } | { kind: "project"; projectId: string };

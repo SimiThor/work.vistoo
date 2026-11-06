@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
-import { resolveMembership } from "@/server/auth";
-import { getDb } from "@/server/db";
-import { workspaceInvitations } from "@/server/db/schema";
-import { acceptInvitation, getInvitationState } from "@/server/services/invitations";
-import { createTask, listTasks } from "@/server/services/tasks";
+import { resolveMembership } from "../src/auth";
+import { getDb } from "../src/db";
+import { workspaceInvitations } from "@vistoo/database/schema";
+import { acceptInvitation, getInvitationState } from "../src/services/invitations";
+import { createTask, listTasks } from "../src/services/tasks";
 import {
   changeMemberRole,
   inviteMember,
@@ -12,7 +12,7 @@ import {
   removeMember,
   resendInvitation,
   revokeInvitation,
-} from "@/server/services/team";
+} from "../src/services/team";
 import { addMember, ctxFor, makeMemberCtx, makeProject, makeUser, makeWorkspace } from "./support/fixtures";
 
 const noSend = { send: vi.fn(async () => {}) };
@@ -188,7 +188,7 @@ describe("invitations", () => {
 
 describe("login fallback for invited, unconfirmed users", () => {
   it("detects only valid pending invitations", async () => {
-    const { hasValidPendingInvitation } = await import("@/server/services/invitations");
+    const { hasValidPendingInvitation } = await import("../src/services/invitations");
     const ws = await makeWorkspace();
     const { ctx: admin } = await makeMemberCtx(ws.id, "admin");
     const inv = await inviteMember(admin, { email: "neu-login@example.com", role: "member" }, noSend);

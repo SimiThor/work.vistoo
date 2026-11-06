@@ -1,7 +1,7 @@
 import { MemberAvatar } from "@/components/member-avatar";
 import { SignOutButton } from "./sign-out-button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { displayName, ROLE_LABEL } from "@/lib/domain";
+import { displayName, ROLE_LABEL } from "@vistoo/domain";
 import { getViewer } from "@/server/queries";
 
 export async function UserMenu() {

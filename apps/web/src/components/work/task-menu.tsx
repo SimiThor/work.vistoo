@@ -27,7 +27,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { displayName, STATUS_LABEL, TASK_STATUSES, type TaskDTO, type TaskStatus } from "@/lib/domain";
+import { displayName, STATUS_LABEL, TASK_STATUSES, type TaskDTO, type TaskStatus } from "@vistoo/domain";
 import { UNASSIGNED } from "./filters";
 import { useWork } from "./work-context";
 

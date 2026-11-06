@@ -1,0 +1,6 @@
+// Development: local web app + local Supabase stack (npm run dev, npm run supabase:start).
+// The simulator reaches the Mac's localhost directly. For a physical iPhone,
+// override VISTOO_SERVER_URL in Server.local.xcconfig (e.g. http://<Mac-IP>:3100).
+#include "Shared.xcconfig"
+VISTOO_SERVER_URL = http:/$()/localhost:3100
+#include? "Server.local.xcconfig"

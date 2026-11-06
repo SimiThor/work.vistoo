@@ -1,5 +1,5 @@
 import { UserRound } from "lucide-react";
-import { displayName, initials, type MemberDTO } from "@/lib/domain";
+import { displayName, initials, type MemberDTO } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 
 /** Initials avatar (no uploaded images in the MVP). Neutral, not colourful. */

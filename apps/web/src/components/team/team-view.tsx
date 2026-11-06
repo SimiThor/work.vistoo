@@ -45,7 +45,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatInstantDate } from "@/lib/dates";
+import { formatInstantDate } from "@vistoo/domain/dates";
 import {
   displayName,
   INVITATION_TTL_DAYS,
@@ -53,7 +53,7 @@ import {
   type InvitationDTO,
   type MemberDTO,
   type MemberRole,
-} from "@/lib/domain";
+} from "@vistoo/domain";
 
 type Me = { userId: string; email: string; fullName: string | null; role: MemberRole };
 

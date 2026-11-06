@@ -1,11 +1,11 @@
 import "server-only";
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { z } from "zod";
-import { INVITATION_TTL_DAYS, type InvitationDTO, type MemberDTO } from "@/lib/domain";
-import type { changeRoleSchema, inviteSchema, profileNameSchema } from "@/lib/validation";
+import { INVITATION_TTL_DAYS, type InvitationDTO, type MemberDTO } from "@vistoo/domain";
+import type { changeRoleSchema, inviteSchema, profileNameSchema } from "@vistoo/domain/validation";
 import { assertAdmin, type AuthContext } from "../auth";
 import { getDb, type Tx } from "../db";
-import { profiles, tasks, workspaceInvitations, workspaceMembers } from "../db/schema";
+import { profiles, tasks, workspaceInvitations, workspaceMembers } from "@vistoo/database/schema";
 import { AppError, invalid, notFound } from "../errors";
 import { sendInvitationEmail } from "../mailer";
 import { handleWorkspaceMemberRemoval } from "./chat";

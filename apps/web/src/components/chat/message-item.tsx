@@ -10,9 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CHAT_LIMITS } from "@/lib/chat-config";
-import type { ChatPerson, MessageDTO } from "@/lib/chat-types";
-import { displayName } from "@/lib/domain";
+import { CHAT_LIMITS } from "@vistoo/domain/chat-config";
+import type { ChatPerson, MessageDTO } from "@vistoo/domain/chat-types";
+import { displayName } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 import { AttachmentCard } from "./attachment-card";
 import { MessageText } from "./message-text";

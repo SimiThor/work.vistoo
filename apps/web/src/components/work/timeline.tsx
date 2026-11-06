@@ -17,20 +17,21 @@ import {
   isWeekend,
   startOfWeek,
   toDayNumber,
-} from "@/lib/dates";
+} from "@vistoo/domain/dates";
 import { useToday } from "@/lib/use-today";
 import { Skeleton } from "@/components/ui/skeleton";
-import { STATUS_LABEL, type TaskDTO, type TaskStatus } from "@/lib/domain";
+import { STATUS_LABEL, type TaskDTO, type TaskStatus } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 import type { Scale } from "./filters";
 import { useWork } from "./work-context";
 
 const DAY_WIDTH: Record<Scale, number> = { day: 36, week: 14 };
 
+// Bar colours: packages/design-tokens (timeline-*), shared with iOS.
 const BAR_CLASS: Record<TaskStatus, string> = {
-  open: "bg-[#f0f1f4] border-[#d6d8de] text-foreground",
-  in_progress: "bg-accent-blue-soft border-[#b9d3f3] text-foreground",
-  in_review: "bg-[#fbf2e3] border-[#ead3ab] text-foreground",
+  open: "bg-(--timeline-open-bg) border-(--timeline-open-border) text-foreground",
+  in_progress: "bg-accent-blue-soft border-(--timeline-progress-border) text-foreground",
+  in_review: "bg-(--timeline-review-bg) border-(--timeline-review-border) text-foreground",
   done: "bg-surface-subtle border-border text-muted-foreground",
 };
 

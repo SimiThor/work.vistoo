@@ -5,8 +5,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { downloadUrlAction } from "@/app/actions/chat";
 import { Button } from "@/components/ui/button";
-import { fileTypeForName, formatBytes } from "@/lib/chat-config";
-import type { AttachmentDTO } from "@/lib/chat-types";
+import { fileTypeForName, formatBytes } from "@vistoo/domain/chat-config";
+import type { AttachmentDTO } from "@vistoo/domain/chat-types";
 import { cn } from "@/lib/utils";
 
 function FileIcon({ name }: { name: string }) {

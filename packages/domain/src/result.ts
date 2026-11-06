@@ -1,14 +1,19 @@
-/** Shared result shape returned by every Server Action. Safe for the client. */
+/** Shared result/error shape (Server Actions and HTTP API). Safe for any client. */
 
-export type ErrorCode =
-  | "UNAUTHENTICATED"
-  | "FORBIDDEN"
-  | "NOT_FOUND"
-  | "VALIDATION"
-  | "CONFLICT"
-  | "ARCHIVED"
-  | "LAST_ADMIN"
-  | "INTERNAL";
+export const ERROR_CODES = [
+  "UNAUTHENTICATED",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "VALIDATION",
+  "CONFLICT",
+  "ARCHIVED",
+  "LAST_ADMIN",
+  "RATE_LIMITED",
+  "CLIENT_OUTDATED",
+  "INTERNAL",
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[number];
 
 export type ActionError = {
   code: ErrorCode;

@@ -8,7 +8,21 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 const PUBLIC_PATHS = ["/login", "/auth/", "/api/cron/"];
 
+/** Paths with their own authentication (bearer token) or none at all: no cookie session work. */
+const SKIP_PATHS = ["/api/v1/", "/api/apple-app-site-association", "/.well-known/"];
+
 export async function proxy(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl;
+  if (SKIP_PATHS.some((p) => pathname.startsWith(p))) return NextResponse.next();
+
+  // E-mail links whose redirect target was not allow-listed in Supabase fall
+  // back to the Site URL; keep them working by routing them to the confirm step.
+  if (searchParams.has("token_hash") && !pathname.startsWith("/auth/")) {
+    const target = request.nextUrl.clone();
+    target.pathname = "/auth/confirm";
+    return NextResponse.redirect(target);
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -36,7 +50,6 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const signedIn = Boolean(data?.claims?.sub);
 
-  const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p));
   if (!signedIn && !isPublic) {
     const target = request.nextUrl.clone();
