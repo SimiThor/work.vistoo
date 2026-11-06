@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { ProjectDot } from "@/components/project-dot";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -51,6 +51,26 @@ export function QuickAdd({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const titleRef = useRef(title);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+
+  // Close when the user clicks or tabs elsewhere – but only if nothing was typed
+  // (a started title is never thrown away). The project picker's popup lives in
+  // a portal and counts as "inside".
+  const isInside = (el: EventTarget | null) =>
+    el instanceof Node &&
+    (formRef.current?.contains(el) ||
+      (el instanceof Element && el.closest("[data-radix-popper-content-wrapper], [role='listbox']")));
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      if (!isInside(e.target) && !titleRef.current.trim()) onDone();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [onDone]);
   const id = useId();
 
   const submit = () => {
@@ -84,6 +104,10 @@ export function QuickAdd({
 
   return (
     <form
+      ref={formRef}
+      onBlur={(e) => {
+        if (!isInside(e.relatedTarget) && e.relatedTarget !== null && !title.trim()) onDone();
+      }}
       className="rounded-lg border bg-background p-2 shadow-card"
       onSubmit={(e) => {
         e.preventDefault();

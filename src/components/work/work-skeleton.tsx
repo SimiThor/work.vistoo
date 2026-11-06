@@ -17,7 +17,7 @@ export function WorkSkeleton({ title }: { title?: string }) {
       </div>
       <div className="flex gap-3 overflow-hidden px-4 sm:px-6">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="w-[272px] shrink-0 space-y-2 rounded-xl bg-surface-subtle p-2">
+          <div key={i} className="w-[84vw] max-w-[320px] shrink-0 space-y-2 sm:w-auto sm:max-w-none sm:min-w-[260px] sm:flex-1 sm:basis-0 rounded-xl bg-surface-subtle p-2">
             <Skeleton className="m-1 h-5 w-24 bg-surface-sunken" />
             {Array.from({ length: 3 - (i % 2) }, (_, j) => (
               <Skeleton key={j} className="h-[76px] w-full bg-background" />
