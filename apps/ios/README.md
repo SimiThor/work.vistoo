@@ -38,7 +38,7 @@ Lokale Overrides (git-ignoriert, Vorlagen `*.example` in `Config/`):
 
 ## Anmeldung
 
-E-Mail eingeben, dann den 6-stelligen Code aus der Mail eingeben (iOS bietet ihn per AutoFill an). Alternativ den Link aus der Mail auf dem iPhone öffnen. Das funktioniert per Universal Link (`/auth/ios/confirm`), sobald die Associated Domains eingerichtet sind ([docs/setup/remaining-steps.md](../../docs/setup/remaining-steps.md)). Abgelaufene oder benutzte Links führen zu einem Hinweis. Die Session liegt im Keychain.
+E-Mail eingeben, dann den Code aus der Mail eingeben (6–10 Ziffern, je nach Supabase-Einstellung) (iOS bietet ihn per AutoFill an). Alternativ den Link aus der Mail auf dem iPhone öffnen. Das funktioniert per Universal Link (`/auth/ios/confirm`), sobald die Associated Domains eingerichtet sind ([docs/setup/remaining-steps.md](../../docs/setup/remaining-steps.md)). Abgelaufene oder benutzte Links führen zu einem Hinweis. Die Session liegt im Keychain.
 
 ## Tests
 

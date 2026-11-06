@@ -153,7 +153,7 @@ Ohne Projekt-Secrets (`DATABASE_URL`, `SUPABASE_SECRET_KEY`) lässt sich das Skr
 
 (Identisch zu `supabase/templates/*.html`. **Neu:** Die Templates verwenden `{{ .RedirectTo }}` statt `{{ .SiteURL }}/auth/confirm`, damit Links auf der anfragenden Plattform landen (Web `/auth/confirm`, iOS `/auth/ios/confirm`), und die Einladung enthält den Code für die App. Die maßgebliche Fassung sind die Dateien in `supabase/templates/`.) Mit den Standard-Templates funktioniert die Anmeldung über einen Fallback (Tokens im URL-Fragment) ebenfalls, die obigen Templates sind aber robuster.
 
-**Ablauf:** Login-Seite → E-Mail → Link oder 6-stelliger Code → `/auth/confirm` setzt die Session → ohne Mitgliedschaft geht es zu `/invite`. Dort wird nur eine offene, nicht abgelaufene Einladung angezeigt, die an genau diese verifizierte Adresse gebunden ist. Eine erfolgreiche Anmeldung allein gibt keinen Zugriff auf Workspace-Daten.
+**Ablauf:** Login-Seite → E-Mail → Link oder Code (6–10 Ziffern, Länge in Supabase einstellbar) → `/auth/confirm` setzt die Session → ohne Mitgliedschaft geht es zu `/invite`. Dort wird nur eine offene, nicht abgelaufene Einladung angezeigt, die an genau diese verifizierte Adresse gebunden ist. Eine erfolgreiche Anmeldung allein gibt keinen Zugriff auf Workspace-Daten.
 
 ---
 

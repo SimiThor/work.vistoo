@@ -21,7 +21,7 @@ export default function IosConfirmPage() {
           <h1 className="text-lg font-semibold">Anmeldung in der Vistoo-App</h1>
           <p className="text-sm text-muted-foreground">
             Dieser Link ist für die Vistoo-App auf dem iPhone gedacht. Öffne ihn dort, oder gib in der App den
-            6-stelligen Code aus derselben E-Mail ein.
+            Code aus derselben E-Mail ein.
           </p>
           <p className="text-sm text-muted-foreground">
             Du möchtest dich im Browser anmelden?{" "}

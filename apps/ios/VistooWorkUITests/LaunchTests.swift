@@ -40,7 +40,7 @@ final class LocalSignInTests: XCTestCase {
               let msgData = try? Data(contentsOf: URL(string: "http://127.0.0.1:54324/api/v1/message/\(id)")!),
               let msg = try JSONSerialization.jsonObject(with: msgData) as? [String: Any],
               let text = msg["Text"] as? String,
-              let range = text.range(of: #"\b\d{6}\b"#, options: .regularExpression)
+              let range = text.range(of: #"\b\d{6,10}\b"#, options: .regularExpression)
         else { return nil }
         return String(text[range])
     }
@@ -67,10 +67,11 @@ final class LocalSignInTests: XCTestCase {
             code = try newestCode(after: start)
             if code == nil { Thread.sleep(forTimeInterval: 0.5) }
         }
-        let codeField = app.textFields["6-stelliger Code"]
+        let codeField = app.textFields["Code aus der E-Mail"]
         XCTAssertTrue(codeField.waitForExistence(timeout: 5))
         codeField.tap()
         codeField.typeText(try XCTUnwrap(code))
+        app.buttons["Anmelden"].tap()
         // First sign-in asks for notification permission.
         addUIInterruptionMonitor(withDescription: "Mitteilungen") { alert in
             let allow = alert.buttons["Erlauben"].exists ? alert.buttons["Erlauben"] : alert.buttons["Allow"]

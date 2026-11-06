@@ -36,7 +36,7 @@ export function linkFrom(html: string): string {
 }
 
 export function codeFrom(text: string): string {
-  const m = /\b(\d{6})\b/.exec(text);
+  const m = /\b(\d{6,10})\b/.exec(text);
   if (!m) throw new Error("No code in e-mail");
   return m[1];
 }

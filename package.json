@@ -25,6 +25,7 @@
     "supabase:stop": "supabase stop",
     "ios:generate-project": "cd apps/ios && xcodegen generate",
     "ios:test-kit": "sh apps/ios/scripts/test-kit.sh",
+    "ios:testflight": "sh apps/ios/scripts/testflight.sh",
     "check": "npm run generate:check && npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "devDependencies": {

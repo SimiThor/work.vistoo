@@ -76,14 +76,13 @@ struct SignInView: View {
             Text("Wir haben eine E-Mail an \(email) gesendet. Gib den Code ein oder öffne den Link auf diesem iPhone.")
                 .font(.subheadline)
                 .foregroundStyle(Tokens.Palette.mutedForeground)
-            TextField("6-stelliger Code", text: $code)
+            TextField("Code aus der E-Mail", text: $code)
                 .oneTimeCodeInput()
                 .focused($focused)
                 .font(.title3.monospacedDigit())
                 .textFieldStyle(.roundedBorder)
-                .onChange(of: code) { _, value in
-                    if value.filter(\.isNumber).count >= 6, !busy { Task { await verify() } }
-                }
+                .submitLabel(.go)
+                .onSubmit { Task { await verify() } }
             Button {
                 Task { await verify() }
             } label: {
