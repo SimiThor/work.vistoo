@@ -81,21 +81,31 @@ public final class PushCenter: NSObject {
     }
 }
 
+// Completion-handler variants on purpose: UIKit requires the handlers to be
+// called on the main thread. The `async` variants complete on a background
+// executor and crash the app when a notification is tapped.
 extension PushCenter: UNUserNotificationCenterDelegate {
     public nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping @Sendable (UNNotificationPresentationOptions) -> Void
+    ) {
         let thread = notification.request.content.threadIdentifier
-        let visible = await MainActor.run { self.visibleConversationId }
-        return thread == visible ? [] : [.banner, .list, .sound]
+        DispatchQueue.main.async {
+            let visible = MainActor.assumeIsolated { self.visibleConversationId }
+            completionHandler(thread == visible ? [] : [.banner, .list, .sound])
+        }
     }
 
     public nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
-        guard let link = Self.link(from: response.notification.request.content.userInfo) else { return }
-        await MainActor.run { self.tappedLink = link }
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
+    ) {
+        let link = Self.link(from: response.notification.request.content.userInfo)
+        DispatchQueue.main.async {
+            if let link { MainActor.assumeIsolated { self.tappedLink = link } }
+            completionHandler()
+        }
     }
 }
