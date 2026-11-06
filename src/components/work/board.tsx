@@ -233,7 +233,7 @@ function Column({
   return (
     <section
       aria-labelledby={headingId}
-      className="flex w-[84vw] max-w-[320px] shrink-0 snap-start flex-col rounded-xl bg-surface-subtle sm:w-[272px]"
+      className="flex w-[84vw] max-w-[320px] shrink-0 snap-start flex-col rounded-xl bg-surface-subtle sm:w-auto sm:max-w-none sm:min-w-[260px] sm:flex-1 sm:basis-0"
     >
       <header className="flex h-11 shrink-0 items-center justify-between gap-2 pr-1.5 pl-3">
         <h2 id={headingId} className="flex items-center gap-2 text-[13px] font-semibold">
