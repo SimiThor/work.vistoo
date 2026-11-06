@@ -1,0 +1,3 @@
+// Production: same server (and therefore the same Supabase project) as the web app.
+#include "Shared.xcconfig"
+VISTOO_SERVER_URL = https:/$()/workvistoo.vercel.app

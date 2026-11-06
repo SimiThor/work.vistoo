@@ -1,0 +1,10 @@
+{
+  "name": "@vistoo/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Platform-neutral design tokens (tokens.json) with explicit web/iOS overrides → generated CSS variables and Swift constants.",
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "test": "node --test scripts/generate.test.mjs"
+  }
+}

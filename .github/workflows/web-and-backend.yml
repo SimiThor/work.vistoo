@@ -1,0 +1,64 @@
+# Web app + shared backend/contract layer.
+# Runs for web changes AND for every change to shared packages (they affect both platforms;
+# the iOS workflow is triggered by those as well).
+name: Web & Backend
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "supabase/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - ".github/workflows/web-and-backend.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - "supabase/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.base.json"
+      - ".github/workflows/web-and-backend.yml"
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Disposable database for the integration tests (recreated on every run).
+      TEST_DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+      # Public placeholders: the build needs the variables to exist, it never connects.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generated contract, Swift models and tokens are up to date
+        run: npm run generate:check
+      - name: Typecheck (all workspaces)
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Tests (domain, contracts, design tokens, backend incl. /api/v1 permissions)
+        run: npm test
+      - name: Production build
+        run: npm run build

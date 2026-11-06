@@ -1,0 +1,9 @@
+// Shared settings of all build configurations.
+// Bundle id and Universal Link domain. Change both together with the
+// apple-app-site-association served by the web app (APPLE_TEAM_ID / IOS_BUNDLE_ID).
+VISTOO_BUNDLE_ID = de.vistoo.work
+VISTOO_ASSOCIATED_DOMAIN = workvistoo.vercel.app
+
+// Signing: DEVELOPMENT_TEAM etc. live in a personal, git-ignored file.
+// Copy Signing.local.xcconfig.example → Signing.local.xcconfig.
+#include? "Signing.local.xcconfig"

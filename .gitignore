@@ -1,8 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
-/.pnp
+# dependencies (all workspaces)
+node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -11,14 +11,14 @@
 !.yarn/versions
 
 # testing
-/coverage
+coverage/
 
 # next.js
-/.next/
-/out/
+.next/
+/apps/web/out/
 
 # production
-/build
+/apps/web/build
 
 # misc
 .DS_Store
@@ -30,7 +30,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (never commit real values; examples only)
 .env*
 !.env.example
 
@@ -46,7 +46,23 @@ supabase/.temp
 supabase/.branches
 
 # playwright
-/test-results/
-/playwright-report/
-/playwright/.cache/
-tests/e2e/.state.json
+test-results/
+playwright-report/
+playwright/.cache/
+apps/web/tests/e2e/.state.json
+
+# iOS / Swift
+# The Xcode project is generated from apps/ios/project.yml (XcodeGen).
+apps/ios/*.xcodeproj/
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+apps/ios/Config/*.local.xcconfig
+# Signing material never belongs in the repository.
+*.p12
+*.mobileprovision
+*.cer
+AuthKey_*.p8
+apps/ios/build/

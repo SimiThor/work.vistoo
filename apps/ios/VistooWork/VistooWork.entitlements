@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Push notifications. Xcode/TestFlight export switches to "production" automatically. -->
+	<key>aps-environment</key>
+	<string>development</string>
+	<!-- Universal Links: login links (/auth/ios/confirm) and shared task/project/chat links. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:$(VISTOO_ASSOCIATED_DOMAIN)</string>
+	</array>
+</dict>
+</plist>
