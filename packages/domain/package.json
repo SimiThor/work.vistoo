@@ -12,7 +12,8 @@
     "./dates": "./src/dates.ts",
     "./result": "./src/result.ts",
     "./dto": "./src/dto.ts",
-    "./filters": "./src/filters.ts"
+    "./filters": "./src/filters.ts",
+    "./links": "./src/links.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",

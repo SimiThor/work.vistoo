@@ -1,4 +1,5 @@
 import { MemberAvatar } from "@/components/member-avatar";
+import { SettingsButton } from "./nav";
 import { SignOutButton } from "./sign-out-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { displayName, ROLE_LABEL } from "@vistoo/domain";
@@ -13,7 +14,10 @@ export async function UserMenu() {
         <p className="truncate text-sm font-medium">{displayName(me)}</p>
         <p className="truncate text-xs text-muted-foreground">{ROLE_LABEL[me.role]}</p>
       </div>
-      <SignOutButton />
+      <div className="flex shrink-0 items-center">
+        <SettingsButton />
+        <SignOutButton />
+      </div>
     </div>
   );
 }

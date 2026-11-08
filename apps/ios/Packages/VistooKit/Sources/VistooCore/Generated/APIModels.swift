@@ -366,6 +366,34 @@ public struct CreateProjectRequest: Encodable, Sendable {
     }
 }
 
+public struct CreateTaskLinkRequest: Encodable, Sendable {
+    public var id: String?
+    public var url: String
+    public var title: Patchable<String>
+    public static let urlMaxLength = 2048
+    public static let urlMinLength = 1
+    public static let titleMaxLength = 200
+
+    public init(id: String? = nil, url: String, title: Patchable<String> = .unset) {
+        self.id = id
+        self.url = url
+        self.title = title
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case url
+        case title
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(id, forKey: .id)
+        try c.encode(url, forKey: .url)
+        try title.encode(into: &c, forKey: .title)
+    }
+}
+
 public struct CreateTaskRequest: Encodable, Sendable {
     public var id: String?
     public var projectId: String
@@ -742,6 +770,14 @@ public struct Me: Codable, Hashable, Sendable {
             self.workspaceName = workspaceName
             self.expiresAt = expiresAt
         }
+    }
+}
+
+public struct MeetingUrl: Codable, Hashable, Sendable {
+    public var meetingUrl: String?
+
+    public init(meetingUrl: String? = nil) {
+        self.meetingUrl = meetingUrl
     }
 }
 
@@ -1291,6 +1327,34 @@ public struct TaskItem: Codable, Hashable, Sendable {
     }
 }
 
+public struct TaskLink: Codable, Hashable, Sendable {
+    public var id: String
+    public var taskId: String
+    public var url: String
+    public var title: String?
+    public var createdBy: String
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(id: String, taskId: String, url: String, title: String? = nil, createdBy: String, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.taskId = taskId
+        self.url = url
+        self.title = title
+        self.createdBy = createdBy
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct TaskLinkList: Codable, Hashable, Sendable {
+    public var links: [TaskLink]
+
+    public init(links: [TaskLink]) {
+        self.links = links
+    }
+}
+
 public struct TaskList: Codable, Hashable, Sendable {
     public var tasks: [TaskItem]
 
@@ -1373,6 +1437,25 @@ public struct UpdateChannelRequest: Encodable, Sendable {
     }
 }
 
+public struct UpdateMeetingUrlRequest: Encodable, Sendable {
+    public var meetingUrl: String?
+    public static let meetingUrlMaxLength = 2048
+    public static let meetingUrlMinLength = 1
+
+    public init(meetingUrl: String? = nil) {
+        self.meetingUrl = meetingUrl
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case meetingUrl
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(meetingUrl, forKey: .meetingUrl)
+    }
+}
+
 public struct UpdateNotificationSettingsRequest: Encodable, Sendable {
     public var directMessages: Bool?
     public var channelMessages: Bool?
@@ -1442,6 +1525,30 @@ public struct UpdateProjectRequest: Encodable, Sendable {
         try c.encode(name, forKey: .name)
         try c.encodeIfPresent(description, forKey: .description)
         try c.encodeIfPresent(color, forKey: .color)
+    }
+}
+
+public struct UpdateTaskLinkRequest: Encodable, Sendable {
+    public var url: String
+    public var title: Patchable<String>
+    public static let urlMaxLength = 2048
+    public static let urlMinLength = 1
+    public static let titleMaxLength = 200
+
+    public init(url: String, title: Patchable<String> = .unset) {
+        self.url = url
+        self.title = title
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case title
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(url, forKey: .url)
+        try title.encode(into: &c, forKey: .title)
     }
 }
 
@@ -1533,13 +1640,16 @@ public struct Viewer: Codable, Hashable, Sendable {
     public var role: MemberRole
     public var workspaceId: String
     public var workspaceName: String
+    /// Join link for team meetings (Discord voice channel). Null until an admin sets it.
+    public var meetingUrl: String?
 
-    public init(userId: String, email: String, fullName: String? = nil, role: MemberRole, workspaceId: String, workspaceName: String) {
+    public init(userId: String, email: String, fullName: String? = nil, role: MemberRole, workspaceId: String, workspaceName: String, meetingUrl: String? = nil) {
         self.userId = userId
         self.email = email
         self.fullName = fullName
         self.role = role
         self.workspaceId = workspaceId
         self.workspaceName = workspaceName
+        self.meetingUrl = meetingUrl
     }
 }

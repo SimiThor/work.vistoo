@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal, UserPlus } from "lucide-react";
+import { Headphones, MoreHorizontal, UserPlus } from "lucide-react";
 import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -9,6 +9,7 @@ import {
   removeMemberAction,
   resendInvitationAction,
   revokeInvitationAction,
+  updateMeetingUrlAction,
   updateOwnNameAction,
 } from "@/app/actions/team";
 import { FieldError, FormAlert } from "@/components/form-feedback";
@@ -69,7 +70,17 @@ function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone
   return <span className={`inline-flex h-5 items-center rounded-full px-2 text-xs font-medium ${cls}`}>{children}</span>;
 }
 
-export function TeamView({ me, members, invitations }: { me: Me; members: MemberDTO[]; invitations: InvitationDTO[] }) {
+export function TeamView({
+  me,
+  members,
+  invitations,
+  meetingUrl,
+}: {
+  me: Me;
+  members: MemberDTO[];
+  invitations: InvitationDTO[];
+  meetingUrl: string | null;
+}) {
   const isAdmin = me.role === "admin";
   const [inviting, setInviting] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -87,22 +98,27 @@ export function TeamView({ me, members, invitations }: { me: Me; members: Member
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Team</h1>
-        {isAdmin && (
-          <Button className="h-8" onClick={() => setInviting(true)}>
-            <UserPlus aria-hidden /> Mitglied einladen
-          </Button>
-        )}
-      </div>
-      {!isAdmin && (
-        <p className="mt-2 text-sm text-muted-foreground">Nur Admins können Mitglieder einladen oder Rollen ändern.</p>
-      )}
+      <h1 className="text-xl font-semibold tracking-tight">Einstellungen</h1>
 
-      <section aria-labelledby="members-heading" className="mt-6">
-        <h2 id="members-heading" className="mb-2 text-[13px] font-semibold text-muted-foreground">
+      <section aria-labelledby="team-heading" className="mt-6">
+        <div className="flex h-8 items-center justify-between gap-3">
+          <h2 id="team-heading" className="text-base font-semibold">
+            Team
+          </h2>
+          {isAdmin && (
+            <Button className="h-8" onClick={() => setInviting(true)}>
+              <UserPlus aria-hidden /> Mitglied einladen
+            </Button>
+          )}
+        </div>
+        {!isAdmin && (
+          <p className="mt-1 text-sm text-muted-foreground">Nur Admins können Mitglieder einladen oder Rollen ändern.</p>
+        )}
+
+      <section aria-labelledby="members-heading" className="mt-4">
+        <h3 id="members-heading" className="mb-2 text-[13px] font-semibold text-muted-foreground">
           Mitglieder · {members.length}
-        </h2>
+        </h3>
         <ul className="divide-y rounded-xl border">
           {members.map((m) => {
             const isMe = m.userId === me.userId;
@@ -163,10 +179,10 @@ export function TeamView({ me, members, invitations }: { me: Me; members: Member
       </section>
 
       {(invitations.length > 0 || isAdmin) && (
-        <section aria-labelledby="invites-heading" className="mt-8">
-          <h2 id="invites-heading" className="mb-2 text-[13px] font-semibold text-muted-foreground">
+        <section aria-labelledby="invites-heading" className="mt-6">
+          <h3 id="invites-heading" className="mb-2 text-[13px] font-semibold text-muted-foreground">
             Offene Einladungen · {invitations.length}
-          </h2>
+          </h3>
           {invitations.length === 0 ? (
             <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
               Keine offenen Einladungen.
@@ -212,6 +228,10 @@ export function TeamView({ me, members, invitations }: { me: Me; members: Member
         </section>
       )}
 
+      </section>
+
+      {isAdmin && <MeetingSettings current={meetingUrl} />}
+
       <InviteDialog open={inviting} onOpenChange={setInviting} />
       <NameDialog open={editingName} onOpenChange={setEditingName} current={me.fullName ?? ""} />
 
@@ -256,6 +276,81 @@ export function TeamView({ me, members, invitations }: { me: Me; members: Member
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+/** Admin setting: the Discord voice channel opened by "Besprechung beitreten". */
+function MeetingSettings({ current }: { current: string | null }) {
+  const [url, setUrl] = useState(current ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const id = useId();
+  const dirty = url.trim() !== (current ?? "");
+
+  const save = (meetingUrl: string | null) => {
+    setError(null);
+    startTransition(async () => {
+      const res = await updateMeetingUrlAction({ meetingUrl });
+      if (!res.ok) return setError(res.error.fieldErrors?.meetingUrl ?? res.error.message);
+      setUrl(res.data.meetingUrl ?? "");
+      toast.success(res.data.meetingUrl ? "Besprechungslink gespeichert" : "Besprechungslink entfernt");
+    });
+  };
+
+  return (
+    <section id="meeting" aria-labelledby="meeting-heading" className="mt-10 scroll-mt-6">
+      <h2 id="meeting-heading" className="mb-4 flex h-8 items-center text-base font-semibold">
+        Besprechung
+      </h2>
+      <form
+        noValidate
+        className="space-y-3 rounded-xl border px-4 py-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (dirty) save(url.trim() || null);
+        }}
+      >
+        <div className="flex gap-3">
+          <Headphones className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <div className="min-w-0 flex-1 space-y-1">
+            <Label htmlFor={id}>Discord-Sprachkanal</Label>
+            <p className="text-sm text-muted-foreground">
+              Öffnet sich für alle über „Besprechung beitreten“ in der Navigation. In Discord: Rechtsklick auf den
+              Sprachkanal → „Link kopieren“.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:pl-7">
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Input
+              id={id}
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              placeholder="https://discord.com/channels/…"
+              value={url}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setError(null);
+              }}
+              aria-invalid={Boolean(error) || undefined}
+              aria-describedby={error ? `${id}-error` : undefined}
+            />
+            <FieldError id={`${id}-error`} message={error} />
+          </div>
+          <div className="flex shrink-0 gap-2">
+            {current && (
+              <Button type="button" variant="ghost" disabled={pending} onClick={() => save(null)}>
+                Entfernen
+              </Button>
+            )}
+            <Button type="submit" disabled={pending || !dirty}>
+              Speichern
+            </Button>
+          </div>
+        </div>
+      </form>
+    </section>
   );
 }
 

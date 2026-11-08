@@ -16,6 +16,8 @@ export const getViewer = cache(async () => {
   return {
     ctx,
     me: { userId: viewer.userId, email: viewer.email, fullName: viewer.fullName, role: viewer.role },
+    /** Discord voice channel for "Besprechung beitreten" (null until an admin sets it). */
+    meetingUrl: viewer.meetingUrl,
   };
 });
 

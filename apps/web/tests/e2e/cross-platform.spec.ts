@@ -105,7 +105,7 @@ test("1. the same account signs in on web and iOS", async () => {
   expect(me.body.access).toBe("member");
   expect(me.body.viewer.userId).toBe(ids.anna);
   // The web session belongs to the same user.
-  await web.goto("/team");
+  await web.goto("/settings");
   await expect(web.getByText(users.anna.email).first()).toBeVisible();
 });
 
@@ -250,7 +250,7 @@ test("6. closed channels and foreign workspaces stay closed to the native client
 
 test("7. removing a member on the web revokes the native session's access immediately", async () => {
   expect((await ios("carla", "GET", "/tasks")).status).toBe(200);
-  await web.goto("/team");
+  await web.goto("/settings");
   await web.getByRole("button", { name: "Aktionen für Carla Cramer" }).click();
   await web.getByRole("menuitem", { name: /Aus dem Team entfernen/ }).click();
   await web.getByRole("button", { name: "Entfernen" }).click();

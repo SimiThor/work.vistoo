@@ -1,9 +1,26 @@
 import { Suspense } from "react";
 import { BrandMark } from "@/components/brand";
 import { ChatProvider } from "@/components/chat/chat-context";
-import { MobileNav, NavLinks, NavLinksFallback } from "@/components/shell/nav";
+import {
+  ExternalNavLinks,
+  MobileMeetingButton,
+  MobileNav,
+  NavLinks,
+  NavLinksFallback,
+} from "@/components/shell/nav";
 import { SidebarProjects, SidebarProjectsSkeleton } from "@/components/shell/sidebar-projects";
 import { UserMenu, UserMenuSkeleton } from "@/components/shell/user-menu";
+import { getViewer } from "@/server/queries";
+
+async function ExternalLinks() {
+  const { me, meetingUrl } = await getViewer();
+  return <ExternalNavLinks meetingUrl={meetingUrl} canConfigure={me.role === "admin"} />;
+}
+
+async function MobileMeeting() {
+  const { meetingUrl } = await getViewer();
+  return <MobileMeetingButton meetingUrl={meetingUrl} />;
+}
 
 function SidebarContent() {
   return (
@@ -12,9 +29,14 @@ function SidebarContent() {
         <BrandMark />
       </div>
       <nav aria-label="Hauptnavigation" className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-2 pb-4">
-        <Suspense fallback={<NavLinksFallback />}>
-          <NavLinks />
-        </Suspense>
+        <div>
+          <Suspense fallback={<NavLinksFallback />}>
+            <NavLinks />
+          </Suspense>
+          <Suspense fallback={<ExternalNavLinks meetingUrl={undefined} canConfigure={false} />}>
+            <ExternalLinks />
+          </Suspense>
+        </div>
         <Suspense fallback={<SidebarProjectsSkeleton />}>
           <SidebarProjects />
         </Suspense>
@@ -47,6 +69,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
               <SidebarContent />
             </MobileNav>
             <BrandMark />
+            <Suspense>
+              <MobileMeeting />
+            </Suspense>
           </header>
           <main id="main" tabIndex={-1} className="flex min-h-0 min-w-0 flex-1 flex-col outline-none">
             {children}

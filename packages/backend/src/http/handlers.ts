@@ -9,8 +9,10 @@ import { requestLoginCode, type OtpSender } from "../services/login";
 import * as projects from "../services/projects";
 import * as notifications from "../services/notifications";
 import { getMe, getViewerProfile } from "../services/session";
+import * as taskLinks from "../services/task-links";
 import * as tasks from "../services/tasks";
 import * as team from "../services/team";
+import { updateMeetingUrl } from "../services/workspace";
 import { createSupabaseAnonClient, getSupabaseConfig } from "../supabase";
 
 /**
@@ -89,6 +91,13 @@ export const handlers: Handlers = {
   setTaskStatus: (ctx, { params, body }) => tasks.setTaskStatus(ctx, { id: params.id, ...body }),
   setTaskAssignee: (ctx, { params, body }) => tasks.setTaskAssignee(ctx, { id: params.id, ...body }),
 
+  listTaskLinks: async (ctx, { params }) => ({ links: await taskLinks.listTaskLinks(ctx, params.id) }),
+  createTaskLink: (ctx, { params, body }) => taskLinks.createTaskLink(ctx, { taskId: params.id, ...body }),
+  updateTaskLink: (ctx, { params, body }) => taskLinks.updateTaskLink(ctx, { id: params.id, ...body }),
+  deleteTaskLink: async (ctx, { params }) => {
+    await taskLinks.deleteTaskLink(ctx, params.id);
+  },
+
   // ---- Projects & groups
   listProjects: async (ctx) => {
     const [list, stats] = await Promise.all([projects.listProjects(ctx), projects.projectStats(ctx)]);
@@ -104,6 +113,7 @@ export const handlers: Handlers = {
 
   // ---- Team
   getTeam: (ctx) => team.listTeam(ctx),
+  updateMeetingUrl: (ctx, { body }) => updateMeetingUrl(ctx, body),
   inviteMember: (ctx, { body }) => team.inviteMember(ctx, body),
   resendInvitation: async (ctx, { params }) => {
     await team.resendInvitation(ctx, params.id);

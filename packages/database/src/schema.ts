@@ -56,8 +56,13 @@ export const workspaces = pgTable("workspaces", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  /** Join link for team meetings (e.g. a Discord voice channel). Set by admins. */
+  meetingUrl: text("meeting_url"),
   ...timestamps,
-});
+}, (t) => [
+  check("workspaces_meeting_url_web", sql`${t.meetingUrl} is null or ${t.meetingUrl} ~* '^https?://'`),
+  check("workspaces_meeting_url_len", sql`${t.meetingUrl} is null or char_length(${t.meetingUrl}) <= 2048`),
+]);
 
 export const workspaceMembers = pgTable(
   "workspace_members",
@@ -196,6 +201,7 @@ export const tasks = pgTable(
       columns: [t.workspaceId, t.assigneeId],
       foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.userId],
     }),
+    unique("tasks_workspace_id_id_uq").on(t.workspaceId, t.id),
     check("tasks_title_len", sql`char_length(${t.title}) between 1 and 300`),
     check("tasks_description_len", sql`char_length(${t.description}) <= 20000`),
     check(
@@ -206,6 +212,38 @@ export const tasks = pgTable(
     index("tasks_project_idx").on(t.projectId),
     index("tasks_group_idx").on(t.groupId),
     index("tasks_assignee_idx").on(t.workspaceId, t.assigneeId),
+  ],
+);
+
+/**
+ * External links attached to a task (Google Drive, Figma, GitHub, …). Files
+ * themselves stay in Google Drive; only the URL is stored. Deleted with the task.
+ */
+export const taskLinks = pgTable(
+  "task_links",
+  {
+    /** Client-generated on create: makes retries idempotent. */
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    taskId: uuid("task_id").notNull(),
+    url: text("url").notNull(),
+    title: text("title"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => profiles.id),
+    ...timestamps,
+  },
+  (t) => [
+    foreignKey({
+      name: "task_links_task_fk",
+      columns: [t.workspaceId, t.taskId],
+      foreignColumns: [tasks.workspaceId, tasks.id],
+    }).onDelete("cascade"),
+    index("task_links_task_idx").on(t.taskId, t.createdAt),
+    // Defence in depth: the service validates the URL, the database only accepts http(s).
+    check("task_links_url_web", sql`${t.url} ~* '^https?://'`),
+    check("task_links_url_len", sql`char_length(${t.url}) <= 2048`),
+    check("task_links_title_len", sql`${t.title} is null or char_length(${t.title}) between 1 and 200`),
   ],
 );
 
@@ -430,6 +468,7 @@ export type WorkspaceInvitation = typeof workspaceInvitations.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type ProjectGroup = typeof projectGroups.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+export type TaskLink = typeof taskLinks.$inferSelect;
 export type TaskStatus = (typeof taskStatus.enumValues)[number];
 export type MemberRole = (typeof memberRole.enumValues)[number];
 export type Conversation = typeof conversations.$inferSelect;

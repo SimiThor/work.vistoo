@@ -90,6 +90,18 @@ public enum API {
         )
     }
 
+    /// Attach an external http(s) link to a task, with an optional display name.
+    public static func createTaskLink(id: String, body: CreateTaskLinkRequest) -> Endpoint<TaskLink> {
+        Endpoint(
+            method: .post,
+            path: "/tasks/\(id.pathEncoded)/links",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .idempotentWithClientId
+        )
+    }
+
     /// Delete a group; its tasks are kept without group.
     public static func deleteGroup(id: String) -> Endpoint<DeleteGroupResponse> {
         Endpoint(
@@ -119,6 +131,18 @@ public enum API {
         Endpoint(
             method: .delete,
             path: "/tasks/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .notFoundMeansDone
+        )
+    }
+
+    /// Remove a link from its task.
+    public static func deleteTaskLink(id: String) -> Endpoint<NoContent> {
+        Endpoint(
+            method: .delete,
+            path: "/task-links/\(id.pathEncoded)",
             query: [],
             body: nil,
             auth: .member,
@@ -338,6 +362,18 @@ public enum API {
         Endpoint(
             method: .get,
             path: "/projects",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// External links attached to a task (oldest first). Also for tasks of archived projects.
+    public static func listTaskLinks(id: String) -> Endpoint<TaskLinkList> {
+        Endpoint(
+            method: .get,
+            path: "/tasks/\(id.pathEncoded)/links",
             query: [],
             body: nil,
             auth: .member,
@@ -575,6 +611,18 @@ public enum API {
         )
     }
 
+    /// Admin: set or clear the workspace meeting link (e.g. a Discord voice channel).
+    public static func updateMeetingUrl(body: UpdateMeetingUrlRequest) -> Endpoint<MeetingUrl> {
+        Endpoint(
+            method: .put,
+            path: "/workspace/meeting-url",
+            query: [],
+            body: body,
+            auth: .admin,
+            retry: .safe
+        )
+    }
+
     /// Change notification settings (omitted fields stay unchanged).
     public static func updateNotificationSettings(body: UpdateNotificationSettingsRequest) -> Endpoint<NotificationSettings> {
         Endpoint(
@@ -620,6 +668,18 @@ public enum API {
             body: body,
             auth: .member,
             retry: .checkConflict
+        )
+    }
+
+    /// Change URL and display name of a task link (last write wins).
+    public static func updateTaskLink(id: String, body: UpdateTaskLinkRequest) -> Endpoint<TaskLink> {
+        Endpoint(
+            method: .patch,
+            path: "/task-links/\(id.pathEncoded)",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
         )
     }
 }

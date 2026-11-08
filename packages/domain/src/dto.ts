@@ -63,6 +63,22 @@ export const TaskSchema = named(
   }),
 );
 
+export const TaskLinkSchema = named(
+  "TaskLink",
+  z.object({
+    id,
+    taskId: id,
+    /** http(s) URL in canonical form. Open in an external browser. */
+    url: z.string(),
+    /** Optional display name; clients fall back to host + path. */
+    title: z.string().nullable(),
+    createdBy: id,
+    createdAt: instant,
+    updatedAt: instant,
+  }),
+  "External link attached to a task (Google Drive, Figma, GitHub, …).",
+);
+
 export const GroupSchema = named(
   "Group",
   z.object({ id, projectId: id, name: z.string(), position: z.number() }),
@@ -196,6 +212,7 @@ export const NotificationSettingsSchema = named(
 );
 
 export type TaskDTO = z.infer<typeof TaskSchema>;
+export type TaskLinkDTO = z.infer<typeof TaskLinkSchema>;
 export type GroupDTO = z.infer<typeof GroupSchema>;
 export type ProjectDTO = z.infer<typeof ProjectSchema>;
 export type MemberDTO = z.infer<typeof MemberSchema>;

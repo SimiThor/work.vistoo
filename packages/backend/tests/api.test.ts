@@ -252,6 +252,42 @@ describe("tasks", () => {
   });
 });
 
+describe("task links", () => {
+  it("attach, list, edit and remove links; idempotent create; only http(s)", async () => {
+    const task = (await call("POST", "/tasks", { token: anna.token, body: { projectId, title: "Pitch" } })).body;
+    const id = randomUUID();
+    const created = await call("POST", `/tasks/${task.id}/links`, {
+      token: anna.token,
+      body: { id, url: "drive.google.com/file/d/1", title: "Deck" },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ id, taskId: task.id, url: "https://drive.google.com/file/d/1", title: "Deck" });
+    const retry = await call("POST", `/tasks/${task.id}/links`, { token: anna.token, body: { id, url: "drive.google.com/file/d/1" } });
+    expect(retry.body.id).toBe(id);
+
+    const bad = await call("POST", `/tasks/${task.id}/links`, { token: anna.token, body: { url: "javascript:alert(1)" } });
+    expect(bad.status).toBe(422);
+
+    const list = await call("GET", `/tasks/${task.id}/links`, { token: admin.token });
+    expect(list.body.links.map((l: { id: string }) => l.id)).toEqual([id]);
+
+    const edited = await call("PATCH", `/task-links/${id}`, { token: admin.token, body: { url: "https://figma.com/x", title: null } });
+    expect(edited.body).toMatchObject({ url: "https://figma.com/x", title: null });
+
+    expect((await call("DELETE", `/task-links/${id}`, { token: anna.token })).status).toBe(204);
+    expect((await call("DELETE", `/task-links/${id}`, { token: anna.token })).status).toBe(404);
+  });
+
+  it("meeting link: admins set it, everyone sees it in the bootstrap", async () => {
+    const body = { meetingUrl: "https://discord.com/channels/1/2" };
+    expect((await call("PUT", "/workspace/meeting-url", { token: anna.token, body })).status).toBe(403);
+    const set = await call("PUT", "/workspace/meeting-url", { token: admin.token, body });
+    expect(set.body).toEqual(body);
+    const boot = await call("GET", "/bootstrap", { token: anna.token });
+    expect(boot.body.viewer.meetingUrl).toBe(body.meetingUrl);
+  });
+});
+
 describe("chat", () => {
   async function channel(token: string, visibility: "open" | "private", memberIds: string[] = []) {
     const res = await call("POST", "/conversations/channels", {

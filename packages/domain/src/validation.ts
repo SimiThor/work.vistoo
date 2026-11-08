@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CHAT_LIMITS } from "./chat-config";
 import { isIsoDate } from "./dates";
+import { isWebUrl, LINK_LIMITS, normalizeWebUrl } from "./links";
 import { MEMBER_ROLES, PROJECT_COLOR_KEYS, TASK_STATUSES } from "./domain";
 
 /** Input schemas shared by forms (inline validation) and Server Actions. */
@@ -110,6 +111,38 @@ export const emailSchema = z
   .trim()
   .toLowerCase()
   .pipe(z.email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." }));
+
+// ---------------------------------------------------------------------------
+// External links (task attachments, meeting link)
+// ---------------------------------------------------------------------------
+
+/** http(s) URL; scheme-less input gets `https://`. Stored in canonical form. */
+export const webUrlSchema = z
+  .string()
+  .overwrite(normalizeWebUrl)
+  .min(1, { error: "Bitte gib einen Link ein." })
+  .max(LINK_LIMITS.urlMax, { error: "Der Link ist zu lang." })
+  .refine(isWebUrl, { error: "Bitte gib einen gültigen Web-Link ein (https://…)." })
+  .meta({ format: "uri" });
+
+/** Optional display name; empty input means "no title". */
+const linkTitle = trimmed(LINK_LIMITS.titleMax, "Der Name").nullable().default(null);
+
+export const createTaskLinkSchema = z.object({
+  id: clientId,
+  taskId: uuid,
+  url: webUrlSchema,
+  title: linkTitle,
+});
+export type CreateTaskLinkInput = z.input<typeof createTaskLinkSchema>;
+
+export const updateTaskLinkSchema = z.object({ id: uuid, url: webUrlSchema, title: linkTitle });
+export type UpdateTaskLinkInput = z.input<typeof updateTaskLinkSchema>;
+
+export const taskIdSchema = z.object({ taskId: uuid });
+
+/** Workspace meeting link (e.g. a Discord voice channel); null removes it. */
+export const meetingUrlSchema = z.object({ meetingUrl: webUrlSchema.nullable() });
 
 export const inviteSchema = z.object({ email: emailSchema, role: z.enum(MEMBER_ROLES).default("member") });
 export const changeRoleSchema = z.object({ userId: uuid, role: z.enum(MEMBER_ROLES) });

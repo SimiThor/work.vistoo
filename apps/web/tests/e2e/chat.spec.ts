@@ -236,7 +236,7 @@ test("removed workspace member loses chat access immediately", async () => {
   await carla.goto("/chat");
   await carla.getByRole("link", { name: /^Allgemein/ }).click();
   await expect(composer(carla)).toBeVisible();
-  await anna.goto("/team");
+  await anna.goto("/settings");
   await anna.getByRole("button", { name: "Aktionen für Carla Cramer" }).click();
   await anna.getByRole("menuitem", { name: /Aus dem Team entfernen/ }).click();
   await anna.getByRole("button", { name: "Entfernen" }).click();

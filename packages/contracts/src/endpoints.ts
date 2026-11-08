@@ -13,6 +13,7 @@ import {
   MessageSchema,
   ProjectSchema,
   ProjectStatSchema,
+  TaskLinkSchema,
   TaskSchema,
   UploadTicketSchema,
   GroupSchema,
@@ -134,6 +135,7 @@ export const ViewerSchema = res(
     role: MemberRoleSchema,
     workspaceId: v.uuid,
     workspaceName: z.string(),
+    meetingUrl: z.string().nullable().describe("Join link for team meetings (Discord voice channel). Null until an admin sets it."),
   }),
 );
 
@@ -403,6 +405,57 @@ export const endpoints = {
     retry: "safe",
   }),
 
+  listTaskLinks: endpoint({
+    method: "GET",
+    path: "/tasks/{id}/links",
+    tag: "Tasks",
+    summary: "External links attached to a task (oldest first). Also for tasks of archived projects.",
+    auth: "member",
+    params: idParam,
+    response: res("TaskLinkList", z.object({ links: z.array(TaskLinkSchema) })),
+    errors: [...MEMBER_ERRORS, "NOT_FOUND"],
+    retry: "safe",
+  }),
+  createTaskLink: endpoint({
+    method: "POST",
+    path: "/tasks/{id}/links",
+    tag: "Tasks",
+    summary: "Attach an external http(s) link to a task, with an optional display name.",
+    description:
+      "The URL is validated and stored in canonical form (scheme-less input gets https://). " +
+      "Send a client-generated `id` to make retries idempotent.",
+    auth: "member",
+    params: idParam,
+    body: req("CreateTaskLinkRequest", v.createTaskLinkSchema.omit({ taskId: true })),
+    response: TaskLinkSchema,
+    status: 201,
+    errors: [...MEMBER_ERRORS, "VALIDATION", "NOT_FOUND", "ARCHIVED", "CONFLICT"],
+    retry: "idempotent-with-client-id",
+  }),
+  updateTaskLink: endpoint({
+    method: "PATCH",
+    path: "/task-links/{id}",
+    tag: "Tasks",
+    summary: "Change URL and display name of a task link (last write wins).",
+    auth: "member",
+    params: idParam,
+    body: req("UpdateTaskLinkRequest", v.updateTaskLinkSchema.omit({ id: true })),
+    response: TaskLinkSchema,
+    errors: [...MEMBER_ERRORS, "VALIDATION", "NOT_FOUND", "ARCHIVED"],
+    retry: "safe",
+  }),
+  deleteTaskLink: endpoint({
+    method: "DELETE",
+    path: "/task-links/{id}",
+    tag: "Tasks",
+    summary: "Remove a link from its task.",
+    auth: "member",
+    params: idParam,
+    response: null,
+    errors: [...MEMBER_ERRORS, "NOT_FOUND", "ARCHIVED"],
+    retry: "not-found-means-done",
+  }),
+
   // ---- Projects & groups --------------------------------------------------------
   listProjects: endpoint({
     method: "GET",
@@ -510,6 +563,17 @@ export const endpoints = {
     auth: "member",
     response: res("Team", z.object({ members: z.array(MemberSchema), invitations: z.array(InvitationSchema) })),
     errors: MEMBER_ERRORS,
+    retry: "safe",
+  }),
+  updateMeetingUrl: endpoint({
+    method: "PUT",
+    path: "/workspace/meeting-url",
+    tag: "Team",
+    summary: "Admin: set or clear the workspace meeting link (e.g. a Discord voice channel).",
+    auth: "admin",
+    body: req("UpdateMeetingUrlRequest", v.meetingUrlSchema),
+    response: res("MeetingUrl", z.object({ meetingUrl: z.string().nullable() })),
+    errors: [...MEMBER_ERRORS, "VALIDATION"],
     retry: "safe",
   }),
   inviteMember: endpoint({

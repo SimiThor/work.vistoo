@@ -1,7 +1,7 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import type { MemberRole } from "@vistoo/domain";
-import { profiles } from "@vistoo/database/schema";
+import { profiles, workspaces } from "@vistoo/database/schema";
 import { resolveMembership, type AuthContext, type AuthUser } from "../auth";
 import { getDb } from "../db";
 import { getInvitationState } from "./invitations";
@@ -13,14 +13,17 @@ export type Viewer = {
   role: MemberRole;
   workspaceId: string;
   workspaceName: string;
+  /** Join link for team meetings (Discord voice channel), null until an admin sets it. */
+  meetingUrl: string | null;
 };
 
 /** The signed-in member with profile data (web shell and API bootstrap). */
 export async function getViewerProfile(ctx: AuthContext): Promise<Viewer> {
-  const [profile] = await getDb()
-    .select({ email: profiles.email, fullName: profiles.fullName })
-    .from(profiles)
-    .where(eq(profiles.id, ctx.userId));
+  const db = getDb();
+  const [[profile], [workspace]] = await Promise.all([
+    db.select({ email: profiles.email, fullName: profiles.fullName }).from(profiles).where(eq(profiles.id, ctx.userId)),
+    db.select({ meetingUrl: workspaces.meetingUrl }).from(workspaces).where(eq(workspaces.id, ctx.workspaceId)),
+  ]);
   return {
     userId: ctx.userId,
     email: profile?.email ?? ctx.email,
@@ -28,6 +31,7 @@ export async function getViewerProfile(ctx: AuthContext): Promise<Viewer> {
     role: ctx.role,
     workspaceId: ctx.workspaceId,
     workspaceName: ctx.workspaceName,
+    meetingUrl: workspace?.meetingUrl ?? null,
   };
 }
 

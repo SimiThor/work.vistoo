@@ -4,7 +4,11 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   async redirects() {
-    return [{ source: "/", destination: "/tasks", permanent: false }];
+    return [
+      { source: "/", destination: "/tasks", permanent: false },
+      // Team management moved into the settings page.
+      { source: "/team", destination: "/settings", permanent: false },
+    ];
   },
   async rewrites() {
     // Universal Links (iOS): must be served from this exact path, without redirect.

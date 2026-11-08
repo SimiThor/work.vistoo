@@ -120,10 +120,78 @@ test("set dates in the panel; the timeline shows the exact calendar days", async
   await expect(page).toHaveURL(/assignee=/); // filter preserved after closing the panel
 });
 
+test("task attachments: add, open, edit and remove external links", async () => {
+  const page = adminPage;
+  await page.goto("/tasks");
+  await card(page, TASK).getByText(TASK).click();
+  const panel = page.getByRole("dialog");
+
+  await panel.getByRole("button", { name: "Anhang hinzufügen" }).click();
+  await panel.getByLabel("Link", { exact: true }).fill("javascript:alert(1)");
+  await panel.getByRole("button", { name: "Hinzufügen", exact: true }).click();
+  await expect(panel.getByText("Bitte gib einen gültigen Web-Link ein")).toBeVisible();
+
+  // Scheme-less input; Enter saves the link and does not submit or close the task form.
+  await panel.getByLabel("Link", { exact: true }).fill("docs.google.com/document/d/e2e");
+  await panel.getByLabel("Name (optional)").fill("Briefing");
+  await panel.getByLabel("Name (optional)").press("Enter");
+  const briefing = panel.getByRole("link", { name: /^Briefing/ });
+  await expect(briefing).toHaveAttribute("href", "https://docs.google.com/document/d/e2e");
+  await expect(briefing).toHaveAttribute("target", "_blank");
+  await expect(briefing).toHaveAttribute("rel", "noopener noreferrer");
+
+  await panel.getByRole("button", { name: "Hinzufügen", exact: true }).click();
+  await panel.getByLabel("Link", { exact: true }).fill("https://github.com/vistoo/app/pull/1");
+  await panel.getByLabel("Link", { exact: true }).press("Enter");
+  await expect(panel.getByRole("link", { name: /^github\.com\/vistoo\/app\/pull\/1/ })).toBeVisible();
+
+  await panel.getByRole("button", { name: "Briefing bearbeiten" }).click();
+  await panel.getByLabel("Name (optional)").fill("Briefing v2");
+  await panel.getByLabel("Name (optional)").press("Enter");
+  await expect(panel.getByRole("link", { name: /^Briefing v2/ })).toBeVisible();
+
+  // Escape cancels only the inline editor, the panel stays open.
+  await panel.getByRole("button", { name: "Briefing v2 bearbeiten" }).click();
+  await panel.getByLabel("Link", { exact: true }).press("Escape");
+  await expect(panel.getByLabel("Link", { exact: true })).toHaveCount(0);
+  await expect(panel).toBeVisible();
+
+  // Persisted.
+  await page.reload();
+  await expect(page.getByRole("dialog").getByRole("link", { name: /^Briefing v2/ })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: /^github\.com.* entfernen$/ }).click();
+  await expect(page.getByText("Anhang entfernt")).toBeVisible();
+  await expect(page.getByRole("dialog").getByRole("link", { name: /^github\.com/ })).toHaveCount(0);
+  await page.getByRole("dialog").getByRole("button", { name: "Schließen" }).first().click();
+});
+
+test("navigation: Files opens the Drive folder; admins configure the meeting link", async () => {
+  const page = adminPage;
+  const files = page.getByRole("link", { name: /^Files/ });
+  await expect(files).toHaveAttribute("href", "https://drive.google.com/drive/folders/1QXI2BYFPdwuzjf3J-wJ18UcmdwQB4e4b");
+  await expect(files).toHaveAttribute("target", "_blank");
+
+  // Not configured yet: the entry leads admins to the setting instead of nowhere.
+  await page.getByRole("link", { name: /Besprechung beitreten/ }).click();
+  await expect(page).toHaveURL(/\/settings#meeting/);
+  await page.getByLabel("Discord-Sprachkanal").fill("discord.com/channels/123/456");
+  await page.getByRole("button", { name: "Speichern" }).click();
+  await expect(page.getByText("Besprechungslink gespeichert")).toBeVisible();
+  const join = page.getByRole("link", { name: /Besprechung beitreten/ });
+  await expect(join).toHaveAttribute("href", "https://discord.com/channels/123/456");
+  await expect(join).toHaveAttribute("target", "_blank");
+
+  // Team lives in the settings (gear next to the name), not in the main menu; old links redirect.
+  await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Team" })).toHaveCount(0);
+  await page.goto("/team");
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByRole("heading", { name: "Einstellungen", level: 1 })).toBeVisible();
+});
+
 test("invite a member who accepts in a second browser", async ({ browser }) => {
   const s = state();
   const page = adminPage;
-  await page.getByRole("link", { name: "Team" }).first().click();
+  await page.getByRole("link", { name: "Einstellungen" }).first().click();
   const since = Date.now();
   await page.getByRole("button", { name: "Mitglied einladen" }).click();
   await page.getByRole("dialog").getByLabel("E-Mail-Adresse").fill(s.memberEmail);
@@ -138,7 +206,7 @@ test("invite a member who accepts in a second browser", async ({ browser }) => {
   await expect(memberPage).toHaveURL(/\/tasks/);
   await expect(card(memberPage, TASK)).toBeVisible();
   // Members cannot manage the team
-  await memberPage.goto("/team");
+  await memberPage.goto("/settings");
   await expect(memberPage.getByText("Nur Admins können Mitglieder einladen").filter({ visible: true })).toBeVisible();
   await expect(memberPage.getByRole("button", { name: "Mitglied einladen" })).toHaveCount(0);
   await memberPage.goto("/tasks");
@@ -158,10 +226,32 @@ test("changes arrive in the second client without reload", async () => {
   await panel.getByRole("button", { name: "Schließen" }).first().click();
 });
 
+test("members see the meeting link and attachments added by others without reload", async () => {
+  const page = adminPage;
+  await expect(memberPage.getByRole("link", { name: /Besprechung beitreten/ })).toHaveAttribute(
+    "href",
+    "https://discord.com/channels/123/456",
+  );
+  await card(memberPage, `${TASK} (live)`).getByText(`${TASK} (live)`).click();
+  const memberPanel = memberPage.getByRole("dialog");
+  await expect(memberPanel.getByRole("link", { name: /^Briefing v2/ })).toBeVisible();
+
+  await card(page, `${TASK} (live)`).getByText(`${TASK} (live)`).click();
+  const panel = page.getByRole("dialog");
+  await panel.getByRole("button", { name: "Hinzufügen", exact: true }).click();
+  await panel.getByLabel("Link", { exact: true }).fill("https://www.figma.com/design/e2e");
+  await panel.getByLabel("Name (optional)").fill("Entwurf");
+  await panel.getByLabel("Name (optional)").press("Enter");
+  await expect(panel.getByRole("link", { name: /^Entwurf/ })).toBeVisible();
+  await expect(memberPanel.getByRole("link", { name: /^Entwurf/ })).toBeVisible({ timeout: 15_000 });
+  await panel.getByRole("button", { name: "Schließen" }).first().click();
+  await memberPanel.getByRole("button", { name: "Schließen" }).first().click();
+});
+
 test("removing a member revokes access immediately, even with an open session", async () => {
   const s = state();
   const page = adminPage;
-  await page.goto("/team");
+  await page.goto("/settings");
   await page.getByRole("button", { name: "Aktionen für Max Mitglied" }).click();
   await page.getByRole("menuitem", { name: /Aus dem Team entfernen/ }).click();
   await page.getByRole("button", { name: "Entfernen" }).click();

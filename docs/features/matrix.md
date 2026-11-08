@@ -33,18 +33,21 @@ Pfade: Web `apps/web/src`, iOS `apps/ios/Packages/VistooKit/Sources`, Backend `p
 | Suche und Filter (Projekt, Gruppe, Person, Status; OR/AND) | Filterleiste, URL | `.searchable` + `FilterSheet` | Semantik `packages/domain/src/filters.ts`; Fixtures `packages/contracts/fixtures/task-filters.json` | 13 gemeinsame Fälle grün in TS **und** Swift | ✅ |
 | „Alle Aufgaben“ vs. Projektansicht | `/tasks`, `/projects/[id]` | Tab „Aufgaben“, Projekt-Detail | `listTasks` (alle aktiven / ein Projekt) | | ✅ |
 | Task-Verlinkung | „Link kopieren“ (`/tasks?task=…`) | „Link teilen“ (Share Sheet), Universal Link öffnet die Aufgabe | gleiche URL-Form, `GET /tasks/{id}` | geteilter Link öffnet im Web bzw. in der App | ✅ `LinkTests` · 🟡 Universal Link (Apple-Setup offen) |
+| Anhänge: externe Links an Aufgaben (Drive, Docs, Figma, GitHub …; hinzufügen, öffnen, bearbeiten, entfernen) | `work/task-links.tsx` im Panel (inline, Live-Aktualisierung über Realtime `task_links`) | **noch nicht in der UI** (Modelle `TaskLink`, Endpunkte generiert) | `task-links.ts` (nur http(s), max. 50 pro Aufgabe, archiviert = schreibgeschützt, idempotent per Client-ID); `GET/POST /tasks/{id}/links`, `PATCH/DELETE /task-links/{id}`; RLS nur SELECT für aktive Mitglieder | Link erscheint sofort und live bei anderen; unsichere URLs werden abgelehnt (Schema + DB-Check) | ✅ `task-links.test.ts`, `api.test.ts`, E2E `flow` · iOS offen |
 | Abhängigkeiten | **nicht vorhanden** (zurückgestellt) | – | – | – | – |
 
 ## Team
 
 | Funktion | Web (Bestand) | iOS | Gemeinsame Logik | Fertig, wenn … | Status |
 | --- | --- | --- | --- | --- | --- |
-| Mitgliederliste, eigene Rolle | `/team` | `TeamScreen` | `listTeam`; `GET /team` | | ✅ |
+| Mitgliederliste, eigene Rolle | `/settings` (Zahnrad im Benutzermenü; `/team` leitet weiter) | `TeamScreen` | `listTeam`; `GET /team` | | ✅ |
 | Einladen (Admin) | Einladungsdialog | `InviteSheet` | `inviteMember` (Mail in Transaktion) | Mitglieder bekommen 403 | ✅ `api.test.ts` |
 | Einladung erneut senden / widerrufen (Admin) | Liste | Swipe/Kontextmenü | `resendInvitation`, `revokeInvitation` | | ✅ Backend-Tests |
 | Rolle ändern (Admin), letzter Admin geschützt | Menü | Kontextmenü „Rolle“ | `changeMemberRole` (Sperre der Admin-Zeilen) | `LAST_ADMIN` auf beiden Plattformen | ✅ `api.test.ts` |
 | Mitglied entfernen (Admin) | Menü | Swipe/Kontextmenü | `removeMember` (+ Chat-Übergabe) | Zugriff sofort weg | ✅ E2E 7 |
 | Eigenen Namen ändern | Benutzermenü | „Namen ändern“ | `updateOwnName` | | ✅ |
+| „Files“: gemeinsamer Google-Drive-Ordner | Navigation, öffnet neuen Tab (`lib/external-links.ts`) | – (bewusst nicht angeboten) | keine (reiner Link) | | ✅ E2E `flow` |
+| „Besprechung beitreten“: Discord-Sprachkanal (Admin hinterlegt den Link unter Einstellungen) | Navigation + Kopfzeile mobil; ohne Link: Admin → Einstellung, sonst „Nicht eingerichtet“ | **noch nicht in der UI** (`Viewer.meetingUrl`, `PUT /workspace/meeting-url`) | `workspace.ts` `updateMeetingUrl` (nur Admin, nur http(s)); `session.getViewerProfile` | Mitglieder sehen den Link, nur Admins ändern ihn | ✅ `task-links.test.ts`, `api.test.ts`, E2E `flow` · iOS offen |
 
 ## Kommunikation
 

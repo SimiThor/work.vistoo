@@ -42,6 +42,15 @@ function rowToTask(r: TaskRow): TaskDTO {
   };
 }
 
+/** Window event fired when task links change elsewhere (open task panels reload their links). */
+export const TASK_LINKS_CHANGED_EVENT = "vistoo:task-links-changed";
+/** Deletes only carry the link id (no task id). */
+export type TaskLinksChangedDetail = { taskId: string | null; linkId: string | null };
+
+function emitTaskLinksChanged(detail: TaskLinksChangedDetail) {
+  window.dispatchEvent(new CustomEvent<TaskLinksChangedDetail>(TASK_LINKS_CHANGED_EVENT, { detail }));
+}
+
 /**
  * Subscribes to row changes of the workspace. Access control is enforced by
  * RLS on the server side of Supabase Realtime (SELECT policies for active
@@ -49,6 +58,7 @@ function rowToTask(r: TaskRow): TaskDTO {
  *
  * - tasks: merged into the local store by version (no duplicates with
  *   optimistic updates or server responses).
+ * - task links: announced as a window event for the open task panel.
  * - projects / groups / members: trigger a router refresh (debounced).
  * - after a reconnect or when the tab becomes visible again: full resync.
  */
@@ -110,6 +120,18 @@ export function useRealtimeSync({
         .on("postgres_changes", { event: "DELETE", schema: "public", table: "tasks" }, (payload) => {
           const id = (payload.old as Partial<TaskRow>).id;
           if (id) handlers.current.onTaskDeleted(id);
+        })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "task_links", filter },
+          (payload: RealtimePostgresChangesPayload<{ id: string; task_id: string }>) => {
+            const row = payload.eventType === "DELETE" ? payload.old : payload.new;
+            emitTaskLinksChanged({ taskId: row.task_id ?? null, linkId: row.id ?? null });
+          },
+        )
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "task_links" }, (payload) => {
+          const id = (payload.old as { id?: string }).id;
+          if (id) emitTaskLinksChanged({ taskId: null, linkId: id });
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "projects", filter }, refreshSoon)
         .on("postgres_changes", { event: "*", schema: "public", table: "project_groups", filter }, refreshSoon)

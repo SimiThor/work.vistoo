@@ -27,6 +27,7 @@ import { displayName, STATUS_LABEL, TASK_STATUSES, type TaskDTO, type TaskStatus
 import type { TaskDTO as T } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 import { rememberProject, readLastProject, type QuickAddDefaults } from "./quick-add";
+import { TaskLinks } from "./task-links";
 import { DeleteTaskDialog } from "./task-menu";
 import { useWork } from "./work-context";
 
@@ -142,6 +143,10 @@ export function TaskPanel({
         showCloseButton={false}
         aria-labelledby={titleId}
         className="w-full gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[520px]"
+        onEscapeKeyDown={(e) => {
+          // Escape inside an inline editor (attachments) only cancels that editor.
+          if ((e.target as Element | null)?.closest?.("[data-local-escape]")) e.preventDefault();
+        }}
         onOpenAutoFocus={(e) => {
           // Focus the first field instead of the first button.
           e.preventDefault();
@@ -713,6 +718,8 @@ function TaskForm({
             className="field-sizing-content block min-h-40 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/35 disabled:opacity-70"
           />
         </div>
+
+        {task && <TaskLinks taskId={task.id} readOnly={readOnly} />}
 
         {task && (
           <p className="text-xs text-muted-foreground">

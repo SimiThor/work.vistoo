@@ -38,6 +38,12 @@ Die Next.js-App liegt jetzt in `apps/web`.
 
 TestFlight-Builds nutzen das APNs-Produktionssystem, Xcode-Builds die Sandbox. Die App meldet das pro Gerät mit, der Server wählt den richtigen Endpunkt.
 
+## 3c. Anhänge, Files, Besprechung (Rollout)
+
+- Migrationen `0006_task_links` und `0007_task_links_security` gegen Produktion ausführen (`npm run db:migrate` mit Produktions-`DIRECT_DATABASE_URL`), **vor** dem Web-Deployment. Rein additiv: neue Tabelle, neue nullable Spalte `workspaces.meeting_url`, Unique-Constraint auf `tasks (workspace_id, id)` (immer erfüllt, da `id` Primärschlüssel ist).
+- Discord-Link hinterlegen: als Admin unter **Einstellungen → Besprechung** (Zahnrad neben dem eigenen Namen) einfügen (Discord: Rechtsklick auf den Sprachkanal → „Link kopieren“). Für Vistoo: `https://discord.com/channels/1568996767473733634/1568996768421642354`.
+- Der Google-Drive-Ordner für „Files“ steht in `apps/web/src/lib/external-links.ts`. Alle Teammitglieder brauchen in Google Drive selbst Zugriff auf den Ordner.
+
 ## 4. Erste Builds
 
 - Simulator-Build, Login und UI-Tests gegen den lokalen Stack laufen (Xcode 26.5). Offen: Test auf einem echten iPhone gegen Produktion, echter APNs-Versand.

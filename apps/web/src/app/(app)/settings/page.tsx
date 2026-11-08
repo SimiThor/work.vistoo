@@ -5,9 +5,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getViewer } from "@/server/queries";
 import { listTeam } from "@vistoo/backend/services/team";
 
-export const metadata: Metadata = { title: "Team" };
+export const metadata: Metadata = { title: "Einstellungen" };
 
-export default function TeamPage() {
+/** Settings: team management and workspace links (rarely used, so not in the main navigation). */
+export default function SettingsPage() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-6">
@@ -20,19 +21,22 @@ export default function TeamPage() {
 }
 
 async function Team() {
-  const { ctx, me } = await getViewer();
+  const { ctx, me, meetingUrl } = await getViewer();
   const team = await listTeam(ctx);
-  return <TeamView me={me} members={team.members} invitations={team.invitations} />;
+  return <TeamView me={me} members={team.members} invitations={team.invitations} meetingUrl={meetingUrl} />;
 }
 
 function TeamSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Team wird geladen">
+    <div aria-busy="true" aria-label="Einstellungen werden geladen">
       <div className="flex h-8 items-center justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">Team</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Einstellungen</h1>
+      </div>
+      <div className="mt-6 flex h-8 items-center justify-between">
+        <h2 className="text-base font-semibold">Team</h2>
         <Skeleton className="h-8 w-40" />
       </div>
-      <div className="mt-6 divide-y rounded-xl border">
+      <div className="mt-4 divide-y rounded-xl border">
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-3">
             <Skeleton className="size-8 rounded-full" />

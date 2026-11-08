@@ -72,7 +72,7 @@ Nachrichten werden per `PUT /conversations/{id}/messages/{messageId}` mit Client
 
 ## Endpunkte (Kurzüberblick)
 
-Die vollständige Liste mit Schemas steht in `openapi.json`. Gruppen: Meta/Session (`/meta`, `/auth/login-code`, `/me`, `/invitations/accept`, `/bootstrap`, `/me/profile`), Tasks (`/tasks…`), Projekte und Gruppen (`/projects…`, `/groups/{id}`), Team (`/team`, `/invitations…`, `/members/{userId}…`), Chat (`/conversations…`, `/messages/{id}`), Dateien (`/conversations/{id}/uploads`, `/uploads/{id}…`, `/attachments/{id}/download`, `/chat/storage`).
+Die vollständige Liste mit Schemas steht in `openapi.json`. Gruppen: Meta/Session (`/meta`, `/auth/login-code`, `/me`, `/invitations/accept`, `/bootstrap`, `/me/profile`), Tasks (`/tasks…`, Anhänge `/tasks/{id}/links`, `/task-links/{id}`), Projekte und Gruppen (`/projects…`, `/groups/{id}`), Team (`/team`, `/invitations…`, `/members/{userId}…`, `/workspace/meeting-url`), Chat (`/conversations…`, `/messages/{id}`), Dateien (`/conversations/{id}/uploads`, `/uploads/{id}…`, `/attachments/{id}/download`, `/chat/storage`).
 
 ## Neuen Endpunkt hinzufügen
 
