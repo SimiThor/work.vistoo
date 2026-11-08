@@ -1,6 +1,17 @@
 "use client";
 
-import { ArrowUpRight, FolderOpen, Headphones, ListTodo, Menu, MessageSquare, Settings } from "lucide-react";
+import {
+  ArrowUpRight,
+  CircleCheck,
+  FolderOpen,
+  Headphones,
+  Landmark,
+  Lightbulb,
+  ListTodo,
+  Menu,
+  MessageSquare,
+  Settings,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -12,6 +23,9 @@ import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { href: "/tasks", label: "Alle Aufgaben", icon: ListTodo },
+  { href: "/todos", label: "Meine To-dos", icon: CircleCheck },
+  { href: "/ideas", label: "Ideen", icon: Lightbulb },
+  { href: "/crm", label: "CRM", icon: Landmark },
   { href: "/chat", label: "Chat", icon: MessageSquare },
 ] as const;
 
@@ -101,13 +115,15 @@ export function ExternalNavLinks({
         ) : canConfigure ? (
           <Link href="/settings#meeting" className={navItemClass}>
             <Headphones className="size-4 text-muted-foreground/60" aria-hidden />
-            <span className="flex-1 truncate text-muted-foreground">{MEETING_LABEL}</span>
+            <span className="flex-1 truncate text-muted-foreground">Besprechung</span>
             <span className="text-xs text-muted-foreground">Einrichten</span>
           </Link>
         ) : (
           <span aria-disabled="true" className={cn(navItemClass, "cursor-default hover:bg-transparent")}>
             <Headphones className="size-4 text-muted-foreground/60" aria-hidden />
-            <span className="flex-1 truncate text-muted-foreground">{MEETING_LABEL}</span>
+            <span className="flex-1 truncate text-muted-foreground">
+              {meetingUrl === null ? "Besprechung" : MEETING_LABEL}
+            </span>
             {meetingUrl === null && <span className="text-xs text-muted-foreground/80">Nicht eingerichtet</span>}
           </span>
         )}

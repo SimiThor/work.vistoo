@@ -172,7 +172,7 @@ test("navigation: Files opens the Drive folder; admins configure the meeting lin
   await expect(files).toHaveAttribute("target", "_blank");
 
   // Not configured yet: the entry leads admins to the setting instead of nowhere.
-  await page.getByRole("link", { name: /Besprechung beitreten/ }).click();
+  await page.getByRole("link", { name: /^Besprechung Einrichten/ }).click();
   await expect(page).toHaveURL(/\/settings#meeting/);
   await page.getByLabel("Discord-Sprachkanal").fill("discord.com/channels/123/456");
   await page.getByRole("button", { name: "Speichern" }).click();

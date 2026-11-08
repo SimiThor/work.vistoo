@@ -49,6 +49,19 @@ Pfade: Web `apps/web/src`, iOS `apps/ios/Packages/VistooKit/Sources`, Backend `p
 | „Files“: gemeinsamer Google-Drive-Ordner | Navigation, öffnet neuen Tab (`lib/external-links.ts`) | – (bewusst nicht angeboten) | keine (reiner Link) | | ✅ E2E `flow` |
 | „Besprechung beitreten“: Discord-Sprachkanal (Admin hinterlegt den Link unter Einstellungen) | Navigation + Kopfzeile mobil; ohne Link: Admin → Einstellung, sonst „Nicht eingerichtet“ | **noch nicht in der UI** (`Viewer.meetingUrl`, `PUT /workspace/meeting-url`) | `workspace.ts` `updateMeetingUrl` (nur Admin, nur http(s)); `session.getViewerProfile` | Mitglieder sehen den Link, nur Admins ändern ihn | ✅ `task-links.test.ts`, `api.test.ts`, E2E `flow` · iOS offen |
 
+## Persönliche Organisation, Ideen, CRM
+
+Nur Web (iOS-UI und `/api/v1`-Endpunkte noch offen; die Services sind dafür vorbereitet). Fachregeln liegen vollständig im Backend.
+
+| Funktion | Web | iOS | Gemeinsame Logik | Fertig, wenn … | Status |
+| --- | --- | --- | --- | --- | --- |
+| Meine To-dos: private Checkliste (hinzufügen, bearbeiten, abhaken/wieder öffnen, löschen, sortieren, Fälligkeit) | `/todos`, `todos/todo-list.tsx` | – | `services/todos.ts` (immer auf eigene `user_id` begrenzt, Client-ID, max. 500); RLS: nur Besitzer | andere Mitglieder – auch Admins – sehen nichts | ✅ `todos.test.ts`, E2E `workspace` |
+| Ideen: gemeinsamer Backlog (Status Neu/In Prüfung/Geplant/Archiviert, Suche, Filter, Sortierung, Verantwortlich) | `/ideas`, `ideas/*` | – | `services/ideas.ts` (Teil-Updates, aktive Mitglieder als Verantwortliche) | alle aktiven Mitglieder sehen und bearbeiten | ✅ `ideas.test.ts`, E2E `workspace` |
+| Idee → Issue | Panel „Issue erstellen“ | – | `createIssueFromIdea` nutzt `tasks.insertTask` in derselben Transaktion; Verknüpfung `ideas.task_id` (wird beim Löschen der Aufgabe geleert) | Wiederholung liefert dasselbe Issue | ✅ `ideas.test.ts`, E2E `workspace` |
+| CRM: Attraktionen (Tabelle, Kennzahlen, Suche, Filter Status/Person/überfällig, Sortierung, Status in der Tabelle) | `/crm`, `crm/attractions-view.tsx` | – | `services/crm.ts` | | ✅ `crm.test.ts`, E2E `workspace` |
+| CRM: automatischer Verlauf (angelegt, Status, Verantwortlich, Follow-up) | Panel „Verlauf“ | – | im selben Transaktionsschritt unter Zeilensperre; nur echte Änderungen; System-Einträge unveränderlich (Service + Trigger) | genau ein Eintrag pro Änderung, auch bei parallelen Anfragen | ✅ `crm.test.ts` |
+| CRM: manuelle Aktivitäten (Anruf, E-Mail, Meeting, Notiz; optional Follow-up) | Panel „Aktivität hinzufügen“ | – | `addActivity`/`updateActivity`/`deleteActivity` (Autor oder Admin); „Letzter Kontakt“ aus Anruf/E-Mail/Meeting | Follow-up und letzter Kontakt aktualisieren sich | ✅ `crm.test.ts`, E2E `workspace` |
+
 ## Kommunikation
 
 | Funktion | Web (Bestand) | iOS | Gemeinsame Logik | Fertig, wenn … | Status |

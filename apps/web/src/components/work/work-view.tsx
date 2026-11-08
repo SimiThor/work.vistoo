@@ -4,8 +4,8 @@ import { Columns3, GanttChart, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { Board } from "./board";
 import { applyFilters, hasActiveFilters, NO_GROUP, UNASSIGNED, useWorkUrl, type View } from "./filters";
 import { FilterBar } from "./filter-bar";
@@ -13,38 +13,6 @@ import type { QuickAddDefaults } from "./quick-add";
 import { TaskPanel, type PanelTarget } from "./task-panel";
 import { Timeline } from "./timeline";
 import { useWork } from "./work-context";
-
-function Segmented<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  options: { value: T; label: string; icon?: React.ReactNode }[];
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div role="group" aria-label={label} className="inline-flex shrink-0 rounded-lg bg-surface-subtle p-0.5">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          aria-pressed={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={cn(
-            "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/35",
-            value === o.value && "bg-background font-medium text-foreground shadow-card",
-          )}
-        >
-          {o.icon}
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function EmptyState({ title, text, action }: { title: string; text: string; action?: React.ReactNode }) {
   return (

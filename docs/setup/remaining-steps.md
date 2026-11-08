@@ -40,7 +40,7 @@ TestFlight-Builds nutzen das APNs-Produktionssystem, Xcode-Builds die Sandbox. D
 
 ## 3c. Anhänge, Files, Besprechung (Rollout)
 
-- Migrationen `0006_task_links` und `0007_task_links_security` gegen Produktion ausführen (`npm run db:migrate` mit Produktions-`DIRECT_DATABASE_URL`), **vor** dem Web-Deployment. Rein additiv: neue Tabelle, neue nullable Spalte `workspaces.meeting_url`, Unique-Constraint auf `tasks (workspace_id, id)` (immer erfüllt, da `id` Primärschlüssel ist).
+- Migrationen `0006_task_links` bis `0009_todos_ideas_crm_security` gegen Produktion ausführen (`npm run db:migrate` mit Produktions-`DIRECT_DATABASE_URL`), **vor** dem Web-Deployment. Rein additiv: neue Tabellen (`task_links`, `personal_todos`, `ideas`, `attractions`, `attraction_activities`), drei neue Enums, neue nullable Spalte `workspaces.meeting_url`, Unique-Constraint auf `tasks (workspace_id, id)` (immer erfüllt, da `id` Primärschlüssel ist), RLS-Policies und ein Schutz-Trigger für automatische CRM-Einträge. Bestehende Daten werden nicht verändert.
 - Discord-Link hinterlegen: als Admin unter **Einstellungen → Besprechung** (Zahnrad neben dem eigenen Namen) einfügen (Discord: Rechtsklick auf den Sprachkanal → „Link kopieren“). Für Vistoo: `https://discord.com/channels/1568996767473733634/1568996768421642354`.
 - Der Google-Drive-Ordner für „Files“ steht in `apps/web/src/lib/external-links.ts`. Alle Teammitglieder brauchen in Google Drive selbst Zugriff auf den Ordner.
 
