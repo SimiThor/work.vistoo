@@ -106,8 +106,11 @@ test("my to-dos: add, complete, reopen, edit — and nobody else sees them", asy
 test("ideas: shared backlog with status, panel and 'create issue'", async () => {
   const page = pages.simon;
   await page.getByRole("link", { name: "Ideen" }).click();
+  // With a text body: ⌘/Ctrl+Enter in the text field adds the idea.
   await page.getByLabel("Neue Idee").fill("Offline-Navigation verbessern");
-  await page.getByLabel("Neue Idee").press("Enter");
+  await page.getByLabel("Text der neuen Idee").fill("Karten vorab laden\nRouten ohne Netz");
+  await page.getByLabel("Text der neuen Idee").press("ControlOrMeta+Enter");
+  await expect(page.getByLabel("Text der neuen Idee")).toHaveCount(0);
   await page.getByLabel("Neue Idee").fill("KI-Assistent erweitern");
   await page.getByLabel("Neue Idee").press("Enter");
   await expect(page.getByRole("list", { name: "Ideen" }).getByRole("listitem")).toHaveCount(2);
@@ -127,12 +130,13 @@ test("ideas: shared backlog with status, panel and 'create issue'", async () => 
   await felix.getByRole("button", { name: "Offen" }).click();
   await felix.getByLabel("Ideen durchsuchen").filter({ visible: true }).fill("offline");
   await expect(felix.getByRole("list", { name: "Ideen" }).getByRole("listitem")).toHaveCount(1);
+  await expect(felix.getByRole("button", { name: /Karten vorab laden/ })).toBeVisible();
 
   // Panel: description + owner, then create an issue.
   await page.reload();
   await page.getByRole("button", { name: /KI-Assistent erweitern/ }).click();
   const panel = page.getByRole("dialog");
-  await panel.getByLabel("Beschreibung und Notizen").fill("Mehr Sprachen und Offline-Antworten");
+  await panel.getByLabel("Text", { exact: true }).fill("Mehr Sprachen und Offline-Antworten");
   await choose(page, panel.getByLabel("Verantwortlich"), "Felix Partner");
   await panel.getByRole("button", { name: "Speichern" }).click();
   await expect(page.getByText("Idee gespeichert")).toBeVisible();

@@ -156,44 +156,69 @@ export function IdeasView({
 
 function QuickAddIdea({ onCreated }: { onCreated: (i: IdeaDTO) => void }) {
   const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
   const [, startTransition] = useTransition();
   const ref = useRef<HTMLInputElement>(null);
   const submit = () => {
     const value = title.trim();
     if (!value) return;
+    const description = body.trim();
     // Clear right away so the next idea can be typed while this one saves.
     setTitle("");
+    setBody("");
     ref.current?.focus();
     startTransition(async () => {
-      const res = await createIdeaAction({ id: crypto.randomUUID(), title: value });
+      const res = await createIdeaAction({ id: crypto.randomUUID(), title: value, description });
       if (res.ok) return onCreated(res.data);
-      toast.error(res.error.fieldErrors?.title ?? res.error.message);
+      toast.error(res.error.fieldErrors?.title ?? res.error.fieldErrors?.description ?? res.error.message);
       setTitle((current) => current || value);
+      setBody((current) => current || description);
     });
   };
+  // The text field shows up once a title is typed (or text is already there),
+  // so the quick "type + Enter" flow stays a single line.
+  const expanded = title.trim() !== "" || body !== "";
   return (
     <form
       noValidate
-      className="mt-5 flex items-center gap-2 rounded-xl border bg-background px-3 py-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/35"
+      className="mt-5 rounded-xl border bg-background px-3 py-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/35"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
     >
-      <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-      <input
-        ref={ref}
-        aria-label="Neue Idee"
-        autoComplete="off"
-        value={title}
-        maxLength={IDEA_LIMITS.titleMax}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Neue Idee – mit Enter hinzufügen"
-        className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-      />
-      <Button type="submit" size="sm" disabled={!title.trim()}>
-        Hinzufügen
-      </Button>
+      <div className="flex items-center gap-2">
+        <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <input
+          ref={ref}
+          aria-label="Neue Idee"
+          autoComplete="off"
+          value={title}
+          maxLength={IDEA_LIMITS.titleMax}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Neue Idee – mit Enter hinzufügen"
+          className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+        <Button type="submit" size="sm" disabled={!title.trim()}>
+          Hinzufügen
+        </Button>
+      </div>
+      {expanded && (
+        <textarea
+          aria-label="Text der neuen Idee"
+          value={body}
+          maxLength={IDEA_LIMITS.descriptionMax}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          placeholder="Text (optional) – Details, Begründung, offene Fragen … ⌘↵ zum Hinzufügen"
+          className="field-sizing-content mt-1 mb-1 block max-h-80 min-h-16 w-full resize-none border-t bg-transparent pt-2 pl-6 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
+        />
+      )}
     </form>
   );
 }

@@ -156,14 +156,14 @@ export function IdeaPanel({
 
         <div className="space-y-1.5">
           <label htmlFor={ids.description} className="text-[13px] text-muted-foreground">
-            Beschreibung und Notizen
+            Text
           </label>
           <textarea
             id={ids.description}
             value={values.description}
             maxLength={IDEA_LIMITS.descriptionMax}
             onChange={(e) => set("description", e.target.value)}
-            placeholder="Worum geht es? Warum lohnt es sich? Offene Fragen …"
+            placeholder="Worum geht es? Warum lohnt es sich? Offene Fragen, Notizen …"
             className="field-sizing-content block min-h-40 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/35"
           />
         </div>
