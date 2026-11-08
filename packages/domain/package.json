@@ -13,7 +13,10 @@
     "./result": "./src/result.ts",
     "./dto": "./src/dto.ts",
     "./filters": "./src/filters.ts",
-    "./links": "./src/links.ts"
+    "./links": "./src/links.ts",
+    "./todos": "./src/todos.ts",
+    "./ideas": "./src/ideas.ts",
+    "./crm": "./src/crm.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",

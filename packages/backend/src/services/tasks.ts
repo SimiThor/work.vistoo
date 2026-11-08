@@ -100,33 +100,43 @@ export async function createTask(ctx: AuthContext, input: z.output<typeof create
   const task = await getDb().transaction(async (tx) => {
     const existing = await existingOwnTask(tx, ctx, input.id);
     if (existing) return toTaskDTO(existing);
-    await getWritableProject(tx, ctx, input.projectId);
-    if (input.groupId) await assertGroupInProject(tx, ctx, input.groupId, input.projectId);
-    if (input.assigneeId) await assertActiveMember(tx, ctx, input.assigneeId);
-    const position = await endOfColumn(tx, ctx, input.status);
-    const [row] = await tx
-      .insert(tasks)
-      .values({
-        ...(input.id ? { id: input.id } : {}),
-        workspaceId: ctx.workspaceId,
-        projectId: input.projectId,
-        groupId: input.groupId,
-        title: input.title,
-        description: input.description,
-        status: input.status,
-        assigneeId: input.assigneeId,
-        startDate: input.startDate,
-        endDate: input.endDate,
-        position,
-        createdBy: ctx.userId,
-        updatedBy: ctx.userId,
-      })
-      .returning();
+    const row = await insertTask(tx, ctx, input);
     created = true;
     return toTaskDTO(row);
   });
   if (created && task.assigneeId) notifyAssignment(ctx, task);
   return task;
+}
+
+/**
+ * The one way to insert a task (checks project, group, assignee; appends to
+ * the status column). Runs inside the caller's transaction, e.g. when an
+ * idea becomes an issue.
+ */
+export async function insertTask(tx: Tx, ctx: AuthContext, input: z.output<typeof createTaskSchema>): Promise<Task> {
+  await getWritableProject(tx, ctx, input.projectId);
+  if (input.groupId) await assertGroupInProject(tx, ctx, input.groupId, input.projectId);
+  if (input.assigneeId) await assertActiveMember(tx, ctx, input.assigneeId);
+  const position = await endOfColumn(tx, ctx, input.status);
+  const [row] = await tx
+    .insert(tasks)
+    .values({
+      ...(input.id ? { id: input.id } : {}),
+      workspaceId: ctx.workspaceId,
+      projectId: input.projectId,
+      groupId: input.groupId,
+      title: input.title,
+      description: input.description,
+      status: input.status,
+      assigneeId: input.assigneeId,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      position,
+      createdBy: ctx.userId,
+      updatedBy: ctx.userId,
+    })
+    .returning();
+  return row;
 }
 
 /**

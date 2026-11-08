@@ -21,6 +21,12 @@ const trimmed = (max: number, label: string) =>
     .trim()
     .max(max, { error: `${label} darf höchstens ${max} Zeichen lang sein.` });
 
+/** Trimmed text with a German length message (shared by feature modules). */
+export const boundedText = trimmed;
+
+/** Optional calendar day "YYYY-MM-DD" (null = none). */
+export const optionalCalendarDay = calendarDate;
+
 export const taskTitle = trimmed(300, "Der Titel").min(1, { error: "Bitte gib einen Titel ein." });
 export const taskDescription = z.string().max(20000, { error: "Die Beschreibung ist zu lang." });
 

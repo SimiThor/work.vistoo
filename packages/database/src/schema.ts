@@ -8,6 +8,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -17,6 +18,8 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { ACTIVITY_TYPES, ATTRACTION_STATUSES, type ActivityMetadata } from "@vistoo/domain/crm";
+import { IDEA_STATUSES } from "@vistoo/domain/ideas";
 
 /**
  * Application schema. Drizzle is the single source of truth for tables,
@@ -248,6 +251,153 @@ export const taskLinks = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Personal to-dos, ideas, CRM
+// ---------------------------------------------------------------------------
+
+/** Private checklist per member ("Meine To-dos"). Not related to projects or tasks. */
+export const personalTodos = pgTable(
+  "personal_todos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    dueDate: date("due_date", { mode: "string" }),
+    /** null = open. */
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    /** Sort key among the owner's open to-dos (ascending). */
+    position: doublePrecision("position").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    foreignKey({
+      name: "personal_todos_member_fk",
+      columns: [t.workspaceId, t.userId],
+      foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.userId],
+    }).onDelete("cascade"),
+    index("personal_todos_owner_idx").on(t.workspaceId, t.userId, t.position),
+    check("personal_todos_title_len", sql`char_length(${t.title}) between 1 and 300`),
+    check("personal_todos_description_len", sql`char_length(${t.description}) <= 5000`),
+  ],
+);
+
+export const ideaStatus = pgEnum("idea_status", IDEA_STATUSES);
+
+/** Shared idea backlog. */
+export const ideas = pgTable(
+  "ideas",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    status: ideaStatus("status").notNull().default("new"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => profiles.id),
+    assigneeId: uuid("assignee_id"),
+    /** Issue created from this idea; cleared when the task is deleted. Same workspace (service). */
+    taskId: uuid("task_id").references(() => tasks.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [
+    foreignKey({
+      name: "ideas_assignee_fk",
+      columns: [t.workspaceId, t.assigneeId],
+      foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.userId],
+    }),
+    index("ideas_workspace_created_idx").on(t.workspaceId, t.createdAt),
+    index("ideas_task_idx").on(t.taskId),
+    check("ideas_title_len", sql`char_length(${t.title}) between 1 and 300`),
+    check("ideas_description_len", sql`char_length(${t.description}) <= 20000`),
+  ],
+);
+
+export const attractionStatus = pgEnum("attraction_status", ATTRACTION_STATUSES);
+export const attractionActivityType = pgEnum("attraction_activity_type", ACTIVITY_TYPES);
+
+/** CRM: potential partner attractions. */
+export const attractions = pgTable(
+  "attractions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    city: text("city"),
+    country: text("country"),
+    website: text("website"),
+    email: text("email"),
+    contactName: text("contact_name"),
+    status: attractionStatus("status").notNull().default("new"),
+    ownerId: uuid("owner_id"),
+    notes: text("notes").notNull().default(""),
+    /** Calendar day (no time zone). */
+    nextFollowUp: date("next_follow_up", { mode: "string" }),
+    /** Denormalized: latest call / e-mail / meeting activity. */
+    lastContactAt: timestamp("last_contact_at", { withTimezone: true }),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => profiles.id),
+    ...timestamps,
+  },
+  (t) => [
+    unique("attractions_workspace_id_id_uq").on(t.workspaceId, t.id),
+    foreignKey({
+      name: "attractions_owner_fk",
+      columns: [t.workspaceId, t.ownerId],
+      foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.userId],
+    }),
+    index("attractions_workspace_idx").on(t.workspaceId),
+    check("attractions_name_len", sql`char_length(${t.name}) between 1 and 200`),
+    check(
+      "attractions_short_text_len",
+      sql`coalesce(char_length(${t.city}), 0) <= 200 and coalesce(char_length(${t.country}), 0) <= 200
+        and coalesce(char_length(${t.contactName}), 0) <= 200 and coalesce(char_length(${t.email}), 0) <= 2048`,
+    ),
+    check("attractions_website_web", sql`${t.website} is null or (${t.website} ~* '^https?://' and char_length(${t.website}) <= 2048)`),
+    check("attractions_notes_len", sql`char_length(${t.notes}) <= 20000`),
+  ],
+);
+
+/**
+ * Activity timeline of an attraction. System entries (created, status/owner/
+ * follow-up changes) are written by the service in the same transaction as
+ * the change and are immutable (trigger); manual entries can be edited.
+ */
+export const attractionActivities = pgTable(
+  "attraction_activities",
+  {
+    /** Client-generated for manual entries: makes retries idempotent. */
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    attractionId: uuid("attraction_id").notNull(),
+    type: attractionActivityType("type").notNull(),
+    description: text("description").notNull().default(""),
+    /** System entries: { from, to } (status keys, user ids or calendar days). */
+    metadata: jsonb("metadata").$type<ActivityMetadata>().notNull().default({}),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => profiles.id),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (t) => [
+    foreignKey({
+      name: "attraction_activities_attraction_fk",
+      columns: [t.workspaceId, t.attractionId],
+      foreignColumns: [attractions.workspaceId, attractions.id],
+    }).onDelete("cascade"),
+    index("attraction_activities_timeline_idx").on(t.attractionId, t.occurredAt),
+    check("attraction_activities_description_len", sql`char_length(${t.description}) <= 5000`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Chat
 // ---------------------------------------------------------------------------
 
@@ -469,6 +619,10 @@ export type Project = typeof projects.$inferSelect;
 export type ProjectGroup = typeof projectGroups.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type TaskLink = typeof taskLinks.$inferSelect;
+export type PersonalTodo = typeof personalTodos.$inferSelect;
+export type Idea = typeof ideas.$inferSelect;
+export type Attraction = typeof attractions.$inferSelect;
+export type AttractionActivity = typeof attractionActivities.$inferSelect;
 export type TaskStatus = (typeof taskStatus.enumValues)[number];
 export type MemberRole = (typeof memberRole.enumValues)[number];
 export type Conversation = typeof conversations.$inferSelect;
