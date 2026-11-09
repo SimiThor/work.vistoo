@@ -4,18 +4,17 @@ import { AttractionsView } from "@/components/crm/attractions-view";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPeopleForViewer, getViewer } from "@/server/queries";
 import { listAttractions } from "@vistoo/backend/services/crm";
+import { PageShell } from "@/components/page-shell";
 
 export const metadata: Metadata = { title: "CRM · Attraktionen" };
 
 export default function CrmPage() {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
-        <Suspense fallback={<CrmSkeleton />}>
-          <Crm />
-        </Suspense>
-      </div>
-    </div>
+    <PageShell>
+      <Suspense fallback={<CrmSkeleton />}>
+        <Crm />
+      </Suspense>
+    </PageShell>
   );
 }
 

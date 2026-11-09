@@ -306,9 +306,11 @@ test("CRM: search, filters, overdue follow-ups and delete with confirmation", as
   await expect(page.getByRole("row", { name: /Eisriesenwelt/ })).toContainText("15. Jan. 2020");
   await page.getByRole("button", { name: /Überfällig/ }).click();
 
-  await choose(page, page.getByRole("combobox", { name: "Nach Status filtern" }), "Interessiert");
+  await page.getByRole("button", { name: /^Status:/ }).click();
+  await page.getByRole("menuitemradio", { name: "Interessiert" }).click();
   await expect(page.getByRole("row")).toHaveCount(2);
-  await choose(page, page.getByRole("combobox", { name: "Nach Status filtern" }), "Alle Status");
+  await page.getByRole("button", { name: /^Status:/ }).click();
+  await page.getByRole("menuitemradio", { name: "Alle Status" }).click();
 
   await page.getByRole("button", { name: "Eisriesenwelt" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Löschen" }).click();

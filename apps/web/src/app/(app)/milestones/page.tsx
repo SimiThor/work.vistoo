@@ -3,18 +3,17 @@ import { Suspense } from "react";
 import { MilestoneList } from "@/components/milestones/milestone-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMilestonesForViewer } from "@/server/queries";
+import { PageShell } from "@/components/page-shell";
 
 export const metadata: Metadata = { title: "Meilensteine" };
 
 export default function MilestonesPage() {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-6">
-        <Suspense fallback={<MilestonesSkeleton />}>
-          <Milestones />
-        </Suspense>
-      </div>
-    </div>
+    <PageShell>
+      <Suspense fallback={<MilestonesSkeleton />}>
+        <Milestones />
+      </Suspense>
+    </PageShell>
   );
 }
 

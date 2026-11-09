@@ -1,42 +1,36 @@
 "use client";
 
-import { Plus, Scale } from "lucide-react";
+import { ArrowDownUp, Plus, Scale, UserRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createDecisionAction, listDecisionsAction } from "@/app/actions/decisions";
 import { MemberAvatar } from "@/components/member-avatar";
 import { peopleMap } from "@/components/member-select";
+import { ListToolbar, ToolbarReset, ToolbarSelect, toolbarButtonClass } from "@/components/list-toolbar";
 import { SearchField } from "@/components/search-field";
 import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { displayName, type MemberDTO } from "@vistoo/domain";
 import { formatInstantDate, formatShortDate } from "@vistoo/domain/dates";
 import {
   DECISION_LIMITS,
-  DECISION_SORT_LABEL,
-  DECISION_SORTS,
-  DECISION_STATUS_LABEL,
   DECISION_TYPE_LABEL,
   DECISION_TYPES,
-  isStatusOfType,
-  STATUSES_BY_TYPE,
   type DecisionSort,
   type DecisionStatus,
   type DecisionSummaryDTO,
   type DecisionType,
 } from "@vistoo/domain/decisions";
 import { DecisionPanel } from "./decision-panel";
-import { StatusBadge, StatusDot, TYPE_ICON, TypeIcon } from "./decision-status";
+import { StatusBadge, TYPE_ICON, TypeIcon } from "./decision-status";
 
 const ALL = "__all__";
 const UNASSIGNED = "none";
 
 type Filters = { query: string; type: DecisionType | null; status: DecisionStatus | null; assignee: string | null; sort: DecisionSort };
-const DEFAULT_FILTERS: Filters = { query: "", type: null, status: null, assignee: null, sort: "updated" };
+const DEFAULT_FILTERS: Filters = { query: "", type: null, status: null, assignee: null, sort: "created" };
 
-const activeFilterClass = "border-accent-blue/40 bg-accent-blue-soft text-accent-blue-text";
 
 function compareBy(sort: DecisionSort) {
   return (a: DecisionSummaryDTO, b: DecisionSummaryDTO) =>
@@ -136,7 +130,6 @@ export function DecisionsView({
       });
   };
 
-  const statusGroups = filters.type ? [filters.type] : DECISION_TYPES;
 
   return (
     <div>
@@ -147,86 +140,55 @@ export function DecisionsView({
 
       <QuickCapture onCreated={onCreated} />
 
-      <div className="mt-5 flex flex-col gap-2 lg:flex-row lg:items-center">
-        <div className="lg:w-72 lg:shrink-0 md:[&>div]:w-full">
+      <ListToolbar
+        className="mt-5"
+        label="Entscheidungen filtern"
+        search={
           <SearchField
             value={filters.query}
             onChange={(query) => update({ query })}
             label="Entscheidungen durchsuchen"
-            placeholder="Suchen – z. B. Hosting, LangChain …"
           />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Segmented
-            label="Typ"
-            value={filters.type ?? ALL}
-            onChange={(v) => {
-              const type = v === ALL ? null : (v as DecisionType);
-              update({ type, status: type && filters.status && !isStatusOfType(type, filters.status) ? null : filters.status });
-            }}
-            options={[
-              { value: ALL, label: "Alle" },
-              ...DECISION_TYPES.map((t) => {
-                const Icon = TYPE_ICON[t];
-                return { value: t, label: TYPE_PLURAL[t], icon: <Icon className="size-3.5" aria-hidden /> };
-              }),
-            ]}
-          />
-          <Select value={filters.status ?? ALL} onValueChange={(v) => update({ status: v === ALL ? null : (v as DecisionStatus) })}>
-            <SelectTrigger size="sm" aria-label="Nach Status filtern" className={cn("rounded-full", filters.status && activeFilterClass)}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Alle Status</SelectItem>
-              {statusGroups.map((t) => (
-                <SelectGroup key={t}>
-                  {statusGroups.length > 1 && <SelectLabel>{DECISION_TYPE_LABEL[t]}</SelectLabel>}
-                  {STATUSES_BY_TYPE[t].map((s) => (
-                    <SelectItem key={s} value={s}>
-                      <StatusDot status={s} />
-                      {DECISION_STATUS_LABEL[s]}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filters.assignee ?? ALL} onValueChange={(v) => update({ assignee: v === ALL ? null : v })}>
-            <SelectTrigger size="sm" aria-label="Nach Verantwortlichen filtern" className={cn("rounded-full", filters.assignee && activeFilterClass)}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Alle Personen</SelectItem>
-              <SelectItem value={meId}>Mir zugewiesen</SelectItem>
-              {members
-                .filter((m) => m.userId !== meId)
-                .map((m) => (
-                  <SelectItem key={m.userId} value={m.userId}>
-                    {displayName(m)}
-                  </SelectItem>
-                ))}
-              <SelectItem value={UNASSIGNED}>Nicht zugewiesen</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filters.sort} onValueChange={(v) => update({ sort: v as DecisionSort })}>
-            <SelectTrigger size="sm" aria-label="Sortierung" className="rounded-full border-transparent text-muted-foreground shadow-none">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="end">
-              {DECISION_SORTS.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {DECISION_SORT_LABEL[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {filtered && (
-            <Button variant="ghost" size="sm" className="h-7 text-muted-foreground" onClick={() => setFilters({ ...DEFAULT_FILTERS, sort: filters.sort })}>
-              Zurücksetzen
-            </Button>
-          )}
-        </div>
-      </div>
+        }
+      >
+        <Segmented
+          label="Typ"
+          value={filters.type ?? ALL}
+          onChange={(v) => update({ type: v === ALL ? null : (v as DecisionType) })}
+          options={[
+            { value: ALL, label: "Alle" },
+            ...DECISION_TYPES.map((t) => {
+              const Icon = TYPE_ICON[t];
+              return { value: t, label: TYPE_PLURAL[t], icon: <Icon className="size-3.5" aria-hidden /> };
+            }),
+          ]}
+        />
+        <ToolbarSelect
+          label="Verantwortlich"
+          icon={<UserRound aria-hidden />}
+          value={filters.assignee ?? ALL}
+          defaultValue={ALL}
+          defaultLabel="Person"
+          onChange={(v) => update({ assignee: v === ALL ? null : v })}
+          options={[
+            { value: ALL, label: "Alle Personen" },
+            { value: meId, label: "Mir zugewiesen" },
+            ...members.filter((m) => m.userId !== meId).map((m) => ({ value: m.userId, label: displayName(m) })),
+            { value: UNASSIGNED, label: "Nicht zugewiesen" },
+          ]}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          className={toolbarButtonClass()}
+          onClick={() => update({ sort: filters.sort === "created_asc" ? "created" : "created_asc" })}
+          aria-label={filters.sort === "created_asc" ? "Sortiert: älteste zuerst. Umschalten" : "Sortiert: neueste zuerst. Umschalten"}
+        >
+          <ArrowDownUp aria-hidden />
+          {filters.sort === "created_asc" ? "Älteste" : "Neueste"}
+        </Button>
+        {filtered && <ToolbarReset onClick={() => setFilters({ ...DEFAULT_FILTERS, sort: filters.sort })} />}
+      </ListToolbar>
 
       <div aria-busy={loading} className={cn("transition-opacity", loading && "opacity-60")}>
         {items.length === 0 ? (

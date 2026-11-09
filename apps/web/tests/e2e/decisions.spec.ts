@@ -151,8 +151,6 @@ test("everyone in the workspace finds it: search and filters", async () => {
   await expect(row(page, LANGCHAIN)).toBeVisible();
   await expect(row(page, HOSTING)).toHaveCount(0);
   await page.getByRole("button", { name: "Zurücksetzen" }).filter({ visible: true }).click();
-  await choose(page, page.getByRole("combobox", { name: "Nach Status filtern" }).filter({ visible: true }), "Ersetzt");
-  await expect(table(page).getByRole("row")).toHaveCount(2);
   await expect(row(page, HOSTING)).toBeVisible();
 });
 

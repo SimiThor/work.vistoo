@@ -177,31 +177,28 @@ export function WorkView({
             Dieses Projekt ist archiviert und schreibgeschützt.
           </p>
         )}
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-          <FilterBar filters={filters} onChange={update} />
-          <div className="flex shrink-0 items-center gap-2">
+        <FilterBar filters={filters} onChange={update}>
+          <Segmented
+            label="Ansicht"
+            value={url.view}
+            onChange={setView}
+            options={[
+              { value: "board", label: "Board", icon: <Columns3 className="size-3.5" aria-hidden /> },
+              { value: "timeline", label: "Timeline", icon: <GanttChart className="size-3.5" aria-hidden /> },
+            ]}
+          />
+          {url.view === "timeline" && (
             <Segmented
-              label="Ansicht"
-              value={url.view}
-              onChange={setView}
+              label="Zeitskala"
+              value={url.scale}
+              onChange={(scale) => update({ scale })}
               options={[
-                { value: "board", label: "Board", icon: <Columns3 className="size-3.5" aria-hidden /> },
-                { value: "timeline", label: "Timeline", icon: <GanttChart className="size-3.5" aria-hidden /> },
+                { value: "day", label: "Tage" },
+                { value: "week", label: "Wochen" },
               ]}
             />
-            {url.view === "timeline" && (
-              <Segmented
-                label="Zeitskala"
-                value={url.scale}
-                onChange={(scale) => update({ scale })}
-                options={[
-                  { value: "day", label: "Tage" },
-                  { value: "week", label: "Wochen" },
-                ]}
-              />
-            )}
-          </div>
-        </div>
+          )}
+        </FilterBar>
         {filtering && url.view === "board" && filtered.length > 0 && (
           <p className="text-xs text-muted-foreground">
             Gefilterte Ansicht: Beim Umsortieren wird eine Aufgabe zwischen die sichtbaren Nachbarn eingeordnet; ausgeblendete Aufgaben behalten ihre Position.

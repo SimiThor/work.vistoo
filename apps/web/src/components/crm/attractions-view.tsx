@@ -1,18 +1,18 @@
 "use client";
 
-import { ChevronRight, Landmark, Plus } from "lucide-react";
+import { AlarmClock, ArrowDownUp, ChevronRight, CircleDot, Landmark, Plus, UserRound } from "lucide-react";
 import { useId, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createAttractionAction, updateAttractionAction } from "@/app/actions/crm";
 import { FieldError, FormAlert } from "@/components/form-feedback";
 import { MemberAvatar } from "@/components/member-avatar";
 import { MemberSelect, peopleMap } from "@/components/member-select";
+import { ListToolbar, ToolbarSelect, ToolbarToggle } from "@/components/list-toolbar";
 import { SearchField } from "@/components/search-field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToday } from "@/lib/use-today";
 import { cn } from "@/lib/utils";
 import { displayName, type MemberDTO } from "@vistoo/domain";
@@ -145,64 +145,53 @@ export function AttractionsView({
         ))}
       </dl>
 
-      <div className="mt-5 flex flex-col gap-2 lg:flex-row lg:items-center">
-        <SearchField value={query} onChange={setQuery} label="Nach Name oder Standort suchen" placeholder="Name oder Standort …" />
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger size="sm" aria-label="Nach Status filtern" className={cn("rounded-full", status !== ALL && "border-accent-blue/40 bg-accent-blue-soft text-accent-blue-text")}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Alle Status</SelectItem>
-              {ATTRACTION_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: ATTRACTION_STATUS_COLOR[s] }} />
-                  {ATTRACTION_STATUS_LABEL[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={owner} onValueChange={setOwner}>
-            <SelectTrigger size="sm" aria-label="Nach Verantwortlichen filtern" className={cn("rounded-full", owner !== ALL && "border-accent-blue/40 bg-accent-blue-soft text-accent-blue-text")}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Alle Personen</SelectItem>
-              <SelectItem value={meId}>Mir zugewiesen</SelectItem>
-              {members
-                .filter((m) => m.userId !== meId)
-                .map((m) => (
-                  <SelectItem key={m.userId} value={m.userId}>
-                    {displayName(m)}
-                  </SelectItem>
-                ))}
-              <SelectItem value={UNASSIGNED}>Nicht zugewiesen</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            aria-pressed={overdueOnly}
-            onClick={() => setOverdueOnly((v) => !v)}
-            className={cn("h-7 rounded-full font-normal", overdueOnly && "border-destructive/30 bg-destructive/8 text-destructive hover:bg-destructive/10 hover:text-destructive")}
-          >
-            Überfällig{overdueCount > 0 && <span className="tabular-nums">· {overdueCount}</span>}
-          </Button>
-          <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
-            <SelectTrigger size="sm" aria-label="Sortierung" className="rounded-full border-transparent text-muted-foreground shadow-none">
-              <span className="text-muted-foreground">Sortieren:</span>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="end">
-              {(Object.keys(SORT_LABEL) as Sort[]).map((s) => (
-                <SelectItem key={s} value={s}>
-                  {SORT_LABEL[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <ListToolbar
+        className="mt-5"
+        label="Attraktionen filtern"
+        search={<SearchField value={query} onChange={setQuery} label="Nach Name oder Standort suchen" />}
+      >
+        <ToolbarSelect
+          label="Status"
+          icon={<CircleDot aria-hidden />}
+          value={status}
+          defaultValue={ALL}
+          defaultLabel="Status"
+          onChange={setStatus}
+          options={[
+            { value: ALL, label: "Alle Status" },
+            ...ATTRACTION_STATUSES.map((s) => ({
+              value: s,
+              label: ATTRACTION_STATUS_LABEL[s],
+              icon: <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: ATTRACTION_STATUS_COLOR[s] }} />,
+            })),
+          ]}
+        />
+        <ToolbarSelect
+          label="Verantwortlich"
+          icon={<UserRound aria-hidden />}
+          value={owner}
+          defaultValue={ALL}
+          defaultLabel="Person"
+          onChange={setOwner}
+          options={[
+            { value: ALL, label: "Alle Personen" },
+            { value: meId, label: "Mir zugewiesen" },
+            ...members.filter((m) => m.userId !== meId).map((m) => ({ value: m.userId, label: displayName(m) })),
+            { value: UNASSIGNED, label: "Nicht zugewiesen" },
+          ]}
+        />
+        <ToolbarToggle pressed={overdueOnly} onPressedChange={setOverdueOnly} tone="destructive" icon={<AlarmClock aria-hidden />}>
+          Überfällig{overdueCount > 0 && <span className="tabular-nums">· {overdueCount}</span>}
+        </ToolbarToggle>
+        <ToolbarSelect
+          label="Sortieren nach"
+          icon={<ArrowDownUp aria-hidden />}
+          value={sort}
+          highlight={false}
+          onChange={setSort}
+          options={(Object.keys(SORT_LABEL) as Sort[]).map((s) => ({ value: s, label: SORT_LABEL[s] }))}
+        />
+      </ListToolbar>
 
       {visible.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground" role="status">

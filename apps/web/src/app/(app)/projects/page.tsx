@@ -4,18 +4,17 @@ import { ProjectList } from "@/components/projects/project-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getProjectsForViewer, getViewer } from "@/server/queries";
 import { projectStats } from "@vistoo/backend/services/projects";
+import { PageShell } from "@/components/page-shell";
 
 export const metadata: Metadata = { title: "Projekte" };
 
 export default function ProjectsPage() {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-6">
-        <Suspense fallback={<ProjectsSkeleton />}>
-          <Projects />
-        </Suspense>
-      </div>
-    </div>
+    <PageShell>
+      <Suspense fallback={<ProjectsSkeleton />}>
+        <Projects />
+      </Suspense>
+    </PageShell>
   );
 }
 

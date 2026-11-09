@@ -6,18 +6,17 @@ import { getPeopleForViewer, getViewer } from "@/server/queries";
 import { listDecisions } from "@vistoo/backend/services/decisions";
 import { listDecisionsSchema } from "@vistoo/domain/decisions";
 import { uuid } from "@vistoo/domain/validation";
+import { PageShell } from "@/components/page-shell";
 
 export const metadata: Metadata = { title: "Entscheidungen" };
 
 export default function DecisionsPage({ searchParams }: PageProps<"/decisions">) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-6">
-        <Suspense fallback={<DecisionsSkeleton />}>
-          <Decisions searchParams={searchParams} />
-        </Suspense>
-      </div>
-    </div>
+    <PageShell>
+      <Suspense fallback={<DecisionsSkeleton />}>
+        <Decisions searchParams={searchParams} />
+      </Suspense>
+    </PageShell>
   );
 }
 
@@ -25,7 +24,7 @@ async function Decisions({ searchParams }: { searchParams: PageProps<"/decisions
   const { id } = await searchParams;
   const openId = typeof id === "string" && uuid.safeParse(id).success ? id : null;
   const { ctx, me } = await getViewer();
-  const [items, people] = await Promise.all([listDecisions(ctx, listDecisionsSchema.parse({})), getPeopleForViewer()]);
+  const [items, people] = await Promise.all([listDecisions(ctx, listDecisionsSchema.parse({ sort: "created" })), getPeopleForViewer()]);
   return (
     <DecisionsView
       initial={items}

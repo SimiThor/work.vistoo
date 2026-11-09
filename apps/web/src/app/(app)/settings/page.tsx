@@ -4,19 +4,18 @@ import { TeamView } from "@/components/team/team-view";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getViewer } from "@/server/queries";
 import { listTeam } from "@vistoo/backend/services/team";
+import { PageShell } from "@/components/page-shell";
 
 export const metadata: Metadata = { title: "Einstellungen" };
 
 /** Settings: team management and workspace links (rarely used, so not in the main navigation). */
 export default function SettingsPage() {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-6">
-        <Suspense fallback={<TeamSkeleton />}>
-          <Team />
-        </Suspense>
-      </div>
-    </div>
+    <PageShell>
+      <Suspense fallback={<TeamSkeleton />}>
+        <Team />
+      </Suspense>
+    </PageShell>
   );
 }
 

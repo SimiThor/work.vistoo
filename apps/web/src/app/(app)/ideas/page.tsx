@@ -5,18 +5,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getPeopleForViewer, getProjectsForViewer, getViewer } from "@/server/queries";
 import { listIdeas } from "@vistoo/backend/services/ideas";
 import { uuid } from "@vistoo/domain/validation";
+import { PageShell } from "@/components/page-shell";
 
 export const metadata: Metadata = { title: "Ideen" };
 
 export default function IdeasPage({ searchParams }: PageProps<"/ideas">) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-6">
-        <Suspense fallback={<IdeasSkeleton />}>
-          <Ideas searchParams={searchParams} />
-        </Suspense>
-      </div>
-    </div>
+    <PageShell>
+      <Suspense fallback={<IdeasSkeleton />}>
+        <Ideas searchParams={searchParams} />
+      </Suspense>
+    </PageShell>
   );
 }
 

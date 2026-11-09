@@ -4,18 +4,17 @@ import { TodoList } from "@/components/todos/todo-list";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getViewer } from "@/server/queries";
 import { listTodos } from "@vistoo/backend/services/todos";
+import { PageShell } from "@/components/page-shell";
 
 export const metadata: Metadata = { title: "Meine To-dos" };
 
 export default function TodosPage() {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-2xl px-4 py-5 sm:px-8 sm:py-6">
-        <Suspense fallback={<TodosSkeleton />}>
-          <Todos />
-        </Suspense>
-      </div>
-    </div>
+    <PageShell>
+      <Suspense fallback={<TodosSkeleton />}>
+        <Todos />
+      </Suspense>
+    </PageShell>
   );
 }
 

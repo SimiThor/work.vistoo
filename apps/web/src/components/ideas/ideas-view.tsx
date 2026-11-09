@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { createIdeaAction, updateIdeaAction } from "@/app/actions/ideas";
 import { MemberAvatar } from "@/components/member-avatar";
 import { peopleMap } from "@/components/member-select";
+import { ListToolbar, toolbarButtonClass } from "@/components/list-toolbar";
 import { SearchField } from "@/components/search-field";
 import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
@@ -76,22 +77,19 @@ export function IdeasView({
 
       <QuickAddIdea onCreated={upsert} />
 
-      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <SearchField value={query} onChange={setQuery} label="Ideen durchsuchen" />
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <Segmented label="Status" value={filter} onChange={setFilter} options={FILTERS} />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="shrink-0 text-muted-foreground"
-            onClick={() => setNewestFirst((v) => !v)}
-            aria-label={newestFirst ? "Sortiert: neueste zuerst. Umschalten" : "Sortiert: älteste zuerst. Umschalten"}
-          >
-            <ArrowDownUp aria-hidden />
-            {newestFirst ? "Neueste" : "Älteste"}
-          </Button>
-        </div>
-      </div>
+      <ListToolbar className="mt-5" label="Ideen filtern" search={<SearchField value={query} onChange={setQuery} label="Ideen durchsuchen" />}>
+        <Segmented label="Status" value={filter} onChange={setFilter} options={FILTERS} />
+        <Button
+          variant="ghost"
+          size="sm"
+          className={toolbarButtonClass()}
+          onClick={() => setNewestFirst((v) => !v)}
+          aria-label={newestFirst ? "Sortiert: neueste zuerst. Umschalten" : "Sortiert: älteste zuerst. Umschalten"}
+        >
+          <ArrowDownUp aria-hidden />
+          {newestFirst ? "Neueste" : "Älteste"}
+        </Button>
+      </ListToolbar>
 
       {visible.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground" role="status">

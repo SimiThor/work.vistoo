@@ -1,9 +1,11 @@
 "use client";
 
-import { Check, ChevronDown, Flag, Search, UserRound, X } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Check, Flag, FolderKanban, UserRound, UserRoundCheck } from "lucide-react";
+import { useMemo } from "react";
+import { ListToolbar, ToolbarChevron, ToolbarReset, ToolbarToggle, toolbarButtonClass } from "@/components/list-toolbar";
 import { MemberAvatar } from "@/components/member-avatar";
 import { ProjectDot } from "@/components/project-dot";
+import { SearchField } from "@/components/search-field";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -23,12 +25,14 @@ type Option = { value: string; label: string; icon?: React.ReactNode; group?: st
 
 function MultiSelectFilter({
   label,
+  icon,
   options,
   selected,
   onChange,
   searchable = false,
 }: {
   label: string;
+  icon: React.ReactNode;
   options: Option[];
   selected: string[];
   onChange: (next: string[]) => void;
@@ -48,21 +52,14 @@ function MultiSelectFilter({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn(
-            "h-8 shrink-0 gap-1 rounded-full px-3 font-normal",
-            active && "border-accent-blue/40 bg-accent-blue-soft text-accent-blue-text hover:bg-accent-blue-soft",
-          )}
-          aria-label={active ? `${label}: ${selected.length} ausgewählt` : label}
-        >
+        <Button variant="ghost" size="sm" className={toolbarButtonClass(active)} aria-label={active ? `${label}: ${selected.length} ausgewählt` : label}>
+          {icon}
           {label}
           {active && <span className="tabular-nums">· {selected.length}</span>}
-          <ChevronDown className="size-3.5 opacity-60" aria-hidden />
+          <ToolbarChevron />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-0">
+      <PopoverContent align="end" className="w-64 p-0">
         <Command>
           {searchable && <CommandInput placeholder={`${label} suchen …`} />}
           <CommandList>
@@ -108,59 +105,15 @@ function MultiSelectFilter({
   );
 }
 
-function SearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [local, setLocal] = useState(value);
-  const [lastValue, setLastValue] = useState(value);
-  if (value !== lastValue) {
-    // External change (reset, back/forward)
-    setLastValue(value);
-    setLocal(value);
-  }
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
-  const id = useId();
-  return (
-    <div className="relative w-full shrink-0 md:w-52">
-      <label htmlFor={id} className="sr-only">
-        Aufgaben nach Titel suchen
-      </label>
-      <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-      <input
-        id={id}
-        type="search"
-        value={local}
-        placeholder="Suchen …"
-        onChange={(e) => {
-          const v = e.target.value;
-          setLocal(v);
-          clearTimeout(timer.current);
-          timer.current = setTimeout(() => onChange(v), 200);
-        }}
-        className="h-8 w-full rounded-full border border-input bg-background pr-8 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/35 [&::-webkit-search-cancel-button]:hidden"
-      />
-      {local && (
-        <button
-          type="button"
-          onClick={() => {
-            setLocal("");
-            onChange("");
-          }}
-          className="absolute top-1/2 right-1.5 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
-          aria-label="Suche leeren"
-        >
-          <X className="size-3.5" aria-hidden />
-        </button>
-      )}
-    </div>
-  );
-}
-
 export function FilterBar({
   filters,
   onChange,
+  children,
 }: {
   filters: WorkUrlState;
   onChange: (patch: Partial<WorkUrlState>, mode?: "push" | "replace") => void;
+  /** View switches of the page, shown after the filters. */
+  children?: React.ReactNode;
 }) {
   const { scope, projects, milestones, members, me } = useWork();
   const activeProjects = projects.filter((p) => !p.archived);
@@ -195,59 +148,44 @@ export function FilterBar({
   const active = hasActiveFilters(filters);
 
   return (
-    <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center" role="search" aria-label="Aufgaben filtern">
-      <SearchField value={filters.q} onChange={(q) => onChange({ q }, "replace")} />
-      {/* Chips scroll horizontally inside this row on small screens */}
-      <div className="-mx-4 flex min-w-0 items-center gap-1.5 overflow-x-auto px-4 pb-0.5 sm:-mx-6 sm:px-6 md:mx-0 md:px-0 xl:flex-wrap xl:overflow-visible xl:pb-0">
-        <Button
-          variant="outline"
-          size="sm"
-          aria-pressed={mine}
-          onClick={() => onChange({ assignees: mine ? [] : [me.userId] })}
-          className={cn(
-            "h-8 shrink-0 rounded-full px-3 font-normal",
-            mine && "border-accent-blue/40 bg-accent-blue-soft text-accent-blue-text hover:bg-accent-blue-soft",
-          )}
-        >
-          Meine Aufgaben
-        </Button>
-        {scope.kind !== "project" && (
-          <MultiSelectFilter
-            label="Projekt"
-            options={projectOptions}
-            selected={filters.projects}
-            onChange={(v) => onChange({ projects: v })}
-            searchable={projectOptions.length > 6}
-          />
-        )}
-        {scope.kind !== "milestone" && (
-          <MultiSelectFilter
-            label="Meilenstein"
-            options={milestoneOptions}
-            selected={filters.milestones}
-            onChange={(v) => onChange({ milestones: v })}
-            searchable={milestoneOptions.length > 8}
-          />
-        )}
+    <ListToolbar
+      label="Aufgaben filtern"
+      search={<SearchField value={filters.q} onChange={(q) => onChange({ q }, "replace")} label="Aufgaben nach Titel suchen" debounceMs={200} />}
+    >
+      <ToolbarToggle pressed={mine} onPressedChange={(on) => onChange({ assignees: on ? [me.userId] : [] })} icon={<UserRoundCheck aria-hidden />}>
+        Meine Aufgaben
+      </ToolbarToggle>
+      {scope.kind !== "project" && (
         <MultiSelectFilter
-          label="Person"
-          options={assigneeOptions}
-          selected={filters.assignees}
-          onChange={(v) => onChange({ assignees: v })}
-          searchable={assigneeOptions.length > 8}
+          label="Projekt"
+          icon={<FolderKanban aria-hidden />}
+          options={projectOptions}
+          selected={filters.projects}
+          onChange={(v) => onChange({ projects: v })}
+          searchable={projectOptions.length > 6}
         />
-        {active && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 shrink-0 text-muted-foreground"
-            onClick={() => onChange(CLEARED_FILTERS)}
-          >
-            Filter zurücksetzen
-          </Button>
-        )}
-      </div>
-    </div>
+      )}
+      {scope.kind !== "milestone" && (
+        <MultiSelectFilter
+          label="Meilenstein"
+          icon={<Flag aria-hidden />}
+          options={milestoneOptions}
+          selected={filters.milestones}
+          onChange={(v) => onChange({ milestones: v })}
+          searchable={milestoneOptions.length > 8}
+        />
+      )}
+      <MultiSelectFilter
+        label="Person"
+        icon={<UserRound aria-hidden />}
+        options={assigneeOptions}
+        selected={filters.assignees}
+        onChange={(v) => onChange({ assignees: v })}
+        searchable={assigneeOptions.length > 8}
+      />
+      {active && <ToolbarReset onClick={() => onChange(CLEARED_FILTERS)} />}
+      {children && <div className="ml-1 flex shrink-0 items-center gap-2">{children}</div>}
+    </ListToolbar>
   );
 }
 
