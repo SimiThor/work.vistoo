@@ -25,6 +25,8 @@ public enum Tokens {
     public static let accentBlueSoft = Color(hex: 0xE8F1FC)
     /// Accent as text on white (6.6:1)
     public static let accentBlueText = Color(hex: 0x0058B0)
+    /// Logo accent (navy stroke of the V); only for the brand mark
+    public static let brand = Color(hex: 0x1E185C)
     /// Status icon colour; text stays neutral
     public static let statusOpen = Color(hex: 0x8E8E93)
     public static let statusProgress = Color(hex: 0x0071E3)

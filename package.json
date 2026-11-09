@@ -16,7 +16,7 @@
     "test:backend": "npm run test -w @vistoo/backend",
     "test:e2e": "npm run test:e2e -w @vistoo/web",
     "generate": "npm run generate -w @vistoo/contracts && npm run generate -w @vistoo/design-tokens",
-    "generate:check": "npm run generate && git diff --exit-code -- packages/contracts/generated apps/ios/Packages/VistooKit/Sources/VistooCore/Generated apps/ios/Packages/VistooKit/Sources/VistooUI/Generated apps/web/src/app/tokens.generated.css",
+    "generate:check": "npm run generate && git diff --exit-code -- packages/contracts/generated apps/ios/Packages/VistooKit/Sources/VistooCore/Generated apps/ios/Packages/VistooKit/Sources/VistooUI/Generated apps/android/app/src/main/java/de/vistoo/work/core/generated apps/android/app/src/main/java/de/vistoo/work/ui/generated apps/web/src/app/tokens.generated.css",
     "db:generate": "npm run db:generate -w @vistoo/database --",
     "db:migrate": "npm run db:migrate -w @vistoo/database",
     "db:seed": "npm run db:seed -w @vistoo/database",
@@ -26,6 +26,9 @@
     "ios:generate-project": "cd apps/ios && xcodegen generate",
     "ios:test-kit": "sh apps/ios/scripts/test-kit.sh",
     "ios:testflight": "sh apps/ios/scripts/testflight.sh",
+    "android:build": "cd apps/android && ./gradlew :app:assembleDebug",
+    "android:test": "cd apps/android && ./gradlew :app:testDebugUnitTest :app:lintDebug",
+    "android:install": "cd apps/android && adb reverse tcp:3100 tcp:3100 && adb reverse tcp:54321 tcp:54321 && ./gradlew :app:installDebug",
     "check": "npm run generate:check && npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "devDependencies": {

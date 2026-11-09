@@ -14,3 +14,13 @@ extension Member: Identifiable {
 extension ChatPerson: Identifiable {
     public var id: String { userId }
 }
+extension Todo: Identifiable {}
+extension Idea: Identifiable {}
+extension Attraction: Identifiable {}
+extension Activity: Identifiable {}
+extension Milestone: Identifiable {}
+extension DecisionSummary: Identifiable {}
+extension DecisionRef: Identifiable {}
+extension DecisionLink: Identifiable {}
+extension DecisionRelation: Identifiable {}
+extension DecisionHistory: Identifiable {}

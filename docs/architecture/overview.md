@@ -21,6 +21,7 @@
 | `packages/contracts` | Vertrag der HTTP-API v1 (`endpoints.ts`) → `generated/openapi.json` + Swift-Code; gemeinsame Konformitäts-Fixtures | Logik enthalten |
 | `packages/design-tokens` | Farben, Radien, Abstände, Schatten, Typo-Rollen mit expliziten Plattform-Overrides → CSS + Swift | – |
 | `apps/web` | Web-UI, Server Actions und Route Handler als **dünne Adapter** (Cookie-Session → Services), Vercel-Konfiguration | Fachregeln implementieren, die iOS nicht hat |
+| `apps/android` | Native UI (Compose), Client-Zustand, Auth/Keystore, Realtime, Lebenszyklus – Aufbau und Regeln wie iOS ([apps/android/AGENTS.md](../../apps/android/AGENTS.md)) | wie `apps/ios` |
 | `apps/ios` | Native UI (`VistooUI`), Client-Zustand, Auth/Keychain, Realtime, Lebenszyklus (`VistooCore`), App-Target | Datenbank direkt ansprechen, Migrationen, Service-Role-Schlüssel, eigene Berechtigungsregeln |
 
 ## Datenflüsse

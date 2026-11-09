@@ -55,4 +55,4 @@ Jeder Merge auf `main`, der die App betrifft, landet automatisch in TestFlight (
 
 ## App-Icon
 
-`VistooWork/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` wird aus der Logo-Geometrie des Webs erzeugt: `swift scripts/render-app-icon.swift <ziel.png>`.
+`VistooWork/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` wird aus denselben Logo-Pfaden erzeugt wie Web (`apps/web/src/components/brand.tsx`) und App (`VistooUI/Components/Brand.swift`): `swift scripts/render-app-icon.swift <ziel.png>`.

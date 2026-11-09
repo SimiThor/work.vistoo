@@ -131,7 +131,7 @@ export function buildOpenApiDocument(): Json {
       ].join("\n"),
     },
     servers: [{ url: API_BASE_PATH }],
-    tags: ["Meta", "Session", "Tasks", "Projects", "Milestones", "Team", "Chat", "Files"].map((name) => ({ name })),
+    tags: ["Meta", "Session", "Tasks", "Projects", "Milestones", "Todos", "Ideas", "CRM", "Decisions", "Team", "Chat", "Files"].map((name) => ({ name })),
     paths: Object.fromEntries(Object.entries(paths).sort(([a], [b]) => a.localeCompare(b))),
     components: {
       securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" } },

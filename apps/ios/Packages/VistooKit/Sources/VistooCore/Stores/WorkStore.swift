@@ -147,6 +147,7 @@ public final class WorkStore {
         public var description: String = ""
         public var status: TaskStatus = .open
         public var assigneeId: String?
+        public var milestoneId: String?
         public var startDate: CalendarDate?
         public var endDate: CalendarDate?
 
@@ -164,6 +165,7 @@ public final class WorkStore {
             title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines),
             description: draft.description,
             status: draft.status,
+            milestoneId: Patchable(draft.milestoneId),
             assigneeId: Patchable(draft.assigneeId),
             startDate: Patchable(draft.startDate),
             endDate: Patchable(draft.endDate)

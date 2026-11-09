@@ -12,12 +12,14 @@ Packages/VistooKit/                 Swift-Paket (iOS 18, Swift 6, strikte Concur
     Auth/                           Supabase Auth, Session im Keychain
     Realtime/                       RealtimeHub (ein Workspace-Kanal + aktive Unterhaltung)
     Push/                           PushCenter: Erlaubnis, APNs-Token, Vordergrund-Darstellung, Antippen → DeepLink
-    Stores/                         AppModel → SessionModel → WorkStore, ChatStore/ConversationModel, TeamStore (@MainActor @Observable)
+    Stores/                         AppModel → SessionModel → WorkStore, ChatStore/ConversationModel, TeamStore, TodoStore, MilestoneStore, IdeaStore, DecisionStore, CRMStore (@MainActor @Observable)
     Support/                        CalendarDate, ISO8601, Dateien, Netzwerkstatus, Konfiguration
   Sources/VistooUI/
     Generated/DesignTokens.swift    ← npm run generate. NICHT editieren.
     App/ Home/ Auth/ Tasks/ Projects/ Chat/ Team/ Settings/ Components/
-                                    Home = Start-Tab „Für mich“; Tasks/TaskActions = Swipe/Kontextmenü für alle Aufgabenlisten
+    Todos/ Milestones/ Ideas/ Decisions/ CRM/ More/
+                                    Home = Start-Tab „Für mich“ (inkl. „Meine To-dos“); Tasks/TaskActions = Swipe/Kontextmenü für alle Aufgabenlisten;
+                                    More = Tab „Mehr“, Ziele über `AreaRoute` (Components/AreaComponents.swift)
   Tests/VistooCoreTests/            Unit-Tests (u. a. gemeinsame Fixtures aus packages/contracts/fixtures)
 VistooWork/                         App-Target: @main + AppDelegate (nur APNs-Token), Info.plist, Entitlements (Push, Associated Domains), Assets, Privacy Manifest
 VistooWorkUITests/                  UI-Smoke-Tests

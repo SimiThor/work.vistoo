@@ -71,3 +71,154 @@ public enum DomainDefaults {
         Limits.AllowedFileType(label: "PowerPoint", extensions: ["pptx"], mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
     ]
 }
+
+extension IdeaStatus {
+    /// German label, identical to the web app.
+    public var label: String {
+        switch self {
+        case .new: return "Neu"
+        case .planned: return "Geplant"
+        case .irrelevant: return "Irrelevant"
+        case .unknown(let raw): return raw
+        }
+    }
+}
+
+extension AttractionStatus {
+    /// German label, identical to the web app.
+    public var label: String {
+        switch self {
+        case .new: return "Neu"
+        case .contacted: return "Kontaktiert"
+        case .interested: return "Interessiert"
+        case .inDiscussion: return "Im Gespräch"
+        case .partner: return "Partner"
+        case .notInterested: return "Kein Interesse"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    /// Muted dot colour (same as the web).
+    public var hex: UInt32 {
+        switch self {
+        case .new: return 0x8E8E93
+        case .contacted: return 0x4A7FD4
+        case .interested: return 0xC49A3A
+        case .inDiscussion: return 0x8A6CC4
+        case .partner: return 0x4F9A5C
+        case .notInterested: return 0xC95353
+        case .unknown: return 0x8E8E93
+        }
+    }
+}
+
+extension DecisionType {
+    /// German label, identical to the web app.
+    public var label: String {
+        switch self {
+        case .decision: return "Entscheidung"
+        case .experiment: return "Experiment"
+        case .unknown(let raw): return raw
+        }
+    }
+}
+
+extension DecisionStatus {
+    /// German label, identical to the web app.
+    public var label: String {
+        switch self {
+        case .open: return "Offen"
+        case .inDiscussion: return "In Diskussion"
+        case .decided: return "Entschieden"
+        case .superseded: return "Ersetzt"
+        case .planned: return "Geplant"
+        case .testing: return "Im Test"
+        case .adopted: return "Übernommen"
+        case .rejected: return "Verworfen"
+        case .inconclusive: return "Ohne klares Ergebnis"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    /// Muted dot colour (same as the web).
+    public var hex: UInt32 {
+        switch self {
+        case .open: return 0x8E8E93
+        case .inDiscussion: return 0xC49A3A
+        case .decided: return 0x4F9A5C
+        case .superseded: return 0xA3A3A8
+        case .planned: return 0x8E8E93
+        case .testing: return 0x4A7FD4
+        case .adopted: return 0x4F9A5C
+        case .rejected: return 0xC4554D
+        case .inconclusive: return 0x9B7FC4
+        case .unknown: return 0x8E8E93
+        }
+    }
+}
+
+extension DecisionSort {
+    /// German label, identical to the web app.
+    public var label: String {
+        switch self {
+        case .updated: return "Zuletzt geändert"
+        case .created: return "Zuletzt erstellt"
+        case .createdAsc: return "Älteste zuerst"
+        case .unknown(let raw): return raw
+        }
+    }
+}
+
+extension DecisionType {
+    /// Status set of this type, in workflow order.
+    public var statuses: [DecisionStatus] {
+        switch self {
+        case .decision: return [.open, .inDiscussion, .decided, .superseded]
+        case .experiment: return [.planned, .testing, .adopted, .rejected, .inconclusive]
+        case .unknown: return []
+        }
+    }
+
+    /// Long-form fields this type shows (keys of `Decision`).
+    public var textFields: [String] {
+        switch self {
+        case .decision: return ["description", "optionsConsidered", "outcome", "reasoning"]
+        case .experiment: return ["description", "results"]
+        case .unknown: return []
+        }
+    }
+}
+
+extension DecisionStatus {
+    /// Concluded entries need a documented result (enforced by the server).
+    public var isConcluded: Bool {
+        switch self {
+        case .decided, .superseded, .adopted, .rejected, .inconclusive: return true
+        default: return false
+        }
+    }
+}
+
+/// Manual CRM timeline entries (the other activity types are written by the server).
+public enum ManualActivity {
+    public static let types: [ActivityType] = [.call, .email, .meeting, .note]
+    /// Count as "Letzter Kontakt".
+    public static let contactTypes: [ActivityType] = [.call, .email, .meeting]
+    public static func label(_ type: ActivityType) -> String? {
+        switch type {
+        case .call: return "Anruf"
+        case .email: return "E-Mail"
+        case .meeting: return "Meeting"
+        case .note: return "Notiz"
+        default: return nil
+        }
+    }
+}
+
+public enum TodoDefaults {
+    public static let maxPerUser = 500
+}
+
+public enum CRMDefaults {
+    public static let activityMaxLength = 5000
+}

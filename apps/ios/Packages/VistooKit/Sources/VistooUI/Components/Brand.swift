@@ -1,0 +1,90 @@
+import SwiftUI
+
+// Vistoo logo: a "V" from a black and a navy stroke, followed by "istoo".
+// Same vector paths as the web (apps/web/src/components/brand.tsx).
+
+enum BrandPaths {
+    /// Mark coordinates (1024×1024 icon space).
+    static let markBlack = "M164.2 265C161.7 260.7 161.7 255.4 164.2 251C166.7 246.7 171.3 244 176.3 244L313 244C327.2 244 340.4 251.6 347.6 263.9L572.7 652.2C578.4 661.9 578.1 673.9 572.1 683.4L516 771.1C509.6 781.1 498.5 787 486.7 786.7C474.8 786.5 463.9 780.1 458 769.8Z"
+    static let markNavy = "M653.4 268.2C662.5 253.2 678.7 244 696.2 244L840.8 244C845.9 244 850.6 246.8 853 251.2C855.5 255.7 855.4 261.1 852.7 265.4L700.8 509.2C693.5 520.9 680.7 528 666.9 528L588.7 528C569.9 528 552.6 517.9 543.4 501.6C534.2 485.2 534.5 465.2 544.2 449.1Z"
+    /// Letters "istoo" in wordmark coordinates (viewBox 40 42 792 212).
+    static let letters = "M596.9 249.7C589.6 249.1 580.7 247 574.5 244.3C546.3 232.2 530 206.9 530 175.2C530 171 530.4 165.3 530.9 162.2C533.8 144.8 540.1 132.3 552.3 120C560.6 111.5 572.7 104.8 585.2 101.6C591.4 100.1 600.7 99.4 606.5 100C621.5 101.6 627.7 103.3 638.5 108.8C647.1 113.1 659.4 124 663.9 131.4C681.5 159.6 680.8 195.2 662.3 221.1C652.6 234.6 634.6 245.6 617 248.8C612.3 249.6 601.5 250.1 596.9 249.7ZM746 249.6C726.6 247.5 711 239.3 699.1 225C688.1 211.8 682.7 198.5 681.4 181.2C679.8 161.1 685.1 143.2 697.7 126.3C705.4 115.9 718.5 107.1 732.8 102.5C741.9 99.7 758.5 99.2 769.5 101.5C777.6 103.2 788.1 107.6 794 111.7C804.5 119 807.9 122 812.2 128.1C813.3 129.7 815.1 132.1 816.2 133.4C819.7 137.6 823.7 145.5 825.5 152C831 171.3 829.6 189.9 821.6 207.9C819.4 212.8 810.3 225.4 806.2 229.1C795.1 239.4 782.2 246.2 769.6 248.3C760.8 249.9 752.5 250.3 746 249.6ZM363.2 249.2C350.7 247.9 337.5 243.3 328 236.9C322.3 233 320.9 231.9 317.3 228.1C311.7 222.2 311.7 221.5 316.6 215.2C317.9 213.7 319.8 211.2 320.8 209.7C321.9 208.3 323.5 206.2 324.4 205.2C325.2 204.1 326.3 202.8 326.8 202.1C328.5 199.6 330.2 199.5 333 202.1C344.1 212.5 358.1 218.5 371.2 218.5C383.2 218.6 390 216 393.9 210.2C399 202.4 394.9 195.2 383.4 191.6C381.7 191.1 378.8 190.2 376.9 189.6C372.6 188.3 371.4 188 362 185.6C343.4 180.9 333.8 176.3 326.6 169C321.3 163.4 318.6 158.5 317 151.1C314.8 140.8 317.3 127.8 323 120.3C331.2 109.6 345 102.4 360.9 100.5C372.4 99.2 378 99.4 390.5 101.8C400.3 103.6 413.4 109.7 420.9 115.9C425.9 120 425.8 120.5 416.8 134.5C410.9 143.7 410.4 144 406.7 141.3C394.5 132.3 378.6 127.4 366.4 128.9C354.8 130.2 348 138 351.7 145.8C354 150.8 357.8 152.3 384.9 158.8C397.8 162 407.3 165.5 413 169.3C426.2 178.1 432.8 194.3 429.5 210.2C427 222.3 422 230.2 411.8 237.8C399.9 246.8 381.4 251.2 363.2 249.2ZM492.5 249.6C479.5 248.2 469.3 243.6 461.1 235.4C450.4 224.7 445.2 211.5 444.5 193.4C444.1 183.1 444.2 68.8 444.6 67.7C445.7 64.7 445.5 64.7 461.2 64.7C475.6 64.6 475.4 64.6 476.8 66C478.6 67.6 478.5 66.6 478.5 85.5C478.5 102.5 478.5 102.5 479.1 102.9C479.7 103.4 480.4 103.4 498.5 103.5C522.3 103.5 521.9 103.5 523.3 105.9C524.1 107.3 524.4 128 523.5 129.7C522.1 132.4 523.4 132.3 500.2 132.4C478.4 132.5 479.1 132.5 478.7 133.3C478.2 134.2 478.4 197.3 478.9 200.6C480.2 209 486.8 216.2 494.6 217.8C501 219.1 507.8 217.6 514.4 213.5C520.3 209.8 521.1 210.5 528.2 225.6C528.9 227.1 530.1 229.6 530.9 231C533.3 235.7 532.6 236.9 524.5 242.1C515.7 247.7 503 250.7 492.5 249.6ZM264.9 248C262.9 247.6 261.5 246.2 261 244.5C260.8 243.9 260.8 237.1 260.8 225.1C260.8 214.9 260.8 184.1 260.8 156.7C260.7 106.7 260.7 106.7 261.3 105.5C262.4 103.3 261.8 103.4 278.1 103.5C294.1 103.5 293.7 103.5 295.1 105.4C295.8 106.2 295.9 106.5 296.1 109.5C296.4 114.8 296.1 244.2 295.8 245.1C295.3 246.4 294 247.5 292.6 247.9C291.3 248.3 266.4 248.4 264.9 248ZM607.9 217C618.5 215.6 628.7 209.4 634.2 201.2C639.2 193.7 641.3 188.5 642.1 180.9C645.4 152.5 626.9 130 601.4 131.3C594.2 131.7 585.5 134.7 580.9 138.4C572.5 145.1 567.4 153.2 564.9 164.2C563 172.5 563.2 178.3 565.8 188.4C567.3 194.5 572 202.4 576.6 206.5C585.6 214.6 597.2 218.4 607.9 217ZM762 216.5C785.9 211.5 799.1 186.2 791.7 159.9C789.4 151.6 780.6 140 774.1 136.6C763.4 131 752.4 129.8 742.4 133.2C724.1 139.2 712.5 159.5 715.3 180.9C717.8 200.7 731.4 214.7 750.5 217.1C752.7 217.4 759.4 217 762 216.5ZM273.8 86.7C265 84.9 258.7 77.2 258.1 67.6C257.7 61 259.4 56.5 264.4 51.6C272.3 43.6 285.2 44.1 293.7 52.7C301.2 60.3 299.8 77 291.2 82.8C286.3 86.1 278.8 87.8 273.8 86.7Z"
+
+    static let wordBox = CGRect(x: 40, y: 42, width: 792, height: 212)
+    /// Places the mark inside the wordmark.
+    static let markInWord = CGAffineTransform(translationX: 42, y: 97).scaledBy(x: 0.2757, y: 0.2757).translatedBy(x: -156, y: -244)
+}
+
+/// Absolute SVG path data (M, L, C, Z — what the logo paths use).
+struct SVGPathShape: Shape {
+    let data: String
+    let box: CGRect
+    var transform: CGAffineTransform = .identity
+
+    func path(in rect: CGRect) -> Path {
+        let scale = min(rect.width / box.width, rect.height / box.height)
+        let fit = CGAffineTransform(translationX: rect.midX - box.midX * scale, y: rect.midY - box.midY * scale).scaledBy(x: scale, y: scale)
+        return Self.parse(data).applying(transform.concatenating(fit))
+    }
+
+    static func parse(_ d: String) -> Path {
+        var path = Path()
+        var numbers: [CGFloat] = []
+        var command: Character = " "
+        func flush() {
+            switch command {
+            case "M" where numbers.count >= 2: path.move(to: CGPoint(x: numbers[0], y: numbers[1]))
+            case "L" where numbers.count >= 2: path.addLine(to: CGPoint(x: numbers[0], y: numbers[1]))
+            case "C" where numbers.count >= 6:
+                path.addCurve(
+                    to: CGPoint(x: numbers[4], y: numbers[5]),
+                    control1: CGPoint(x: numbers[0], y: numbers[1]),
+                    control2: CGPoint(x: numbers[2], y: numbers[3])
+                )
+            case "Z": path.closeSubpath()
+            default: break
+            }
+            numbers = []
+        }
+        var token = ""
+        for ch in d {
+            if "MLCZ".contains(ch) {
+                if let n = Double(token) { numbers.append(n) }
+                token = ""
+                flush()
+                command = ch
+            } else if ch == " " {
+                if let n = Double(token) { numbers.append(n) }
+                token = ""
+            } else {
+                token.append(ch)
+            }
+        }
+        if let n = Double(token) { numbers.append(n) }
+        flush()
+        return path
+    }
+}
+
+/// The full wordmark "Vistoo".
+struct BrandMark: View {
+    var height: CGFloat = 30
+    @ScaledMetric private var scale: CGFloat = 1
+
+    var body: some View {
+        let h = height * scale
+        ZStack {
+            SVGPathShape(data: BrandPaths.markBlack, box: BrandPaths.wordBox, transform: BrandPaths.markInWord)
+                .fill(Tokens.Palette.foreground)
+            SVGPathShape(data: BrandPaths.markNavy, box: BrandPaths.wordBox, transform: BrandPaths.markInWord)
+                .fill(Tokens.Palette.brand)
+            SVGPathShape(data: BrandPaths.letters, box: BrandPaths.wordBox)
+                .fill(Tokens.Palette.foreground, style: FillStyle(eoFill: true))
+        }
+        .frame(width: h * BrandPaths.wordBox.width / BrandPaths.wordBox.height, height: h)
+        .accessibilityElement()
+        .accessibilityLabel("Vistoo Work")
+        .accessibilityAddTraits(.isImage)
+    }
+}
+

@@ -5,11 +5,14 @@ import VistooCore
 @MainActor
 @Observable
 final class Navigator {
-    enum TabID: Hashable { case home, tasks, projects, chat }
+    enum TabID: Hashable { case home, tasks, projects, chat, more }
 
     var tab: TabID = .home
+    var homePath: [AreaRoute] = []
     var projectsPath: [ProjectRoute] = []
     var chatPath: [ConversationRoute] = []
+    /// To-dos, milestones, ideas, decisions, CRM.
+    var morePath: [AreaRoute] = []
     /// Task opened by link, shown as sheet above any tab.
     var linkedTask: LinkedTask?
     /// Account, notifications, team: rarely needed, so a sheet behind the avatar instead of a tab.
@@ -38,9 +41,10 @@ final class Navigator {
 struct ProjectRoute: Hashable { let id: String }
 struct ConversationRoute: Hashable { let id: String }
 
-/// Main areas, most important first: Für mich (own open tasks + unread chats),
-/// Aufgaben (whole team), Projekte, Chat. Settings sit behind the avatar
-/// in the top-left corner of every tab (`AccountButton`).
+/// Main areas, most important first: Für mich (own to-dos, open tasks, unread
+/// chats), Aufgaben (whole team), Projekte, Chat, Mehr (milestones, ideas,
+/// decisions, CRM). Settings sit behind the avatar in the top-left corner of
+/// every tab (`AccountButton`).
 struct MainTabView: View {
     let app: AppModel
     let session: SessionModel
@@ -51,11 +55,12 @@ struct MainTabView: View {
             if !app.network.isOnline { OfflineBanner() }
             TabView(selection: $navigator.tab) {
                 Tab("Für mich", systemImage: "person.crop.circle.badge.checkmark", value: Navigator.TabID.home) {
-                    NavigationStack {
+                    NavigationStack(path: $navigator.homePath) {
                         HomeScreen(session: session)
+                            .areaDestinations(session: session)
                     }
                 }
-                .badge(session.work.overdueCount(for: session.userId))
+                .badge(session.work.overdueCount(for: session.userId) + session.todos.overdueCount())
                 Tab("Aufgaben", systemImage: "checklist", value: Navigator.TabID.tasks) {
                     NavigationStack {
                         WorkScreen(session: session, scope: .all, title: "Alle Aufgaben")
@@ -78,6 +83,12 @@ struct MainTabView: View {
                     }
                 }
                 .badge(session.chat.unreadCount)
+                Tab("Mehr", systemImage: "square.grid.2x2", value: Navigator.TabID.more) {
+                    NavigationStack(path: $navigator.morePath) {
+                        MoreScreen(session: session)
+                            .areaDestinations(session: session)
+                    }
+                }
             }
         }
         .environment(navigator)

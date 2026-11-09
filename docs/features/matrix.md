@@ -24,7 +24,7 @@ Pfade: Web `apps/web/src`, iOS `apps/ios/Packages/VistooKit/Sources`, Backend `p
 | Aufgabe erstellen (übernimmt eindeutige Filterwerte) | Quick-Add, Panel | `TaskCreateView` (Sheet), Regel aus `WorkScreen.newTask` | `createTask` (idempotent per Client-ID) | Wiederholung nach Netzfehler erzeugt keine Dublette | ✅ E2E 9 |
 | Aufgabe bearbeiten (Titel, Beschreibung, Status, Projekt, Person, Termine) | `task-panel.tsx` | `TaskDetailView` (Form, native Picker/DatePicker) | `updateTask` mit `expectedVersion`; Konflikt → `current` | Web-Aufgabe auf iOS bearbeiten, Web aktualisiert live | ✅ E2E 2 |
 | Issue-Nummer `#42` (fortlaufend pro Workspace, unveränderlich, nie wiederverwendet) | Karte, Timeline, Panel-Kopf (Klick kopiert), Ideen, Entscheidungen; Suche `#42`/`42` | Karte, Timeline, Detail-Titel; Filtersuche `#42` | `TaskSchema.number`, Vergabe per DB-Trigger (`0016`/`0017`); Suche `searchIssues` | Nummer auf beiden Plattformen identisch | ✅ `task-numbers.test.ts`, Filter-Fixtures |
-| Meilensteine (workspaceweit; anlegen, bearbeiten, abschließen, löschen – Aufgaben bleiben; Fortschritt; Aufgaben aus allen Projekten zuordnen) | Seitenleiste, `/milestones`, `/milestones/[id]`, Feld im Aufgabenpanel | nur `Task.milestoneId` im Modell, keine UI | `services/milestones.ts`; API `/milestones`, `GET /tasks?milestoneId=` | | ✅ `milestones.test.ts`, E2E `workspace` |
+| Meilensteine (workspaceweit; anlegen, bearbeiten, abschließen, löschen – Aufgaben bleiben; Fortschritt; Aufgaben aus allen Projekten zuordnen) | Seitenleiste, `/milestones`, `/milestones/[id]`, Feld im Aufgabenpanel | Mehr → `MilestonesScreen`/`MilestoneDetailScreen` (Fortschritt, Aufgaben aller Projekte, Abschließen, Löschen); Picker „Meilenstein“ im Aufgabenformular | `services/milestones.ts`; API `/milestones`, `GET /tasks?milestoneId=` | | ✅ `milestones.test.ts`, E2E `workspace` |
 | Beschreibung als Markdown (GFM: Überschriften, Listen, Tabellen, Code mit Highlighting, Links) mit „Schreiben“/„Vorschau“, Toolbar, Kürzeln (⌘B/I/K/E, ⌘⇧7/8/L, ⌘⇧P) | `markdown/markdown-editor.tsx`, Ansicht `markdown/markdown-view.tsx` im Panel (rohes HTML wird nie gerendert, unsichere URLs entfernt) | **noch nicht** (zeigt den Quelltext) | Speicherung unverändert als Text in `tasks.description` (keine Migration) | bestehende Beschreibungen bleiben unverändert | ✅ E2E `markdown.spec.ts` · iOS offen |
 | Checklisten in der Beschreibung direkt abhaken (`- [ ]` ↔ `- [x]`, auch verschachtelt), unabhängig vom Status | Checkboxen in der gerenderten Ansicht, sofort gespeichert | **noch nicht in der UI** (Endpunkt generiert) | `setTaskChecklistItem` (Zeilensperre, wirkt auf die aktuelle Beschreibung, ändert genau ein Zeichen, Punkt per Index + Text identifiziert; sonst `CONFLICT` + `current`); Parser `packages/domain/src/markdown.ts`; `PUT /tasks/{id}/checklist` | gleichzeitige Änderungen gehen nicht verloren | ✅ `markdown.test.ts`, `tasks.test.ts`, `api.test.ts`, E2E · iOS offen |
 | Versionskonflikt | Hinweis „Aktuelle Version laden / Trotzdem speichern“ | gleicher Dialog als Alert | `CONFLICT` + `error.current` | identisches Verhalten | ✅ `api.test.ts` · 🟡 UI |
@@ -50,33 +50,33 @@ Pfade: Web `apps/web/src`, iOS `apps/ios/Packages/VistooKit/Sources`, Backend `p
 | Mitglied entfernen (Admin) | Menü | Swipe/Kontextmenü | `removeMember` (+ Chat-Übergabe) | Zugriff sofort weg | ✅ E2E 7 |
 | Eigenen Namen ändern | Benutzermenü | „Namen ändern“ | `updateOwnName` | | ✅ |
 | „Files“: gemeinsamer Google-Drive-Ordner | Navigation, öffnet neuen Tab (`lib/external-links.ts`) | – (bewusst nicht angeboten) | keine (reiner Link) | | ✅ E2E `flow` |
-| „Besprechung beitreten“: Discord-Sprachkanal (Admin hinterlegt den Link unter Einstellungen) | Navigation + Kopfzeile mobil; ohne Link: Admin → Einstellung, sonst „Nicht eingerichtet“ | **noch nicht in der UI** (`Viewer.meetingUrl`, `PUT /workspace/meeting-url`) | `workspace.ts` `updateMeetingUrl` (nur Admin, nur http(s)); `session.getViewerProfile` | Mitglieder sehen den Link, nur Admins ändern ihn | ✅ `task-links.test.ts`, `api.test.ts`, E2E `flow` · iOS offen |
+| „Besprechung beitreten“: Discord-Sprachkanal (Admin hinterlegt den Link unter Einstellungen) | Navigation + Kopfzeile mobil; ohne Link: Admin → Einstellung, sonst „Nicht eingerichtet“ | Mehr → „Besprechung beitreten“ (nur wenn ein Link hinterlegt ist; Ändern bleibt im Web) | `workspace.ts` `updateMeetingUrl` (nur Admin, nur http(s)); `session.getViewerProfile` | Mitglieder sehen den Link, nur Admins ändern ihn | ✅ `task-links.test.ts`, `api.test.ts`, E2E `flow` · iOS: nur Beitreten |
 
 ## Persönliche Organisation, Ideen, CRM
 
-Nur Web (iOS-UI und `/api/v1`-Endpunkte noch offen; die Services sind dafür vorbereitet). Fachregeln liegen vollständig im Backend.
+Web und iOS über dieselben Services; die Fachregeln liegen vollständig im Backend. iOS: eigene To-dos direkt auf **Für mich** (Abschnitt „Meine To-dos“ mit Eingabefeld), alles Weitere im Tab **Mehr**. API: `/todos…`, `/ideas…`, `/attractions…`, `/activities/{id}` (`api.test.ts`). iOS-Abläufe: UI-Test `WorkspaceAreasTests` gegen den lokalen Stack.
 
 | Funktion | Web | iOS | Gemeinsame Logik | Fertig, wenn … | Status |
 | --- | --- | --- | --- | --- | --- |
-| Meine To-dos: private Checkliste (hinzufügen, bearbeiten, abhaken/wieder öffnen, löschen, sortieren, Fälligkeit) | `/todos`, `todos/todo-list.tsx` | – | `services/todos.ts` (immer auf eigene `user_id` begrenzt, Client-ID, max. 500); RLS: nur Besitzer | andere Mitglieder – auch Admins – sehen nichts | ✅ `todos.test.ts`, E2E `workspace` |
-| Ideen: gemeinsamer Backlog (Status Neu/Geplant/Irrelevant, Suche, Filter, Sortierung, Verantwortlich) | `/ideas`, `ideas/*` | – | `services/ideas.ts` (Teil-Updates, aktive Mitglieder als Verantwortliche) | alle aktiven Mitglieder sehen und bearbeiten | ✅ `ideas.test.ts`, E2E `workspace` |
-| Idee → Issue | Panel „Issue erstellen“ | – | `createIssueFromIdea` nutzt `tasks.insertTask` in derselben Transaktion; Verknüpfung `ideas.task_id` (wird beim Löschen der Aufgabe geleert) | Wiederholung liefert dasselbe Issue | ✅ `ideas.test.ts`, E2E `workspace` |
-| CRM: Attraktionen (Tabelle, Kennzahlen, Suche, Filter Status/Person/überfällig, Sortierung, Status in der Tabelle) | `/crm`, `crm/attractions-view.tsx` | – | `services/crm.ts` | | ✅ `crm.test.ts`, E2E `workspace` |
-| CRM: automatischer Verlauf (angelegt, Status, Verantwortlich, Follow-up) | Panel „Verlauf“ | – | im selben Transaktionsschritt unter Zeilensperre; nur echte Änderungen; System-Einträge unveränderlich (Service + Trigger) | genau ein Eintrag pro Änderung, auch bei parallelen Anfragen | ✅ `crm.test.ts` |
-| CRM: manuelle Aktivitäten (Anruf, E-Mail, Meeting, Notiz; optional Follow-up) | Panel „Aktivität hinzufügen“ | – | `addActivity`/`updateActivity`/`deleteActivity` (Autor oder Admin); „Letzter Kontakt“ aus Anruf/E-Mail/Meeting | Follow-up und letzter Kontakt aktualisieren sich | ✅ `crm.test.ts`, E2E `workspace` |
+| Meine To-dos: private Checkliste (hinzufügen, bearbeiten, abhaken/wieder öffnen, löschen, sortieren, Fälligkeit) | `/todos`, `todos/todo-list.tsx` | Für mich → „Meine To-dos“ (Eingabefeld, Abhaken per Tippen/Swipe, erste 6 offene) und `TodosScreen` (alle, Erledigt, Sortieren per Ziehen, Bearbeiten-Sheet) | `services/todos.ts` (immer auf eigene `user_id` begrenzt, Client-ID, max. 500); RLS: nur Besitzer | andere Mitglieder – auch Admins – sehen nichts | ✅ `todos.test.ts`, E2E `workspace` |
+| Ideen: gemeinsamer Backlog (Status Neu/Geplant/Irrelevant, Suche, Filter, Sortierung, Verantwortlich) | `/ideas`, `ideas/*` | Mehr → `IdeasScreen` (Suche, Status-Filter, Sortierung, Swipe Löschen), `IdeaDetailScreen` | `services/ideas.ts` (Teil-Updates, aktive Mitglieder als Verantwortliche) | alle aktiven Mitglieder sehen und bearbeiten | ✅ `ideas.test.ts`, E2E `workspace` |
+| Idee → Issue | Projekt wählen + „Issue erstellen“ im Detail; öffnet die Aufgabe | `createIssueFromIdea` nutzt `tasks.insertTask` in derselben Transaktion; Verknüpfung `ideas.task_id` (wird beim Löschen der Aufgabe geleert) | Wiederholung liefert dasselbe Issue | ✅ `ideas.test.ts`, E2E `workspace` |
+| CRM: Attraktionen (Tabelle, Kennzahlen, Suche, Filter Status/Person/überfällig, Sortierung, Status in der Tabelle) | Mehr → `CRMScreen` (Kennzahlen, Suche, Filter Status/Person/überfällig, Sortierung) | `services/crm.ts` | | ✅ `crm.test.ts`, E2E `workspace` |
+| CRM: automatischer Verlauf (angelegt, Status, Verantwortlich, Follow-up) | `AttractionDetailScreen` → „Verlauf“ | im selben Transaktionsschritt unter Zeilensperre; nur echte Änderungen; System-Einträge unveränderlich (Service + Trigger) | genau ein Eintrag pro Änderung, auch bei parallelen Anfragen | ✅ `crm.test.ts` |
+| CRM: manuelle Aktivitäten (Anruf, E-Mail, Meeting, Notiz; optional Follow-up) | „Aktivität hinzufügen“ (Art, Zeitpunkt, optional Follow-up); Bearbeiten/Löschen per Swipe (nur angezeigt für Autor/Admin) | `addActivity`/`updateActivity`/`deleteActivity` (Autor oder Admin); „Letzter Kontakt“ aus Anruf/E-Mail/Meeting | Follow-up und letzter Kontakt aktualisieren sich | ✅ `crm.test.ts`, E2E `workspace` |
 
 ## Decisions (Entscheidungen & Experimente)
 
-Nur Web (iOS-UI und `/api/v1`-Endpunkte noch offen; die Services sind dafür vorbereitet). Fachregeln liegen vollständig im Backend (`services/decisions.ts`) und als Absicherung in CHECK-Constraints (Migrationen `0014_decisions`, `0015_decisions_security`).
+Web und iOS (Mehr → Entscheidungen) über dieselben Services und `/decisions…`, `/decision-links/{id}`, `/decision-relations/{id}`. Fachregeln liegen vollständig im Backend (`services/decisions.ts`) und als Absicherung in CHECK-Constraints (Migrationen `0014_decisions`, `0015_decisions_security`).
 
 | Funktion | Web | iOS | Gemeinsame Logik | Fertig, wenn … | Status |
 | --- | --- | --- | --- | --- | --- |
-| Erfassen in Sekunden: Typ (Decision/Experiment) + Titel, Enter (⌘↵ öffnet direkt) | `/decisions`, `decisions/decisions-view.tsx` | – | `createDecision` (nur Titel Pflicht, Client-ID, Startstatus je Typ) | alle aktiven Mitglieder sehen und bearbeiten | ✅ `decisions.test.ts`, E2E `decisions` |
-| Status je Typ: Open/In Discussion/Decided/Superseded bzw. Planned/Testing/Adopted/Rejected/Inconclusive | Panel | – | `updateDecision` (Status passt zum Typ, sonst Fehler; CHECK `decisions_status_matches_type`) | | ✅ `decisions.test.ts`, Domain-Test |
-| Abschluss nur mit Ergebnis (Decision: Entscheidung + Begründung; Experiment: nur Ergebnis – Experimente haben nur Beschreibung + Ergebnis); Entscheidungs-/Abschlussdatum automatisch (Team-Zeitzone), änderbar | Panel (Pflichtfelder markiert) | – | `completionErrors` (Domain) + Service + CHECK `decisions_concluded_complete` | Server lehnt unvollständige Abschlüsse ab, auch ohne UI | ✅ `decisions.test.ts`, E2E `decisions` |
-| Nachvollziehbarkeit: Verlauf für abgeschlossene Einträge (wer, wann, welche Felder, vorherige Fassung; Abschluss, Wiederöffnen, Ersetzen) | Panel „Verlauf“ | – | im selben Transaktionsschritt unter Zeilensperre; nur echte Änderungen; `decision_history` unveränderlich (Trigger) | | ✅ `decisions.test.ts`, E2E `decisions` |
-| „Ersetzen“: neue oder bestehende Entscheidung; alte bleibt vollständig, wird Superseded und verweist auf die neue (Rückverweis abgeleitet) | Panel „Ersetzen“, Hinweise „Ersetzt durch“/„Ersetzt …“ | – | `supersedeDecision` (nur Decided, keine Zyklen, idempotent); Löschen der neuen macht die alte wieder gültig | | ✅ `decisions.test.ts`, E2E `decisions` |
-| Suche (Titel, Kontext, Optionen, Ergebnisse, Entscheidung, Begründung …), Filter Typ/Status/Person, Sortierung (zuletzt geändert, erstellt) | Suchfeld + Filter über der Tabelle | – | `listDecisions`: Postgres-Volltext (`tsvector` 'simple', GIN-Index, Präfixsuche) | | ✅ `decisions.test.ts`, E2E `decisions` |
+| Erfassen in Sekunden: Typ (Decision/Experiment) + Titel, Enter (⌘↵ öffnet direkt) | `/decisions`, `decisions/decisions-view.tsx` | „+“ → Typ + Titel, öffnet danach das Detail | `createDecision` (nur Titel Pflicht, Client-ID, Startstatus je Typ) | alle aktiven Mitglieder sehen und bearbeiten | ✅ `decisions.test.ts`, E2E `decisions` |
+| Status je Typ: Open/In Discussion/Decided/Superseded bzw. Planned/Testing/Adopted/Rejected/Inconclusive | `DecisionDetailScreen`: Status-Picker nur mit Status des Typs | `updateDecision` (Status passt zum Typ, sonst Fehler; CHECK `decisions_status_matches_type`) | | ✅ `decisions.test.ts`, Domain-Test |
+| Abschluss nur mit Ergebnis (Decision: Entscheidung + Begründung; Experiment: nur Ergebnis – Experimente haben nur Beschreibung + Ergebnis); Entscheidungs-/Abschlussdatum automatisch (Team-Zeitzone), änderbar | Felder je Typ; fehlende Pflichtfelder als Feldfehler (lokale Vorprüfung + `fieldErrors` des Servers) | `completionErrors` (Domain) + Service + CHECK `decisions_concluded_complete` | Server lehnt unvollständige Abschlüsse ab, auch ohne UI | ✅ `decisions.test.ts`, E2E `decisions` |
+| Nachvollziehbarkeit: Verlauf für abgeschlossene Einträge (wer, wann, welche Felder, vorherige Fassung; Abschluss, Wiederöffnen, Ersetzen) | Abschnitt „Verlauf“ (vorherige Fassung aufklappbar) | im selben Transaktionsschritt unter Zeilensperre; nur echte Änderungen; `decision_history` unveränderlich (Trigger) | | ✅ `decisions.test.ts`, E2E `decisions` |
+| „Ersetzen“: neue oder bestehende Entscheidung; alte bleibt vollständig, wird Superseded und verweist auf die neue (Rückverweis abgeleitet) | „Durch neue Entscheidung ersetzen …“ (neu oder bestehend), Hinweise „Ersetzt durch“/„Ersetzt“ | `supersedeDecision` (nur Decided, keine Zyklen, idempotent); Löschen der neuen macht die alte wieder gültig | | ✅ `decisions.test.ts`, E2E `decisions` |
+| Suche (Titel, Kontext, Optionen, Ergebnisse, Entscheidung, Begründung …), Filter Typ/Status/Person, Sortierung (zuletzt geändert, erstellt) | `.searchable` (Serversuche) + Filtermenü Typ/Status/Person/Sortierung | `listDecisions`: Postgres-Volltext (`tsvector` 'simple', GIN-Index, Präfixsuche) | | ✅ `decisions.test.ts`, E2E `decisions` |
 
 ## Kommunikation
 
@@ -107,7 +107,7 @@ Nur Web (iOS-UI und `/api/v1`-Endpunkte noch offen; die Services sind dafür vor
 
 Einstellungen (iOS, hinter dem Avatar oben links in jedem Tab): Konto (Name ändern), Mitteilungen, Team (Mitglieder & Einladungen als Unterseite), Chat-Speicher (Admins), Abmelden.
 
-iOS-Navigation: Tabs **Für mich** (eigene offene Aufgaben nach Dringlichkeit + ungelesene Unterhaltungen; Badge = überfällige eigene Aufgaben), **Aufgaben** (Team, Board/Zeitachse), **Projekte**, **Chat**. Reine Darstellung, keine eigene Fachregel: „überfällig“ = Enddatum vor heute und nicht erledigt.
+iOS-Navigation: Tabs **Für mich** (ungelesene Unterhaltungen, eigene To-dos mit Eingabefeld, eigene offene Aufgaben nach Dringlichkeit; „+“ = neues To-do oder neue Aufgabe; Badge = überfällige eigene Aufgaben + überfällige To-dos), **Aufgaben** (Team, Board/Zeitachse), **Projekte**, **Chat**, **Mehr** (Meine To-dos, Meilensteine, Ideen, Entscheidungen, CRM, Besprechung beitreten). Reine Darstellung, keine eigene Fachregel: „überfällig“ = Enddatum vor heute und nicht erledigt.
 
 ## Bewusst nicht enthalten (auch nicht im Web)
 
@@ -118,3 +118,23 @@ Web-Push, Offline-Synchronisierung, Task-Abhängigkeiten, Dark Mode (Web: nur he
 | Funktion | Stand |
 | --- | --- |
 | Projekt-Gruppen | Am 2026-11-09 vollständig entfernt (Web, iOS, Backend, Migration `0019_remove_groups` löscht `project_groups` und `tasks.group_id` samt Daten). API v1 liefert `Task.groupId` weiter als `null` und `Project.groups` als `[]`, damit ältere iOS-Builds weiter dekodieren. Die Gruppen-Endpunkte (`/projects/{id}/groups`, `/groups/{id}`) gibt es nicht mehr: Ältere Builds bekommen beim Verwalten von Gruppen „Unbekannter Endpunkt“; ein gesendetes `groupId` wird ignoriert. |
+
+
+## Android
+
+Die Android-App (`apps/android`) setzt den Funktionsumfang der iOS-Spalte vollständig um und nutzt dieselben Endpunkte; es gibt keine Android-spezifische Backend-Logik. Abweichungen sind rein plattformbedingt (Swipe-/Sortier-Bedienung, Dateiansicht über das System) und in [apps/android/README.md](../../apps/android/README.md) aufgeführt.
+
+| Bereich | Android | Status |
+| --- | --- | --- |
+| Anmeldung (Code), Session, Abmelden | `SignInScreen`, `AuthService`, `SecureSessionStore` | ✅ Emulator gegen lokalen Stack (Code aus Mailpit, Kaltstart mit gespeicherter Session) |
+| Für mich, To-dos | `HomeScreen`, `TodosScreen` | ✅ Emulator (To-do angelegt, serverseitig gespeichert) |
+| Aufgaben: Board, Detail, Bearbeiten mit Version | `WorkScreen`, `BoardView`, `TaskDetailView` | ✅ Emulator (Beschreibung gespeichert, Version erhöht) |
+| Zeitachse | `TimelineView` | ✅ Emulator (Darstellung) |
+| Realtime (Tasks) | `RealtimeHub` | ✅ Emulator (DB-Änderung erscheint ohne Neuladen) |
+| Chat: Senden, Links | `ConversationScreen` | ✅ Emulator · Anhänge 🟡 (kompiliert, nicht manuell geprüft) |
+| Ideen, Entscheidungen, CRM (anlegen, Follow-up) | `ideas/`, `decisions/`, `crm/` | ✅ Emulator |
+| Einstellungen, Team | `SettingsSheet`, `TeamScreen` | ✅ Emulator (Darstellung) |
+| Offline-Hinweis, Rotation | `OfflineBanner`, `AppViewModel` | ✅ Emulator |
+| Filtersemantik | `TaskFilters` | ✅ `TaskFilterConformanceTest` (gemeinsame Fixtures) |
+| Push-Mitteilungen | – | offen: Backend sendet nur APNs (FCM nötig) |
+| Markdown-Ansicht, Checklisten abhaken | – | offen (wie iOS) |

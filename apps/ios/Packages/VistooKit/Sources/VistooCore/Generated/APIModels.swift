@@ -26,6 +26,120 @@ public struct AcceptInvitationRequest: Encodable, Sendable {
     }
 }
 
+public struct Activity: Codable, Hashable, Sendable {
+    public var id: String
+    public var attractionId: String
+    public var type: ActivityType
+    public var system: Bool
+    public var description: String
+    public var metadata: Metadata
+    public var actorId: String
+    public var occurredAt: Date
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(id: String, attractionId: String, type: ActivityType, system: Bool, description: String, metadata: Metadata, actorId: String, occurredAt: Date, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.attractionId = attractionId
+        self.type = type
+        self.system = system
+        self.description = description
+        self.metadata = metadata
+        self.actorId = actorId
+        self.occurredAt = occurredAt
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    public struct Metadata: Codable, Hashable, Sendable {
+        public var from: String?
+        public var to: String?
+
+        public init(from: String? = nil, to: String? = nil) {
+            self.from = from
+            self.to = to
+        }
+    }
+}
+
+public struct ActivityChange: Codable, Hashable, Sendable {
+    public var attraction: Attraction
+    public var activity: Activity
+
+    public init(attraction: Attraction, activity: Activity) {
+        self.attraction = attraction
+        self.activity = activity
+    }
+}
+
+public struct ActivityDeleted: Codable, Hashable, Sendable {
+    public var attraction: Attraction
+
+    public init(attraction: Attraction) {
+        self.attraction = attraction
+    }
+}
+
+public struct ActivityList: Codable, Hashable, Sendable {
+    public var activities: [Activity]
+
+    public init(activities: [Activity]) {
+        self.activities = activities
+    }
+}
+
+/// Open enum: values added by a newer server decode to `.unknown`.
+public enum ActivityType: Codable, Hashable, Sendable {
+    case call
+    case email
+    case meeting
+    case note
+    case created
+    case statusChanged
+    case ownerChanged
+    case followUpChanged
+    case unknown(String)
+
+    public static let knownCases: [ActivityType] = [.call, .email, .meeting, .note, .created, .statusChanged, .ownerChanged, .followUpChanged]
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "call": self = .call
+        case "email": self = .email
+        case "meeting": self = .meeting
+        case "note": self = .note
+        case "created": self = .created
+        case "status_changed": self = .statusChanged
+        case "owner_changed": self = .ownerChanged
+        case "follow_up_changed": self = .followUpChanged
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .call: return "call"
+        case .email: return "email"
+        case .meeting: return "meeting"
+        case .note: return "note"
+        case .created: return "created"
+        case .statusChanged: return "status_changed"
+        case .ownerChanged: return "owner_changed"
+        case .followUpChanged: return "follow_up_changed"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
 public struct AddChannelMembersRequest: Encodable, Sendable {
     public var userIds: [String]
 
@@ -43,6 +157,27 @@ public struct AddChannelMembersRequest: Encodable, Sendable {
     }
 }
 
+public struct AddDecisionRelationRequest: Encodable, Sendable {
+    public var kind: RelationKind
+    public var targetId: String
+
+    public init(kind: RelationKind, targetId: String) {
+        self.kind = kind
+        self.targetId = targetId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case kind
+        case targetId
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(targetId, forKey: .targetId)
+    }
+}
+
 public struct Attachment: Codable, Hashable, Sendable {
     public var id: String
     public var fileName: String
@@ -54,6 +189,96 @@ public struct Attachment: Codable, Hashable, Sendable {
         self.fileName = fileName
         self.mimeType = mimeType
         self.sizeBytes = sizeBytes
+    }
+}
+
+public struct Attraction: Codable, Hashable, Sendable {
+    public var id: String
+    public var name: String
+    public var city: String?
+    public var country: String?
+    public var website: String?
+    public var email: String?
+    public var contactName: String?
+    public var status: AttractionStatus
+    public var ownerId: String?
+    public var notes: String
+    public var nextFollowUp: CalendarDate?
+    public var lastContactAt: Date?
+    public var createdBy: String
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(id: String, name: String, city: String? = nil, country: String? = nil, website: String? = nil, email: String? = nil, contactName: String? = nil, status: AttractionStatus, ownerId: String? = nil, notes: String, nextFollowUp: CalendarDate? = nil, lastContactAt: Date? = nil, createdBy: String, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.name = name
+        self.city = city
+        self.country = country
+        self.website = website
+        self.email = email
+        self.contactName = contactName
+        self.status = status
+        self.ownerId = ownerId
+        self.notes = notes
+        self.nextFollowUp = nextFollowUp
+        self.lastContactAt = lastContactAt
+        self.createdBy = createdBy
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct AttractionList: Codable, Hashable, Sendable {
+    public var attractions: [Attraction]
+
+    public init(attractions: [Attraction]) {
+        self.attractions = attractions
+    }
+}
+
+/// Open enum: values added by a newer server decode to `.unknown`.
+public enum AttractionStatus: Codable, Hashable, Sendable {
+    case new
+    case contacted
+    case interested
+    case inDiscussion
+    case partner
+    case notInterested
+    case unknown(String)
+
+    public static let knownCases: [AttractionStatus] = [.new, .contacted, .interested, .inDiscussion, .partner, .notInterested]
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "new": self = .new
+        case "contacted": self = .contacted
+        case "interested": self = .interested
+        case "in_discussion": self = .inDiscussion
+        case "partner": self = .partner
+        case "not_interested": self = .notInterested
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .new: return "new"
+        case .contacted: return "contacted"
+        case .interested: return "interested"
+        case .inDiscussion: return "in_discussion"
+        case .partner: return "partner"
+        case .notInterested: return "not_interested"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
     }
 }
 
@@ -241,6 +466,144 @@ public struct ConversationSummary: Codable, Hashable, Sendable {
     }
 }
 
+public struct CreateActivityRequest: Encodable, Sendable {
+    public var id: String?
+    public var type: TypeInfo
+    public var description: String?
+    public var occurredAt: Date?
+    public var nextFollowUp: Patchable<CalendarDate>
+    public static let descriptionMaxLength = 5000
+
+    public init(id: String? = nil, type: TypeInfo, description: String? = nil, occurredAt: Date? = nil, nextFollowUp: Patchable<CalendarDate> = .unset) {
+        self.id = id
+        self.type = type
+        self.description = description
+        self.occurredAt = occurredAt
+        self.nextFollowUp = nextFollowUp
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case type
+        case description
+        case occurredAt
+        case nextFollowUp
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(id, forKey: .id)
+        try c.encode(type, forKey: .type)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(occurredAt, forKey: .occurredAt)
+        try nextFollowUp.encode(into: &c, forKey: .nextFollowUp)
+    }
+
+    /// Open enum: values added by a newer server decode to `.unknown`.
+    public enum TypeInfo: Codable, Hashable, Sendable {
+        case call
+        case email
+        case meeting
+        case note
+        case unknown(String)
+
+        public static let knownCases: [TypeInfo] = [.call, .email, .meeting, .note]
+
+        public init(rawValue: String) {
+            switch rawValue {
+            case "call": self = .call
+            case "email": self = .email
+            case "meeting": self = .meeting
+            case "note": self = .note
+            default: self = .unknown(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .call: return "call"
+            case .email: return "email"
+            case .meeting: return "meeting"
+            case .note: return "note"
+            case .unknown(let raw): return raw
+            }
+        }
+
+        public init(from decoder: any Decoder) throws {
+            self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+        }
+
+        public func encode(to encoder: any Encoder) throws {
+            var c = encoder.singleValueContainer()
+            try c.encode(rawValue)
+        }
+    }
+}
+
+public struct CreateAttractionRequest: Encodable, Sendable {
+    public var id: String?
+    public var name: String
+    public var city: Patchable<String>
+    public var country: Patchable<String>
+    public var website: Patchable<String>
+    public var email: Patchable<String>
+    public var contactName: Patchable<String>
+    public var status: AttractionStatus?
+    public var ownerId: Patchable<String>
+    public var notes: String?
+    public var nextFollowUp: Patchable<CalendarDate>
+    public static let nameMaxLength = 200
+    public static let nameMinLength = 1
+    public static let cityMaxLength = 200
+    public static let countryMaxLength = 200
+    public static let emailMaxLength = 2048
+    public static let contactNameMaxLength = 200
+    public static let notesMaxLength = 20000
+
+    public init(id: String? = nil, name: String, city: Patchable<String> = .unset, country: Patchable<String> = .unset, website: Patchable<String> = .unset, email: Patchable<String> = .unset, contactName: Patchable<String> = .unset, status: AttractionStatus? = nil, ownerId: Patchable<String> = .unset, notes: String? = nil, nextFollowUp: Patchable<CalendarDate> = .unset) {
+        self.id = id
+        self.name = name
+        self.city = city
+        self.country = country
+        self.website = website
+        self.email = email
+        self.contactName = contactName
+        self.status = status
+        self.ownerId = ownerId
+        self.notes = notes
+        self.nextFollowUp = nextFollowUp
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case city
+        case country
+        case website
+        case email
+        case contactName
+        case status
+        case ownerId
+        case notes
+        case nextFollowUp
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try city.encode(into: &c, forKey: .city)
+        try country.encode(into: &c, forKey: .country)
+        try website.encode(into: &c, forKey: .website)
+        try email.encode(into: &c, forKey: .email)
+        try contactName.encode(into: &c, forKey: .contactName)
+        try c.encodeIfPresent(status, forKey: .status)
+        try ownerId.encode(into: &c, forKey: .ownerId)
+        try c.encodeIfPresent(notes, forKey: .notes)
+        try nextFollowUp.encode(into: &c, forKey: .nextFollowUp)
+    }
+}
+
 public struct CreateChannelRequest: Encodable, Sendable {
     public var id: String?
     public var name: String
@@ -308,6 +671,123 @@ public struct CreateChannelRequest: Encodable, Sendable {
             var c = encoder.singleValueContainer()
             try c.encode(rawValue)
         }
+    }
+}
+
+public struct CreateDecisionLinkRequest: Encodable, Sendable {
+    public var id: String?
+    public var url: String
+    public var title: Patchable<String>
+    public static let urlMaxLength = 2048
+    public static let urlMinLength = 1
+    public static let titleMaxLength = 200
+
+    public init(id: String? = nil, url: String, title: Patchable<String> = .unset) {
+        self.id = id
+        self.url = url
+        self.title = title
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case url
+        case title
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(id, forKey: .id)
+        try c.encode(url, forKey: .url)
+        try title.encode(into: &c, forKey: .title)
+    }
+}
+
+public struct CreateDecisionRequest: Encodable, Sendable {
+    public var id: String?
+    public var type: DecisionType?
+    public var title: String
+    public var description: String?
+    public var assigneeId: Patchable<String>
+    public static let titleMaxLength = 300
+    public static let titleMinLength = 1
+    public static let descriptionMaxLength = 20000
+
+    public init(id: String? = nil, type: DecisionType? = nil, title: String, description: String? = nil, assigneeId: Patchable<String> = .unset) {
+        self.id = id
+        self.type = type
+        self.title = title
+        self.description = description
+        self.assigneeId = assigneeId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case type
+        case title
+        case description
+        case assigneeId
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(id, forKey: .id)
+        try c.encodeIfPresent(type, forKey: .type)
+        try c.encode(title, forKey: .title)
+        try c.encodeIfPresent(description, forKey: .description)
+        try assigneeId.encode(into: &c, forKey: .assigneeId)
+    }
+}
+
+public struct CreateIdeaRequest: Encodable, Sendable {
+    public var id: String?
+    public var title: String
+    public var description: String?
+    public var status: IdeaStatus?
+    public var assigneeId: Patchable<String>
+    public static let titleMaxLength = 300
+    public static let titleMinLength = 1
+    public static let descriptionMaxLength = 20000
+
+    public init(id: String? = nil, title: String, description: String? = nil, status: IdeaStatus? = nil, assigneeId: Patchable<String> = .unset) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.status = status
+        self.assigneeId = assigneeId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case description
+        case status
+        case assigneeId
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(id, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(status, forKey: .status)
+        try assigneeId.encode(into: &c, forKey: .assigneeId)
+    }
+}
+
+public struct CreateIssueFromIdeaRequest: Encodable, Sendable {
+    public var projectId: String
+
+    public init(projectId: String) {
+        self.projectId = projectId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case projectId
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(projectId, forKey: .projectId)
     }
 }
 
@@ -455,6 +935,366 @@ public struct CreateTaskRequest: Encodable, Sendable {
     }
 }
 
+public struct CreateTodoRequest: Encodable, Sendable {
+    public var id: String?
+    public var title: String
+    public var description: String?
+    public var dueDate: Patchable<CalendarDate>
+    public static let titleMaxLength = 300
+    public static let titleMinLength = 1
+    public static let descriptionMaxLength = 5000
+
+    public init(id: String? = nil, title: String, description: String? = nil, dueDate: Patchable<CalendarDate> = .unset) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.dueDate = dueDate
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case description
+        case dueDate
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(id, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encodeIfPresent(description, forKey: .description)
+        try dueDate.encode(into: &c, forKey: .dueDate)
+    }
+}
+
+public struct Decision: Codable, Hashable, Sendable {
+    public var id: String
+    public var type: DecisionType
+    public var title: String
+    public var status: DecisionStatus
+    public var assigneeId: String?
+    public var createdBy: String
+    public var concludedOn: CalendarDate?
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var description: String
+    public var optionsConsidered: String
+    public var objective: String
+    public var testDescription: String
+    public var results: String
+    public var outcome: String
+    public var reasoning: String
+    public var supersededBy: DecisionRef?
+    public var supersedes: [DecisionRef]
+
+    public init(id: String, type: DecisionType, title: String, status: DecisionStatus, assigneeId: String? = nil, createdBy: String, concludedOn: CalendarDate? = nil, createdAt: Date, updatedAt: Date, description: String, optionsConsidered: String, objective: String, testDescription: String, results: String, outcome: String, reasoning: String, supersededBy: DecisionRef? = nil, supersedes: [DecisionRef]) {
+        self.id = id
+        self.type = type
+        self.title = title
+        self.status = status
+        self.assigneeId = assigneeId
+        self.createdBy = createdBy
+        self.concludedOn = concludedOn
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.description = description
+        self.optionsConsidered = optionsConsidered
+        self.objective = objective
+        self.testDescription = testDescription
+        self.results = results
+        self.outcome = outcome
+        self.reasoning = reasoning
+        self.supersededBy = supersededBy
+        self.supersedes = supersedes
+    }
+}
+
+public struct DecisionDetail: Codable, Hashable, Sendable {
+    public var decision: Decision
+    public var links: [DecisionLink]
+    public var relations: [DecisionRelation]
+    public var history: [DecisionHistory]
+
+    public init(decision: Decision, links: [DecisionLink], relations: [DecisionRelation], history: [DecisionHistory]) {
+        self.decision = decision
+        self.links = links
+        self.relations = relations
+        self.history = history
+    }
+}
+
+public struct DecisionHistory: Codable, Hashable, Sendable {
+    public var id: String
+    public var kind: HistoryKind
+    public var actorId: String
+    public var createdAt: Date
+    public var details: Details
+
+    public init(id: String, kind: HistoryKind, actorId: String, createdAt: Date, details: Details) {
+        self.id = id
+        self.kind = kind
+        self.actorId = actorId
+        self.createdAt = createdAt
+        self.details = details
+    }
+
+    public struct Details: Codable, Hashable, Sendable {
+        public var fields: [String]?
+        public var previous: [String: String?]?
+        public var fromStatus: DecisionStatus?
+        public var toStatus: DecisionStatus?
+        public var supersededBy: String?
+        public var reason: String?
+
+        public init(fields: [String]? = nil, previous: [String: String?]? = nil, fromStatus: DecisionStatus? = nil, toStatus: DecisionStatus? = nil, supersededBy: String? = nil, reason: String? = nil) {
+            self.fields = fields
+            self.previous = previous
+            self.fromStatus = fromStatus
+            self.toStatus = toStatus
+            self.supersededBy = supersededBy
+            self.reason = reason
+        }
+    }
+}
+
+public struct DecisionLink: Codable, Hashable, Sendable {
+    public var id: String
+    public var decisionId: String
+    public var url: String
+    public var title: String?
+    public var createdBy: String
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(id: String, decisionId: String, url: String, title: String? = nil, createdBy: String, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.decisionId = decisionId
+        self.url = url
+        self.title = title
+        self.createdBy = createdBy
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct DecisionList: Codable, Hashable, Sendable {
+    public var decisions: [DecisionSummary]
+
+    public init(decisions: [DecisionSummary]) {
+        self.decisions = decisions
+    }
+}
+
+public struct DecisionRef: Codable, Hashable, Sendable {
+    public var id: String
+    public var title: String
+    public var status: DecisionStatus
+
+    public init(id: String, title: String, status: DecisionStatus) {
+        self.id = id
+        self.title = title
+        self.status = status
+    }
+}
+
+public struct DecisionRefList: Codable, Hashable, Sendable {
+    public var decisions: [DecisionRef]
+
+    public init(decisions: [DecisionRef]) {
+        self.decisions = decisions
+    }
+}
+
+public struct DecisionRelation: Codable, Hashable, Sendable {
+    public var id: String
+    public var kind: RelationKind
+    public var targetId: String
+    public var title: String
+    public var status: String
+    public var projectId: String?
+    public var number: Int?
+
+    public init(id: String, kind: RelationKind, targetId: String, title: String, status: String, projectId: String? = nil, number: Int? = nil) {
+        self.id = id
+        self.kind = kind
+        self.targetId = targetId
+        self.title = title
+        self.status = status
+        self.projectId = projectId
+        self.number = number
+    }
+}
+
+public struct DecisionRelationList: Codable, Hashable, Sendable {
+    public var relations: [DecisionRelation]
+
+    public init(relations: [DecisionRelation]) {
+        self.relations = relations
+    }
+}
+
+/// Open enum: values added by a newer server decode to `.unknown`.
+public enum DecisionSort: Codable, Hashable, Sendable {
+    case updated
+    case created
+    case createdAsc
+    case unknown(String)
+
+    public static let knownCases: [DecisionSort] = [.updated, .created, .createdAsc]
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "updated": self = .updated
+        case "created": self = .created
+        case "created_asc": self = .createdAsc
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .updated: return "updated"
+        case .created: return "created"
+        case .createdAsc: return "created_asc"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
+/// Open enum: values added by a newer server decode to `.unknown`.
+public enum DecisionStatus: Codable, Hashable, Sendable {
+    case open
+    case inDiscussion
+    case decided
+    case superseded
+    case planned
+    case testing
+    case adopted
+    case rejected
+    case inconclusive
+    case unknown(String)
+
+    public static let knownCases: [DecisionStatus] = [.open, .inDiscussion, .decided, .superseded, .planned, .testing, .adopted, .rejected, .inconclusive]
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "open": self = .open
+        case "in_discussion": self = .inDiscussion
+        case "decided": self = .decided
+        case "superseded": self = .superseded
+        case "planned": self = .planned
+        case "testing": self = .testing
+        case "adopted": self = .adopted
+        case "rejected": self = .rejected
+        case "inconclusive": self = .inconclusive
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .open: return "open"
+        case .inDiscussion: return "in_discussion"
+        case .decided: return "decided"
+        case .superseded: return "superseded"
+        case .planned: return "planned"
+        case .testing: return "testing"
+        case .adopted: return "adopted"
+        case .rejected: return "rejected"
+        case .inconclusive: return "inconclusive"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
+public struct DecisionSummary: Codable, Hashable, Sendable {
+    public var id: String
+    public var type: DecisionType
+    public var title: String
+    public var status: DecisionStatus
+    public var assigneeId: String?
+    public var createdBy: String
+    public var concludedOn: CalendarDate?
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var outcomePreview: String
+
+    public init(id: String, type: DecisionType, title: String, status: DecisionStatus, assigneeId: String? = nil, createdBy: String, concludedOn: CalendarDate? = nil, createdAt: Date, updatedAt: Date, outcomePreview: String) {
+        self.id = id
+        self.type = type
+        self.title = title
+        self.status = status
+        self.assigneeId = assigneeId
+        self.createdBy = createdBy
+        self.concludedOn = concludedOn
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.outcomePreview = outcomePreview
+    }
+}
+
+/// Open enum: values added by a newer server decode to `.unknown`.
+public enum DecisionType: Codable, Hashable, Sendable {
+    case decision
+    case experiment
+    case unknown(String)
+
+    public static let knownCases: [DecisionType] = [.decision, .experiment]
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "decision": self = .decision
+        case "experiment": self = .experiment
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .decision: return "decision"
+        case .experiment: return "experiment"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
+public struct DeleteDecisionResponse: Codable, Hashable, Sendable {
+    public var id: String
+    public var restored: [String]
+
+    public init(id: String, restored: [String]) {
+        self.id = id
+        self.restored = restored
+    }
+}
+
 public struct DeleteMilestoneResponse: Codable, Hashable, Sendable {
     public var id: String
     public var detachedTasks: Int
@@ -596,6 +1436,139 @@ public struct ProjectGroup: Codable, Hashable, Sendable {
         self.projectId = projectId
         self.name = name
         self.position = position
+    }
+}
+
+/// Open enum: values added by a newer server decode to `.unknown`.
+public enum HistoryKind: Codable, Hashable, Sendable {
+    case concluded
+    case edited
+    case reopened
+    case superseded
+    case unknown(String)
+
+    public static let knownCases: [HistoryKind] = [.concluded, .edited, .reopened, .superseded]
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "concluded": self = .concluded
+        case "edited": self = .edited
+        case "reopened": self = .reopened
+        case "superseded": self = .superseded
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .concluded: return "concluded"
+        case .edited: return "edited"
+        case .reopened: return "reopened"
+        case .superseded: return "superseded"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
+public struct Idea: Codable, Hashable, Sendable {
+    public var id: String
+    public var title: String
+    public var description: String
+    public var status: IdeaStatus
+    public var createdBy: String
+    public var assigneeId: String?
+    public var task: TaskInfo?
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(id: String, title: String, description: String, status: IdeaStatus, createdBy: String, assigneeId: String? = nil, task: TaskInfo? = nil, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.status = status
+        self.createdBy = createdBy
+        self.assigneeId = assigneeId
+        self.task = task
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    public struct TaskInfo: Codable, Hashable, Sendable {
+        public var id: String
+        public var number: Int
+        public var title: String
+        public var projectId: String
+
+        public init(id: String, number: Int, title: String, projectId: String) {
+            self.id = id
+            self.number = number
+            self.title = title
+            self.projectId = projectId
+        }
+    }
+}
+
+public struct IdeaIssue: Codable, Hashable, Sendable {
+    public var idea: Idea
+    public var task: TaskItem
+
+    public init(idea: Idea, task: TaskItem) {
+        self.idea = idea
+        self.task = task
+    }
+}
+
+public struct IdeaList: Codable, Hashable, Sendable {
+    public var ideas: [Idea]
+
+    public init(ideas: [Idea]) {
+        self.ideas = ideas
+    }
+}
+
+/// Open enum: values added by a newer server decode to `.unknown`.
+public enum IdeaStatus: Codable, Hashable, Sendable {
+    case new
+    case planned
+    case irrelevant
+    case unknown(String)
+
+    public static let knownCases: [IdeaStatus] = [.new, .planned, .irrelevant]
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "new": self = .new
+        case "planned": self = .planned
+        case "irrelevant": self = .irrelevant
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .new: return "new"
+        case .planned: return "planned"
+        case .irrelevant: return "irrelevant"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
     }
 }
 
@@ -1297,6 +2270,66 @@ public struct RegisterDeviceRequest: Encodable, Sendable {
     }
 }
 
+public struct RelationCandidate: Codable, Hashable, Sendable {
+    public var kind: RelationKind
+    public var targetId: String
+    public var title: String
+    public var status: String
+    public var projectId: String?
+    public var number: Int?
+
+    public init(kind: RelationKind, targetId: String, title: String, status: String, projectId: String? = nil, number: Int? = nil) {
+        self.kind = kind
+        self.targetId = targetId
+        self.title = title
+        self.status = status
+        self.projectId = projectId
+        self.number = number
+    }
+}
+
+public struct RelationCandidateList: Codable, Hashable, Sendable {
+    public var candidates: [RelationCandidate]
+
+    public init(candidates: [RelationCandidate]) {
+        self.candidates = candidates
+    }
+}
+
+/// Open enum: values added by a newer server decode to `.unknown`.
+public enum RelationKind: Codable, Hashable, Sendable {
+    case issue
+    case idea
+    case unknown(String)
+
+    public static let knownCases: [RelationKind] = [.issue, .idea]
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "issue": self = .issue
+        case "idea": self = .idea
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .issue: return "issue"
+        case .idea: return "idea"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
 public struct RemoveChannelMemberRequest: Encodable, Sendable {
     public var userId: String
     public var newOwnerId: Patchable<String>
@@ -1335,6 +2368,31 @@ public struct RemoveMemberResponse: Codable, Hashable, Sendable {
 
     public init(unassignedTasks: Int) {
         self.unassignedTasks = unassignedTasks
+    }
+}
+
+public struct ReorderedTodos: Codable, Hashable, Sendable {
+    public var todos: [Todo]
+
+    public init(todos: [Todo]) {
+        self.todos = todos
+    }
+}
+
+public struct ReorderTodosRequest: Encodable, Sendable {
+    public var ids: [String]
+
+    public init(ids: [String]) {
+        self.ids = ids
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case ids
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(ids, forKey: .ids)
     }
 }
 
@@ -1477,6 +2535,43 @@ public struct SetTaskStatusRequest: Encodable, Sendable {
     }
 }
 
+public struct SupersedeDecisionRequest: Encodable, Sendable {
+    public var successorId: String?
+    public var newTitle: String?
+    public var newId: String?
+    public static let newTitleMaxLength = 300
+    public static let newTitleMinLength = 1
+
+    public init(successorId: String? = nil, newTitle: String? = nil, newId: String? = nil) {
+        self.successorId = successorId
+        self.newTitle = newTitle
+        self.newId = newId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case successorId
+        case newTitle
+        case newId
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(successorId, forKey: .successorId)
+        try c.encodeIfPresent(newTitle, forKey: .newTitle)
+        try c.encodeIfPresent(newId, forKey: .newId)
+    }
+}
+
+public struct SupersedeResult: Codable, Hashable, Sendable {
+    public var decision: DecisionDetail
+    public var successor: DecisionSummary
+
+    public init(decision: DecisionDetail, successor: DecisionSummary) {
+        self.decision = decision
+        self.successor = successor
+    }
+}
+
 /// Contract name: `Task` (renamed in Swift to avoid a clash with a system type).
 public struct TaskItem: Codable, Hashable, Sendable {
     public var id: String
@@ -1602,6 +2697,164 @@ public struct Team: Codable, Hashable, Sendable {
     }
 }
 
+public struct Todo: Codable, Hashable, Sendable {
+    public var id: String
+    public var title: String
+    public var description: String
+    public var dueDate: CalendarDate?
+    public var completed: Bool
+    public var completedAt: Date?
+    public var position: Double
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(id: String, title: String, description: String, dueDate: CalendarDate? = nil, completed: Bool, completedAt: Date? = nil, position: Double, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.dueDate = dueDate
+        self.completed = completed
+        self.completedAt = completedAt
+        self.position = position
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct TodoList: Codable, Hashable, Sendable {
+    public var todos: [Todo]
+
+    public init(todos: [Todo]) {
+        self.todos = todos
+    }
+}
+
+public struct UpdateActivityRequest: Encodable, Sendable {
+    public var type: TypeInfo?
+    public var description: String?
+    public var occurredAt: Date?
+    public static let descriptionMaxLength = 5000
+
+    public init(type: TypeInfo? = nil, description: String? = nil, occurredAt: Date? = nil) {
+        self.type = type
+        self.description = description
+        self.occurredAt = occurredAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case description
+        case occurredAt
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(type, forKey: .type)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(occurredAt, forKey: .occurredAt)
+    }
+
+    /// Open enum: values added by a newer server decode to `.unknown`.
+    public enum TypeInfo: Codable, Hashable, Sendable {
+        case call
+        case email
+        case meeting
+        case note
+        case unknown(String)
+
+        public static let knownCases: [TypeInfo] = [.call, .email, .meeting, .note]
+
+        public init(rawValue: String) {
+            switch rawValue {
+            case "call": self = .call
+            case "email": self = .email
+            case "meeting": self = .meeting
+            case "note": self = .note
+            default: self = .unknown(rawValue)
+            }
+        }
+
+        public var rawValue: String {
+            switch self {
+            case .call: return "call"
+            case .email: return "email"
+            case .meeting: return "meeting"
+            case .note: return "note"
+            case .unknown(let raw): return raw
+            }
+        }
+
+        public init(from decoder: any Decoder) throws {
+            self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+        }
+
+        public func encode(to encoder: any Encoder) throws {
+            var c = encoder.singleValueContainer()
+            try c.encode(rawValue)
+        }
+    }
+}
+
+public struct UpdateAttractionRequest: Encodable, Sendable {
+    public var name: String?
+    public var city: Patchable<String>
+    public var country: Patchable<String>
+    public var website: Patchable<String>
+    public var email: Patchable<String>
+    public var contactName: Patchable<String>
+    public var status: AttractionStatus?
+    public var ownerId: Patchable<String>
+    public var notes: String?
+    public var nextFollowUp: Patchable<CalendarDate>
+    public static let nameMaxLength = 200
+    public static let nameMinLength = 1
+    public static let cityMaxLength = 200
+    public static let countryMaxLength = 200
+    public static let emailMaxLength = 2048
+    public static let contactNameMaxLength = 200
+    public static let notesMaxLength = 20000
+
+    public init(name: String? = nil, city: Patchable<String> = .unset, country: Patchable<String> = .unset, website: Patchable<String> = .unset, email: Patchable<String> = .unset, contactName: Patchable<String> = .unset, status: AttractionStatus? = nil, ownerId: Patchable<String> = .unset, notes: String? = nil, nextFollowUp: Patchable<CalendarDate> = .unset) {
+        self.name = name
+        self.city = city
+        self.country = country
+        self.website = website
+        self.email = email
+        self.contactName = contactName
+        self.status = status
+        self.ownerId = ownerId
+        self.notes = notes
+        self.nextFollowUp = nextFollowUp
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case city
+        case country
+        case website
+        case email
+        case contactName
+        case status
+        case ownerId
+        case notes
+        case nextFollowUp
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(name, forKey: .name)
+        try city.encode(into: &c, forKey: .city)
+        try country.encode(into: &c, forKey: .country)
+        try website.encode(into: &c, forKey: .website)
+        try email.encode(into: &c, forKey: .email)
+        try contactName.encode(into: &c, forKey: .contactName)
+        try c.encodeIfPresent(status, forKey: .status)
+        try ownerId.encode(into: &c, forKey: .ownerId)
+        try c.encodeIfPresent(notes, forKey: .notes)
+        try nextFollowUp.encode(into: &c, forKey: .nextFollowUp)
+    }
+}
+
 public struct UpdateChannelRequest: Encodable, Sendable {
     public var name: String
     public var description: String
@@ -1623,6 +2876,132 @@ public struct UpdateChannelRequest: Encodable, Sendable {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(name, forKey: .name)
         try c.encode(description, forKey: .description)
+    }
+}
+
+public struct UpdateDecisionLinkRequest: Encodable, Sendable {
+    public var url: String
+    public var title: Patchable<String>
+    public static let urlMaxLength = 2048
+    public static let urlMinLength = 1
+    public static let titleMaxLength = 200
+
+    public init(url: String, title: Patchable<String> = .unset) {
+        self.url = url
+        self.title = title
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case title
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(url, forKey: .url)
+        try title.encode(into: &c, forKey: .title)
+    }
+}
+
+public struct UpdateDecisionRequest: Encodable, Sendable {
+    public var type: DecisionType?
+    public var title: String?
+    public var status: DecisionStatus?
+    public var assigneeId: Patchable<String>
+    public var description: String?
+    public var optionsConsidered: String?
+    public var objective: String?
+    public var testDescription: String?
+    public var results: String?
+    public var outcome: String?
+    public var reasoning: String?
+    public var concludedOn: String?
+    public static let titleMaxLength = 300
+    public static let titleMinLength = 1
+    public static let descriptionMaxLength = 20000
+    public static let optionsConsideredMaxLength = 20000
+    public static let objectiveMaxLength = 20000
+    public static let testDescriptionMaxLength = 20000
+    public static let resultsMaxLength = 20000
+    public static let outcomeMaxLength = 20000
+    public static let reasoningMaxLength = 20000
+
+    public init(type: DecisionType? = nil, title: String? = nil, status: DecisionStatus? = nil, assigneeId: Patchable<String> = .unset, description: String? = nil, optionsConsidered: String? = nil, objective: String? = nil, testDescription: String? = nil, results: String? = nil, outcome: String? = nil, reasoning: String? = nil, concludedOn: String? = nil) {
+        self.type = type
+        self.title = title
+        self.status = status
+        self.assigneeId = assigneeId
+        self.description = description
+        self.optionsConsidered = optionsConsidered
+        self.objective = objective
+        self.testDescription = testDescription
+        self.results = results
+        self.outcome = outcome
+        self.reasoning = reasoning
+        self.concludedOn = concludedOn
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case title
+        case status
+        case assigneeId
+        case description
+        case optionsConsidered
+        case objective
+        case testDescription
+        case results
+        case outcome
+        case reasoning
+        case concludedOn
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(type, forKey: .type)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(status, forKey: .status)
+        try assigneeId.encode(into: &c, forKey: .assigneeId)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(optionsConsidered, forKey: .optionsConsidered)
+        try c.encodeIfPresent(objective, forKey: .objective)
+        try c.encodeIfPresent(testDescription, forKey: .testDescription)
+        try c.encodeIfPresent(results, forKey: .results)
+        try c.encodeIfPresent(outcome, forKey: .outcome)
+        try c.encodeIfPresent(reasoning, forKey: .reasoning)
+        try c.encodeIfPresent(concludedOn, forKey: .concludedOn)
+    }
+}
+
+public struct UpdateIdeaRequest: Encodable, Sendable {
+    public var title: String?
+    public var description: String?
+    public var status: IdeaStatus?
+    public var assigneeId: Patchable<String>
+    public static let titleMaxLength = 300
+    public static let titleMinLength = 1
+    public static let descriptionMaxLength = 20000
+
+    public init(title: String? = nil, description: String? = nil, status: IdeaStatus? = nil, assigneeId: Patchable<String> = .unset) {
+        self.title = title
+        self.description = description
+        self.status = status
+        self.assigneeId = assigneeId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case description
+        case status
+        case assigneeId
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(status, forKey: .status)
+        try assigneeId.encode(into: &c, forKey: .assigneeId)
     }
 }
 
@@ -1835,6 +3214,38 @@ public struct UpdateTaskRequest: Encodable, Sendable {
             try startDate.encode(into: &c, forKey: .startDate)
             try endDate.encode(into: &c, forKey: .endDate)
         }
+    }
+}
+
+public struct UpdateTodoRequest: Encodable, Sendable {
+    public var title: String?
+    public var description: String?
+    public var dueDate: Patchable<CalendarDate>
+    public var completed: Bool?
+    public static let titleMaxLength = 300
+    public static let titleMinLength = 1
+    public static let descriptionMaxLength = 5000
+
+    public init(title: String? = nil, description: String? = nil, dueDate: Patchable<CalendarDate> = .unset, completed: Bool? = nil) {
+        self.title = title
+        self.description = description
+        self.dueDate = dueDate
+        self.completed = completed
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case description
+        case dueDate
+        case completed
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(description, forKey: .description)
+        try dueDate.encode(into: &c, forKey: .dueDate)
+        try c.encodeIfPresent(completed, forKey: .completed)
     }
 }
 

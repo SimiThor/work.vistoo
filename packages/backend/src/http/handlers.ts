@@ -3,6 +3,10 @@ import { currentLimits, type EndpointInput, type EndpointOutput, type Endpoints,
 import type { AuthContext, AuthUser } from "../auth";
 import { DOWNLOAD_URL_TTL_SECONDS } from "../chat-storage";
 import * as chat from "../services/chat";
+import * as crm from "../services/crm";
+import * as decisions from "../services/decisions";
+import * as ideas from "../services/ideas";
+import * as todos from "../services/todos";
 import * as files from "../services/chat-files";
 import * as inbox from "../services/inbox";
 import * as issueRefs from "../services/issue-refs";
@@ -129,6 +133,69 @@ export const handlers: Handlers = {
   updateMilestone: (ctx, { params, body }) => milestones.updateMilestone(ctx, { id: params.id, ...body }),
   setMilestoneCompleted: (ctx, { params, body }) => milestones.setMilestoneCompleted(ctx, { id: params.id, ...body }),
   deleteMilestone: (ctx, { params }) => milestones.deleteMilestone(ctx, params.id),
+
+  // ---- Personal to-dos
+  listTodos: async (ctx) => ({ todos: await todos.listTodos(ctx) }),
+  createTodo: (ctx, { body }) => todos.createTodo(ctx, body),
+  updateTodo: (ctx, { params, body }) => todos.updateTodo(ctx, { id: params.id, patch: body }),
+  deleteTodo: async (ctx, { params }) => {
+    await todos.deleteTodo(ctx, params.id);
+  },
+  reorderTodos: async (ctx, { body }) => ({ todos: await todos.reorderTodos(ctx, body) }),
+
+  // ---- Ideas
+  listIdeas: async (ctx) => ({ ideas: await ideas.listIdeas(ctx) }),
+  createIdea: (ctx, { body }) => ideas.createIdea(ctx, body),
+  updateIdea: (ctx, { params, body }) => ideas.updateIdea(ctx, { id: params.id, patch: body }),
+  deleteIdea: async (ctx, { params }) => {
+    await ideas.deleteIdea(ctx, params.id);
+  },
+  createIssueFromIdea: (ctx, { params, body }) => ideas.createIssueFromIdea(ctx, { ideaId: params.id, ...body }),
+
+  // ---- CRM
+  listAttractions: async (ctx) => ({ attractions: await crm.listAttractions(ctx) }),
+  createAttraction: (ctx, { body }) => crm.createAttraction(ctx, body),
+  updateAttraction: (ctx, { params, body }) => crm.updateAttraction(ctx, { id: params.id, patch: body }),
+  deleteAttraction: async (ctx, { params }) => {
+    await crm.deleteAttraction(ctx, params.id);
+  },
+  listActivities: async (ctx, { params }) => ({ activities: await crm.listActivities(ctx, params.id) }),
+  addActivity: (ctx, { params, body }) => crm.addActivity(ctx, { attractionId: params.id, ...body }),
+  updateActivity: (ctx, { params, body }) => crm.updateActivity(ctx, { id: params.id, patch: body }),
+  deleteActivity: (ctx, { params }) => crm.deleteActivity(ctx, params.id),
+
+  // ---- Decisions
+  listDecisions: async (ctx, { query }) => ({
+    decisions: await decisions.listDecisions(ctx, {
+      query: query.query ?? "",
+      type: query.type ?? null,
+      status: query.status ?? null,
+      assigneeId: query.assigneeId ?? null,
+      sort: query.sort ?? "updated",
+    }),
+  }),
+  createDecision: (ctx, { body }) => decisions.createDecision(ctx, body),
+  getDecision: (ctx, { params }) => decisions.getDecision(ctx, params.id),
+  updateDecision: (ctx, { params, body }) => decisions.updateDecision(ctx, { id: params.id, patch: body }),
+  deleteDecision: (ctx, { params }) => decisions.deleteDecision(ctx, params.id),
+  listSupersedeCandidates: async (ctx, { params }) => ({
+    decisions: await decisions.listSupersedeCandidates(ctx, params.id),
+  }),
+  supersedeDecision: (ctx, { params, body }) => decisions.supersedeDecision(ctx, { id: params.id, ...body }),
+  createDecisionLink: (ctx, { params, body }) => decisions.createDecisionLink(ctx, { decisionId: params.id, ...body }),
+  updateDecisionLink: (ctx, { params, body }) => decisions.updateDecisionLink(ctx, { id: params.id, ...body }),
+  deleteDecisionLink: async (ctx, { params }) => {
+    await decisions.deleteDecisionLink(ctx, params.id);
+  },
+  listRelationCandidates: async (ctx, { params, query }) => ({
+    candidates: await decisions.listRelationCandidates(ctx, { decisionId: params.id, query: query.query ?? "" }),
+  }),
+  addDecisionRelation: async (ctx, { params, body }) => ({
+    relations: await decisions.addDecisionRelation(ctx, { decisionId: params.id, ...body }),
+  }),
+  removeDecisionRelation: async (ctx, { params }) => {
+    await decisions.removeDecisionRelation(ctx, params.id);
+  },
 
   // ---- Team
   getTeam: (ctx) => team.listTeam(ctx),

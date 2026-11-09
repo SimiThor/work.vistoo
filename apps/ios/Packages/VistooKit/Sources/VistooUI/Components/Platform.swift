@@ -39,6 +39,17 @@ extension View {
         #endif
     }
 
+    func urlInput() -> some View {
+        #if os(iOS)
+        keyboardType(.URL)
+            .textInputAutocapitalization(.never)
+            .textContentType(.URL)
+            .autocorrectionDisabled()
+        #else
+        autocorrectionDisabled()
+        #endif
+    }
+
     func nameInput() -> some View {
         #if os(iOS)
         textContentType(.name)

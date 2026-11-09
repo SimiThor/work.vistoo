@@ -15,6 +15,11 @@ public final class SessionModel {
     public let chat: ChatStore
     public let team: TeamStore
     public let notifications: NotificationSettingsModel
+    public let todos: TodoStore
+    public let ideas: IdeaStore
+    public let crm: CRMStore
+    public let decisions: DecisionStore
+    public let milestones: MilestoneStore
 
     @ObservationIgnored private var realtime: RealtimeHub?
     @ObservationIgnored private var lastResync = Date.distantPast
@@ -28,6 +33,11 @@ public final class SessionModel {
         chat = ChatStore(backend: backend, viewer: bootstrap.viewer)
         team = TeamStore(backend: backend, viewer: bootstrap.viewer)
         notifications = NotificationSettingsModel(backend: backend)
+        todos = TodoStore(backend: backend)
+        ideas = IdeaStore(backend: backend)
+        crm = CRMStore(backend: backend)
+        decisions = DecisionStore(backend: backend)
+        milestones = MilestoneStore(backend: backend)
         realtime = RealtimeHub(auth: auth) { [weak self] event in
             self?.handle(event)
         }
@@ -41,7 +51,8 @@ public final class SessionModel {
         async let a: Void = work.reload()
         async let b: Void = chat.reload()
         async let c: Void = notifications.load()
-        _ = await (a, b, c)
+        async let d: Void = todos.reload()
+        _ = await (a, b, c, d)
         lastResync = .now
     }
 
@@ -70,7 +81,17 @@ public final class SessionModel {
         async let a: Void = work.reload()
         async let b: Void = chat.resync()
         async let c: Void = refreshViewer()
-        _ = await (a, b, c)
+        async let d: Void = todos.reload()
+        async let e: Void = reloadOpenedAreas()
+        _ = await (a, b, c, d, e)
+    }
+
+    /// Areas without realtime: reload the ones already opened in this session.
+    private func reloadOpenedAreas() async {
+        if ideas.state != .idle { await ideas.reload() }
+        if crm.state != .idle { await crm.reload() }
+        if decisions.state != .idle { await decisions.reload() }
+        if milestones.state != .idle { await milestones.reload() }
     }
 
     private func refreshViewer() async {
@@ -91,6 +112,11 @@ public final class SessionModel {
         await realtime?.stop()
         realtime = nil
         chat.reset()
+        todos.reset()
+        ideas.reset()
+        crm.reset()
+        decisions.reset()
+        milestones.reset()
     }
 
     private func handle(_ event: RealtimeHub.Event) {

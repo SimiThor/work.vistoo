@@ -143,40 +143,6 @@ struct Avatar: View {
     }
 }
 
-// MARK: - Brand
-
-struct BrandMark: View {
-    var body: some View {
-        HStack(spacing: Tokens.Spacing.sm) {
-            BrandGlyph().frame(width: 28, height: 28).accessibilityHidden(true)
-            Text("Vistoo")
-                .font(.title2.weight(.semibold))
-                .tracking(-0.3)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Vistoo Work")
-    }
-}
-
-/// The web logo (apps/web/src/components/brand.tsx): dark rounded square with a white "V".
-struct BrandGlyph: View {
-    var body: some View {
-        GeometryReader { geo in
-            let s = geo.size.width / 20
-            ZStack {
-                RoundedRectangle(cornerRadius: 5 * s, style: .continuous).fill(Tokens.Palette.foreground)
-                Path { p in
-                    p.move(to: CGPoint(x: 5.5 * s, y: 6 * s))
-                    p.addLine(to: CGPoint(x: 10 * s, y: 14.5 * s))
-                    p.addLine(to: CGPoint(x: 14.5 * s, y: 6 * s))
-                }
-                .stroke(.white, style: StrokeStyle(lineWidth: 2 * s, lineCap: .round, lineJoin: .round))
-            }
-        }
-        .aspectRatio(1, contentMode: .fit)
-    }
-}
-
 // MARK: - States
 
 struct LoadingView: View {

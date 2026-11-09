@@ -38,6 +38,16 @@ open apps/ios/VistooWork.xcodeproj
 
 Details: [apps/ios/README.md](../apps/ios/README.md).
 
+## Android
+
+```bash
+npm run android:install            # adb reverse 3100/54321 + Debug-Build installieren (Emulator oder Gerät per USB)
+npm run android:test               # Unit-Tests (inkl. gemeinsamer Filter-Fixtures) + Lint
+```
+
+- Debug-Build → `http://localhost:3100`; dank `adb reverse` erreicht der Emulator auch die lokale Supabase-URL aus `/meta`.
+- Anmelden: E-Mail eingeben, Code aus Mailpit eintippen. Details: [apps/android/README.md](../apps/android/README.md).
+
 ## Verträge und generierter Code
 
 ```bash

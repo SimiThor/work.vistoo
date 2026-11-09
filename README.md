@@ -49,6 +49,7 @@ Verzeichnisse:
 | --- | --- |
 | `apps/web/` | Next.js-App: Seiten, Komponenten, Server Actions, `/api/v1`-Route, Cron, E2E-Tests |
 | `apps/ios/` | SwiftUI-App (`Packages/VistooKit`, App-Target via XcodeGen) |
+| `apps/android/` | Kotlin/Jetpack-Compose-App (Gradle), funktionsgleich mit iOS – [apps/android/README.md](apps/android/README.md) |
 | `packages/backend/` | DB-Client, Auth-Kontext, Service-Schicht, HTTP-API, Mailer, Storage (nur Server) + Integrationstests |
 | `packages/domain/` | Domänen-Konstanten, DTO-Schemas, Validierung, Kalendertage, Filter (Client + Server) |
 | `packages/database/` | Drizzle-Schema, versionierte Migrationen inkl. RLS, Bootstrap/Seed |

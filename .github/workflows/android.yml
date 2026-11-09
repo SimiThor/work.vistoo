@@ -1,0 +1,58 @@
+# Android app. Runs for Android changes and for shared contract/domain/token changes
+# (they regenerate Kotlin sources). Pure web/backend or iOS changes do not trigger it.
+# Build + unit tests + lint only; Play Store upload is not automated yet
+# (see apps/android/README.md → „Veröffentlichung“).
+name: Android
+
+on:
+  pull_request:
+    paths: &android-paths
+      - "apps/android/**"
+      - "!apps/android/**/*.md"
+      - "packages/contracts/**"
+      - "packages/domain/**"
+      - "packages/design-tokens/**"
+      - ".github/workflows/android.yml"
+  push:
+    branches: [main]
+    paths: *android-paths
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generated Kotlin sources match the contract
+        run: |
+          npm run generate
+          git diff --exit-code -- apps/android/app/src/main/java/de/vistoo/work/core/generated apps/android/app/src/main/java/de/vistoo/work/ui/generated
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build, unit tests (incl. shared filter fixtures), lint
+        working-directory: apps/android
+        run: ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --console=plain
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-reports
+          path: |
+            apps/android/app/build/reports
+            apps/android/app/build/outputs/apk/debug/*.apk

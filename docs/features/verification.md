@@ -31,6 +31,11 @@ Stand: 6. 11. 2026. Ehrliche Übersicht: was automatisch lief, was nur kompilier
 | 9 | Fehlerbehandlung ohne doppelte Mutationen | E2E 9 (parallele Wiederholungen), `api.test.ts`; App: Client-IDs in `TaskDraft`, `ProjectEditor`, `PendingMessage` |
 | 10 | Bestehende Webfunktionen nach Umstellung | 19 Web-E2E + 61 bestehende Integrationstests |
 
+## iOS im Simulator (2026-11-09)
+
+- iOS-Build (Simulator) und `VistooWorkUITests/WorkspaceAreasTests` gegen den lokalen Stack: Anmeldung mit Code aus Mailpit, To-do auf „Für mich“ anlegen, im Tab „Mehr“ Idee, Entscheidung (öffnet Detail), CRM-Eintrag (Detail mit Verlauf) und Meilenstein anlegen. Der Test legt bei jedem Lauf Einträge im lokalen Workspace an.
+- Wichtig: Für UI-Tests mit Anmeldung **ad hoc signieren** statt `CODE_SIGNING_ALLOWED=NO`. Unsigniert schreibt die App nicht in den Keychain, die Session geht verloren und die Anmeldung bleibt bei „Anmeldung …“ stehen. Aufruf: `xcodebuild test … -parallel-testing-enabled NO VISTOO_CODE_SIGN_STYLE=Manual VISTOO_CODE_SIGN_IDENTITY=- CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=`.
+
 ## Nicht ausgeführt (Umgebung)
 
 - **Kein iOS-Build, kein Simulatorlauf, keine UI-Tests.** Auf der Entwicklungsmaschine waren nur die Command Line Tools installiert, kein Xcode. Der Swift-Code ist gegen das macOS-SDK kompiliert und getestet. iOS-spezifische Zweige (`#if os(iOS)`: Tastaturtypen, Edit-Mode, Toolbar-Platzierungen, Clipboard) und das App-Target sind **nicht** kompiliert. Die CI (`ios.yml`) baut und testet auf einem macOS-Runner. Der erste Lauf steht noch aus.

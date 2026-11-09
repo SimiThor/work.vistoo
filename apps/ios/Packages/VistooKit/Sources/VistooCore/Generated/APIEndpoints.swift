@@ -18,11 +18,35 @@ public enum API {
         )
     }
 
+    /// Log a call, e-mail, meeting or note (optionally with the next follow-up).
+    public static func addActivity(id: String, body: CreateActivityRequest) -> Endpoint<ActivityChange> {
+        Endpoint(
+            method: .post,
+            path: "/attractions/\(id.pathEncoded)/activities",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .idempotentWithClientId
+        )
+    }
+
     /// Private channels: add members (they see the full history).
     public static func addChannelMembers(id: String, body: AddChannelMembersRequest) -> Endpoint<NoContent> {
         Endpoint(
             method: .post,
             path: "/conversations/\(id.pathEncoded)/members",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Link an issue or idea (linking twice is a no-op).
+    public static func addDecisionRelation(id: String, body: AddDecisionRelationRequest) -> Endpoint<DecisionRelationList> {
+        Endpoint(
+            method: .post,
+            path: "/decisions/\(id.pathEncoded)/relations",
             query: [],
             body: body,
             auth: .member,
@@ -42,6 +66,18 @@ public enum API {
         )
     }
 
+    /// Add a CRM entry (writes the "created" timeline entry).
+    public static func createAttraction(body: CreateAttractionRequest) -> Endpoint<Attraction> {
+        Endpoint(
+            method: .post,
+            path: "/attractions",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .idempotentWithClientId
+        )
+    }
+
     /// Create an open or private channel.
     public static func createChannel(body: CreateChannelRequest) -> Endpoint<ConversationRef> {
         Endpoint(
@@ -51,6 +87,54 @@ public enum API {
             body: body,
             auth: .member,
             retry: .idempotentWithClientId
+        )
+    }
+
+    /// Record a decision or experiment (only the title is required).
+    public static func createDecision(body: CreateDecisionRequest) -> Endpoint<DecisionSummary> {
+        Endpoint(
+            method: .post,
+            path: "/decisions",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .idempotentWithClientId
+        )
+    }
+
+    /// Attach a web link.
+    public static func createDecisionLink(id: String, body: CreateDecisionLinkRequest) -> Endpoint<DecisionLink> {
+        Endpoint(
+            method: .post,
+            path: "/decisions/\(id.pathEncoded)/links",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .idempotentWithClientId
+        )
+    }
+
+    /// Add an idea.
+    public static func createIdea(body: CreateIdeaRequest) -> Endpoint<Idea> {
+        Endpoint(
+            method: .post,
+            path: "/ideas",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .idempotentWithClientId
+        )
+    }
+
+    /// Create a task from the idea in a project and link it. Repeating returns the existing task.
+    public static func createIssueFromIdea(id: String, body: CreateIssueFromIdeaRequest) -> Endpoint<IdeaIssue> {
+        Endpoint(
+            method: .post,
+            path: "/ideas/\(id.pathEncoded)/issue",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
         )
     }
 
@@ -102,6 +186,78 @@ public enum API {
         )
     }
 
+    /// Add a to-do at the top of the open list.
+    public static func createTodo(body: CreateTodoRequest) -> Endpoint<Todo> {
+        Endpoint(
+            method: .post,
+            path: "/todos",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .idempotentWithClientId
+        )
+    }
+
+    /// Delete a manual timeline entry (author or admin).
+    public static func deleteActivity(id: String) -> Endpoint<ActivityDeleted> {
+        Endpoint(
+            method: .delete,
+            path: "/activities/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .notFoundMeansDone
+        )
+    }
+
+    /// Delete a CRM entry with its timeline.
+    public static func deleteAttraction(id: String) -> Endpoint<NoContent> {
+        Endpoint(
+            method: .delete,
+            path: "/attractions/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .notFoundMeansDone
+        )
+    }
+
+    /// Delete an entry; decisions it replaced become valid again.
+    public static func deleteDecision(id: String) -> Endpoint<DeleteDecisionResponse> {
+        Endpoint(
+            method: .delete,
+            path: "/decisions/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .notFoundMeansDone
+        )
+    }
+
+    /// Remove a link.
+    public static func deleteDecisionLink(id: String) -> Endpoint<NoContent> {
+        Endpoint(
+            method: .delete,
+            path: "/decision-links/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .notFoundMeansDone
+        )
+    }
+
+    /// Delete an idea (an issue created from it stays).
+    public static func deleteIdea(id: String) -> Endpoint<NoContent> {
+        Endpoint(
+            method: .delete,
+            path: "/ideas/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .notFoundMeansDone
+        )
+    }
+
     /// Delete an own message (placeholder remains, attachments are removed).
     public static func deleteMessage(id: String) -> Endpoint<Message> {
         Endpoint(
@@ -143,6 +299,18 @@ public enum API {
         Endpoint(
             method: .delete,
             path: "/task-links/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .notFoundMeansDone
+        )
+    }
+
+    /// Delete an own to-do.
+    public static func deleteTodo(id: String) -> Endpoint<NoContent> {
+        Endpoint(
+            method: .delete,
+            path: "/todos/\(id.pathEncoded)",
             query: [],
             body: nil,
             auth: .member,
@@ -215,6 +383,18 @@ public enum API {
         Endpoint(
             method: .get,
             path: "/conversations/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// One entry with links, linked issues/ideas and history.
+    public static func getDecision(id: String) -> Endpoint<DecisionDetail> {
+        Endpoint(
+            method: .get,
+            path: "/decisions/\(id.pathEncoded)",
             query: [],
             body: nil,
             auth: .member,
@@ -342,11 +522,65 @@ public enum API {
         )
     }
 
+    /// Timeline of a CRM entry, newest first.
+    public static func listActivities(id: String) -> Endpoint<ActivityList> {
+        Endpoint(
+            method: .get,
+            path: "/attractions/\(id.pathEncoded)/activities",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// All CRM entries by name.
+    public static func listAttractions() -> Endpoint<AttractionList> {
+        Endpoint(
+            method: .get,
+            path: "/attractions",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
     /// Conversations visible to the caller (open channels, own private channels and DMs) with unread state.
     public static func listConversations() -> Endpoint<ConversationList> {
         Endpoint(
             method: .get,
             path: "/conversations",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Decisions and experiments: full-text search, filters, sorting.
+    public static func listDecisions(query: String? = nil, type: DecisionType? = nil, status: DecisionStatus? = nil, assigneeId: String? = nil, sort: DecisionSort? = nil) -> Endpoint<DecisionList> {
+        Endpoint(
+            method: .get,
+            path: "/decisions",
+            query: [
+                URLQueryItem.optional("query", query),
+                URLQueryItem.optional("type", type),
+                URLQueryItem.optional("status", status),
+                URLQueryItem.optional("assigneeId", assigneeId),
+                URLQueryItem.optional("sort", sort)
+            ].compactMap { $0 },
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// The shared idea backlog, newest first.
+    public static func listIdeas() -> Endpoint<IdeaList> {
+        Endpoint(
+            method: .get,
+            path: "/ideas",
             query: [],
             body: nil,
             auth: .member,
@@ -405,6 +639,32 @@ public enum API {
         )
     }
 
+    /// Issues and ideas that can be linked (search by title or #number).
+    public static func listRelationCandidates(id: String, query: String? = nil) -> Endpoint<RelationCandidateList> {
+        Endpoint(
+            method: .get,
+            path: "/decisions/\(id.pathEncoded)/relation-candidates",
+            query: [
+                URLQueryItem.optional("query", query)
+            ].compactMap { $0 },
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Decisions that may replace this one.
+    public static func listSupersedeCandidates(id: String) -> Endpoint<DecisionRefList> {
+        Endpoint(
+            method: .get,
+            path: "/decisions/\(id.pathEncoded)/supersede-candidates",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
     /// External links attached to a task (oldest first). Also for tasks of archived projects.
     public static func listTaskLinks(id: String) -> Endpoint<TaskLinkList> {
         Endpoint(
@@ -426,6 +686,18 @@ public enum API {
                 URLQueryItem.optional("projectId", projectId),
                 URLQueryItem.optional("milestoneId", milestoneId)
             ].compactMap { $0 },
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// The caller's own to-dos: open ones by position, then completed ones (latest first).
+    public static func listTodos() -> Endpoint<TodoList> {
+        Endpoint(
+            method: .get,
+            path: "/todos",
+            query: [],
             body: nil,
             auth: .member,
             retry: .safe
@@ -504,6 +776,18 @@ public enum API {
         )
     }
 
+    /// Unlink an issue or idea.
+    public static func removeDecisionRelation(id: String) -> Endpoint<NoContent> {
+        Endpoint(
+            method: .delete,
+            path: "/decision-relations/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .notFoundMeansDone
+        )
+    }
+
     /// Admin: remove a member (access ends immediately; tasks stay, assignments are cleared).
     public static func removeMember(userId: String) -> Endpoint<RemoveMemberResponse> {
         Endpoint(
@@ -513,6 +797,18 @@ public enum API {
             body: nil,
             auth: .admin,
             retry: .notFoundMeansDone
+        )
+    }
+
+    /// New order of the open to-dos (top to bottom).
+    public static func reorderTodos(body: ReorderTodosRequest) -> Endpoint<ReorderedTodos> {
+        Endpoint(
+            method: .put,
+            path: "/todos/order",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
         )
     }
 
@@ -662,6 +958,18 @@ public enum API {
         )
     }
 
+    /// Replace a decided decision by an existing one (successorId) or a new one (newTitle + newId).
+    public static func supersedeDecision(id: String, body: SupersedeDecisionRequest) -> Endpoint<SupersedeResult> {
+        Endpoint(
+            method: .post,
+            path: "/decisions/\(id.pathEncoded)/supersede",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
     /// Stop pushes to this device (sign-out). Works without membership.
     public static func unregisterDevice(token: String) -> Endpoint<NoContent> {
         Endpoint(
@@ -674,11 +982,71 @@ public enum API {
         )
     }
 
+    /// Edit a manual timeline entry (author or admin).
+    public static func updateActivity(id: String, body: UpdateActivityRequest) -> Endpoint<ActivityChange> {
+        Endpoint(
+            method: .patch,
+            path: "/activities/\(id.pathEncoded)",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Edit a CRM entry (only sent fields change; status/owner/follow-up changes are logged).
+    public static func updateAttraction(id: String, body: UpdateAttractionRequest) -> Endpoint<Attraction> {
+        Endpoint(
+            method: .patch,
+            path: "/attractions/\(id.pathEncoded)",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
     /// Rename a channel / change its description (responsible person or admins).
     public static func updateChannel(id: String, body: UpdateChannelRequest) -> Endpoint<NoContent> {
         Endpoint(
             method: .patch,
             path: "/conversations/\(id.pathEncoded)",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Edit an entry (only sent fields change).
+    public static func updateDecision(id: String, body: UpdateDecisionRequest) -> Endpoint<DecisionDetail> {
+        Endpoint(
+            method: .patch,
+            path: "/decisions/\(id.pathEncoded)",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Change URL and name of a link.
+    public static func updateDecisionLink(id: String, body: UpdateDecisionLinkRequest) -> Endpoint<DecisionLink> {
+        Endpoint(
+            method: .put,
+            path: "/decision-links/\(id.pathEncoded)",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Edit an idea (only sent fields change).
+    public static func updateIdea(id: String, body: UpdateIdeaRequest) -> Endpoint<Idea> {
+        Endpoint(
+            method: .patch,
+            path: "/ideas/\(id.pathEncoded)",
             query: [],
             body: body,
             auth: .member,
@@ -763,6 +1131,18 @@ public enum API {
         Endpoint(
             method: .patch,
             path: "/task-links/\(id.pathEncoded)",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Edit, complete or reopen an own to-do (only sent fields change).
+    public static func updateTodo(id: String, body: UpdateTodoRequest) -> Endpoint<Todo> {
+        Endpoint(
+            method: .patch,
+            path: "/todos/\(id.pathEncoded)",
             query: [],
             body: body,
             auth: .member,

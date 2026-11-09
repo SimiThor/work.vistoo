@@ -407,6 +407,150 @@ describe("chat", () => {
   });
 });
 
+describe("personal to-dos", () => {
+  it("are private, idempotent per client id, and can be completed and reordered", async () => {
+    const id = randomUUID();
+    const first = await call("POST", "/todos", { token: anna.token, body: { id, title: "Rechnung schicken" } });
+    expect(first.status).toBe(201);
+    const retry = await call("POST", "/todos", { token: anna.token, body: { id, title: "Rechnung schicken" } });
+    expect(retry.body.id).toBe(id);
+    const second = await call("POST", "/todos", { token: anna.token, body: { title: "Zweites", dueDate: "2026-12-01" } });
+    expect(second.body.dueDate).toBe("2026-12-01");
+
+    // Other members – also admins – see nothing and cannot touch them.
+    expect((await call("GET", "/todos", { token: admin.token })).body.todos).toEqual([]);
+    expect((await call("PATCH", `/todos/${id}`, { token: admin.token, body: { completed: true } })).status).toBe(404);
+    expect((await call("DELETE", `/todos/${id}`, { token: admin.token })).status).toBe(404);
+
+    const order = await call("PUT", "/todos/order", { token: anna.token, body: { ids: [id, second.body.id] } });
+    expect(order.body.todos.map((t: { id: string }) => t.id)).toEqual([id, second.body.id]);
+
+    const done = await call("PATCH", `/todos/${id}`, { token: anna.token, body: { completed: true, dueDate: null } });
+    expect(done.body.completed).toBe(true);
+    expect(done.body.title).toBe("Rechnung schicken");
+    const list = await call("GET", "/todos", { token: anna.token });
+    expect(list.body.todos.map((t: { id: string }) => t.id)).toEqual([second.body.id, id]);
+
+    expect((await call("DELETE", `/todos/${id}`, { token: anna.token })).status).toBe(204);
+  });
+});
+
+describe("ideas", () => {
+  it("shared backlog; creating an issue twice returns the same task", async () => {
+    const idea = await call("POST", "/ideas", { token: anna.token, body: { title: "Offline-Modus", description: "Text" } });
+    expect(idea.status).toBe(201);
+    expect(idea.body.status).toBe("new");
+    const edited = await call("PATCH", `/ideas/${idea.body.id}`, {
+      token: admin.token,
+      body: { status: "planned", assigneeId: anna.user.id },
+    });
+    expect(edited.body).toMatchObject({ status: "planned", assigneeId: anna.user.id, title: "Offline-Modus" });
+    const outsider = await makeUser();
+    expect(
+      (await call("PATCH", `/ideas/${idea.body.id}`, { token: anna.token, body: { assigneeId: outsider.id } })).body.error.code,
+    ).toBe("VALIDATION");
+
+    const issue = await call("POST", `/ideas/${idea.body.id}/issue`, { token: anna.token, body: { projectId } });
+    expect(issue.status).toBe(201);
+    expect(issue.body.task.title).toBe("Offline-Modus");
+    expect(issue.body.idea.task.id).toBe(issue.body.task.id);
+    const again = await call("POST", `/ideas/${idea.body.id}/issue`, { token: anna.token, body: { projectId } });
+    expect(again.body.task.id).toBe(issue.body.task.id);
+
+    expect((await call("GET", "/ideas", { token: admin.token })).body.ideas).toHaveLength(1);
+    expect((await call("DELETE", `/ideas/${idea.body.id}`, { token: anna.token })).status).toBe(204);
+  });
+});
+
+describe("crm", () => {
+  it("logs status changes and manual activities; system entries stay", async () => {
+    const created = await call("POST", "/attractions", { token: anna.token, body: { name: "Zoo Zürich", website: "zoo.ch" } });
+    expect(created.status).toBe(201);
+    const id = created.body.id;
+    const updated = await call("PATCH", `/attractions/${id}`, { token: anna.token, body: { status: "contacted" } });
+    expect(updated.body.status).toBe("contacted");
+
+    const activity = await call("POST", `/attractions/${id}/activities`, {
+      token: anna.token,
+      body: { id: randomUUID(), type: "call", description: "Kurz telefoniert", nextFollowUp: "2026-12-10" },
+    });
+    expect(activity.status).toBe(201);
+    expect(activity.body.attraction.nextFollowUp).toBe("2026-12-10");
+    expect(activity.body.attraction.lastContactAt).not.toBeNull();
+
+    const timeline = await call("GET", `/attractions/${id}/activities`, { token: admin.token });
+    const types = timeline.body.activities.map((a: { type: string }) => a.type);
+    expect(types).toEqual(expect.arrayContaining(["created", "status_changed", "call", "follow_up_changed"]));
+    const system = timeline.body.activities.find((a: { system: boolean }) => a.system);
+    expect((await call("DELETE", `/activities/${system.id}`, { token: admin.token })).status).toBe(403);
+
+    // Only the author or an admin edits manual entries.
+    const other = await member(wsId);
+    expect(
+      (await call("PATCH", `/activities/${activity.body.activity.id}`, { token: other.token, body: { description: "x" } })).status,
+    ).not.toBe(200);
+    const removed = await call("DELETE", `/activities/${activity.body.activity.id}`, { token: admin.token });
+    expect(removed.status).toBe(200);
+    expect(removed.body.attraction.lastContactAt).toBeNull();
+
+    expect((await call("DELETE", `/attractions/${id}`, { token: anna.token })).status).toBe(204);
+  });
+});
+
+describe("decisions", () => {
+  it("concluding requires a result; search, supersede, links and relations work over the API", async () => {
+    const created = await call("POST", "/decisions", { token: anna.token, body: { title: "Postgres statt Firebase" } });
+    expect(created.status).toBe(201);
+    const id = created.body.id;
+    expect(created.body.status).toBe("open");
+
+    const incomplete = await call("PATCH", `/decisions/${id}`, { token: anna.token, body: { status: "decided" } });
+    expect(incomplete.status).toBe(422);
+    expect(Object.keys(incomplete.body.error.fieldErrors)).toEqual(expect.arrayContaining(["outcome", "reasoning"]));
+
+    const decided = await call("PATCH", `/decisions/${id}`, {
+      token: anna.token,
+      body: { status: "decided", outcome: "Postgres", reasoning: "SQL und RLS" },
+    });
+    expect(decided.status).toBe(200);
+    expect(decided.body.decision.concludedOn).not.toBeNull();
+
+    const found = await call("GET", "/decisions?query=postg&type=decision", { token: admin.token });
+    expect(found.body.decisions.map((d: { id: string }) => d.id)).toEqual([id]);
+    expect((await call("GET", "/decisions?assigneeId=nope", { token: admin.token })).status).toBe(422);
+    expect((await call("GET", "/decisions?assigneeId=none", { token: admin.token })).body.decisions).toHaveLength(1);
+
+    const link = await call("POST", `/decisions/${id}/links`, { token: anna.token, body: { url: "https://example.com" } });
+    expect(link.status).toBe(201);
+    const ideaRes = await call("POST", "/ideas", { token: anna.token, body: { title: "Idee" } });
+    const candidates = await call("GET", `/decisions/${id}/relation-candidates?query=Idee`, { token: anna.token });
+    expect(candidates.body.candidates.some((c: { targetId: string }) => c.targetId === ideaRes.body.id)).toBe(true);
+    const related = await call("POST", `/decisions/${id}/relations`, {
+      token: anna.token,
+      body: { kind: "idea", targetId: ideaRes.body.id },
+    });
+    expect(related.body.relations).toHaveLength(1);
+
+    const newId = randomUUID();
+    const superseded = await call("POST", `/decisions/${id}/supersede`, {
+      token: anna.token,
+      body: { newTitle: "Supabase", newId },
+    });
+    expect(superseded.status).toBe(200);
+    expect(superseded.body.decision.decision.status).toBe("superseded");
+    expect(superseded.body.decision.decision.supersededBy.id).toBe(newId);
+    const detail = await call("GET", `/decisions/${id}`, { token: anna.token });
+    expect(detail.body.history.map((h: { kind: string }) => h.kind)).toContain("superseded");
+    expect(detail.body.links).toHaveLength(1);
+
+    const bad = await call("POST", `/decisions/${id}/supersede`, { token: anna.token, body: {} });
+    expect(bad.status).toBe(422);
+
+    const deleted = await call("DELETE", `/decisions/${newId}`, { token: anna.token });
+    expect(deleted.body.restored).toEqual([id]);
+  });
+});
+
 describe("every endpoint is reachable", () => {
   it("lists the operations covered here", () => {
     const covered: OperationId[] = Object.keys(endpoints) as OperationId[];

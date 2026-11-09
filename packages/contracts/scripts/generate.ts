@@ -4,6 +4,9 @@
  *   apps/ios/Packages/VistooKit/Sources/VistooCore/Generated/APIModels.swift
  *   apps/ios/Packages/VistooKit/Sources/VistooCore/Generated/APIEndpoints.swift
  *   apps/ios/Packages/VistooKit/Sources/VistooCore/Generated/DomainConstants.swift
+ *   apps/android/app/src/main/java/de/vistoo/work/core/generated/ApiModels.kt
+ *   apps/android/app/src/main/java/de/vistoo/work/core/generated/ApiEndpoints.kt
+ *   apps/android/app/src/main/java/de/vistoo/work/core/generated/DomainConstants.kt
  *
  * Run `npm run generate` after changing packages/domain (dto, validation,
  * constants) or packages/contracts/src. CI fails if the output is stale.
@@ -13,11 +16,36 @@ import path from "node:path";
 import { INVITATION_TTL_DAYS, MEMBER_ROLES, PROJECT_COLORS, ROLE_LABEL, STATUS_LABEL, TASK_STATUSES } from "@vistoo/domain";
 import { ALLOWED_FILE_TYPES, CHAT_LIMITS } from "@vistoo/domain/chat-config";
 import { UNASSIGNED } from "@vistoo/domain/filters";
+import {
+  ATTRACTION_STATUS_COLOR,
+  ATTRACTION_STATUS_LABEL,
+  ATTRACTION_STATUSES,
+  CONTACT_ACTIVITY_TYPES,
+  CRM_LIMITS,
+  MANUAL_ACTIVITY_LABEL,
+  MANUAL_ACTIVITY_TYPES,
+} from "@vistoo/domain/crm";
+import {
+  CONCLUDED_STATUSES,
+  DECISION_SORT_LABEL,
+  DECISION_SORTS,
+  DECISION_STATUS_COLOR,
+  DECISION_STATUS_LABEL,
+  DECISION_STATUSES,
+  DECISION_TYPE_LABEL,
+  DECISION_TYPES,
+  FIELDS_BY_TYPE,
+  STATUSES_BY_TYPE,
+} from "@vistoo/domain/decisions";
+import { IDEA_STATUS_LABEL, IDEA_STATUSES } from "@vistoo/domain/ideas";
+import { TODO_LIMITS } from "@vistoo/domain/todos";
 import { buildOpenApiDocument } from "../src/openapi";
+import { generateKotlinEndpoints, generateKotlinModels, KOTLIN_PACKAGE } from "./kotlin";
 import { generateSwiftEndpoints, generateSwiftModels } from "./swift";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const swiftDir = path.join(root, "apps/ios/Packages/VistooKit/Sources/VistooCore/Generated");
+const kotlinDir = path.join(root, "apps/android/app/src/main/java/de/vistoo/work/core/generated");
 
 function write(file: string, content: string) {
   mkdirSync(path.dirname(file), { recursive: true });
@@ -27,6 +55,25 @@ function write(file: string, content: string) {
 
 const camel = (s: string) => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
 const str = (s: string) => JSON.stringify(s);
+
+/** `public var label` (and optionally `hex`) for an open enum, from the domain's label/colour maps. */
+function enumExtension(
+  name: string,
+  values: readonly string[],
+  labels: Record<string, string>,
+  colors?: Record<string, string>,
+): string[] {
+  const out = [`extension ${name} {`, "    /// German label, identical to the web app.", "    public var label: String {", "        switch self {"];
+  out.push(...values.map((v) => `        case .${camel(v)}: return ${str(labels[v])}`), "        case .unknown(let raw): return raw", "        }", "    }");
+  if (colors) {
+    out.push("", "    /// Muted dot colour (same as the web).", "    public var hex: UInt32 {", "        switch self {");
+    out.push(...values.map((v) => `        case .${camel(v)}: return 0x${colors[v].slice(1).toUpperCase()}`), "        case .unknown: return 0x8E8E93", "        }", "    }");
+  }
+  out.push("}", "");
+  return out;
+}
+
+const swiftCases = (values: readonly string[]) => values.map((v) => `.${camel(v)}`).join(", ");
 
 function domainConstants(): string {
   const lines = [
@@ -89,6 +136,171 @@ function domainConstants(): string {
     "    ]",
     "}",
     "",
+    ...enumExtension("IdeaStatus", IDEA_STATUSES, IDEA_STATUS_LABEL),
+    ...enumExtension("AttractionStatus", ATTRACTION_STATUSES, ATTRACTION_STATUS_LABEL, ATTRACTION_STATUS_COLOR),
+    ...enumExtension("DecisionType", DECISION_TYPES, DECISION_TYPE_LABEL),
+    ...enumExtension("DecisionStatus", DECISION_STATUSES, DECISION_STATUS_LABEL, DECISION_STATUS_COLOR),
+    ...enumExtension("DecisionSort", DECISION_SORTS, DECISION_SORT_LABEL),
+    "extension DecisionType {",
+    "    /// Status set of this type, in workflow order.",
+    "    public var statuses: [DecisionStatus] {",
+    "        switch self {",
+    ...DECISION_TYPES.map((t) => `        case .${camel(t)}: return [${swiftCases(STATUSES_BY_TYPE[t])}]`),
+    "        case .unknown: return []",
+    "        }",
+    "    }",
+    "",
+    "    /// Long-form fields this type shows (keys of `Decision`).",
+    "    public var textFields: [String] {",
+    "        switch self {",
+    ...DECISION_TYPES.map((t) => `        case .${camel(t)}: return [${FIELDS_BY_TYPE[t].map(str).join(", ")}]`),
+    "        case .unknown: return []",
+    "        }",
+    "    }",
+    "}",
+    "",
+    "extension DecisionStatus {",
+    "    /// Concluded entries need a documented result (enforced by the server).",
+    "    public var isConcluded: Bool {",
+    "        switch self {",
+    `        case ${swiftCases(CONCLUDED_STATUSES)}: return true`,
+    "        default: return false",
+    "        }",
+    "    }",
+    "}",
+    "",
+    "/// Manual CRM timeline entries (the other activity types are written by the server).",
+    "public enum ManualActivity {",
+    `    public static let types: [ActivityType] = [${swiftCases(MANUAL_ACTIVITY_TYPES)}]`,
+    `    /// Count as "Letzter Kontakt".`,
+    `    public static let contactTypes: [ActivityType] = [${swiftCases(CONTACT_ACTIVITY_TYPES)}]`,
+    "    public static func label(_ type: ActivityType) -> String? {",
+    "        switch type {",
+    ...MANUAL_ACTIVITY_TYPES.map((t) => `        case .${camel(t)}: return ${str(MANUAL_ACTIVITY_LABEL[t])}`),
+    "        default: return nil",
+    "        }",
+    "    }",
+    "}",
+    "",
+    "public enum TodoDefaults {",
+    `    public static let maxPerUser = ${TODO_LIMITS.perUser}`,
+    "}",
+    "",
+    "public enum CRMDefaults {",
+    `    public static let activityMaxLength = ${CRM_LIMITS.activityMax}`,
+    "}",
+  ];
+  return lines.join("\n");
+}
+
+
+// ---- Kotlin (Android): same values, same names as the Swift extensions above.
+
+const pascalCase = (s: string) => {
+  const c = camel(s);
+  const p = c[0].toUpperCase() + c.slice(1);
+  return p === "Unknown" ? "UnknownValue" : p;
+};
+const ktCase = (type: string, v: string) => `${type}.${pascalCase(v === v.toUpperCase() ? v.toLowerCase() : v)}`;
+const kStr = (s: string) => JSON.stringify(s).replace(/\$/g, "\\$");
+
+function kotlinEnumExtension(
+  name: string,
+  values: readonly string[],
+  labels: Record<string, string>,
+  colors?: Record<string, string>,
+): string[] {
+  const out = ["/** German label, identical to the web app. */", `val ${name}.label: String`, "    get() = when (this) {"];
+  out.push(...values.map((v) => `        ${ktCase(name, v)} -> ${kStr(labels[v])}`), `        is ${name}.Unknown -> rawValue`, "    }", "");
+  if (colors) {
+    out.push("/** Muted dot colour (same as the web). */", `val ${name}.hex: Long`, "    get() = when (this) {");
+    out.push(...values.map((v) => `        ${ktCase(name, v)} -> 0x${colors[v].slice(1).toUpperCase()}`), `        is ${name}.Unknown -> 0x8E8E93`, "    }", "");
+  }
+  return out;
+}
+
+function domainConstantsKotlin(): string {
+  const lines = [
+    "// Generated by packages/contracts from packages/domain (npm run generate). Do not edit by hand.",
+    '@file:Suppress("unused", "ktlint")',
+    "",
+    `package ${KOTLIN_PACKAGE}`,
+    "",
+    ...kotlinEnumExtension("TaskStatus", TASK_STATUSES, STATUS_LABEL),
+    ...kotlinEnumExtension("MemberRole", MEMBER_ROLES, ROLE_LABEL),
+    "/** Muted identification colours of projects (key → label, hex), same palette as the web app. */",
+    "data class ProjectColorDefinition(val key: String, val label: String, val hex: Long) {",
+    "    companion object {",
+    "        val all: List<ProjectColorDefinition> = listOf(",
+    ...Object.entries(PROJECT_COLORS).map(
+      ([key, c]) => `            ProjectColorDefinition(${kStr(key)}, ${kStr(c.label)}, 0x${c.hex.slice(1).toUpperCase()}),`,
+    ),
+    "        )",
+    "",
+    "        /** Unknown keys fall back to grey (as on the web). */",
+    "        fun forKey(key: String): ProjectColorDefinition = all.firstOrNull { it.key == key } ?: all[0]",
+    "    }",
+    "}",
+    "",
+    "/** Offline fallback for limits; the server sends the authoritative values in `Bootstrap.limits`. */",
+    "object DomainDefaults {",
+    `    const val maxMessageLength = ${CHAT_LIMITS.maxMessageLength}`,
+    `    const val messagePageSize = ${CHAT_LIMITS.pageSize}`,
+    `    const val maxFileBytes = ${CHAT_LIMITS.maxFileBytes}L`,
+    `    const val maxFilesPerMessage = ${CHAT_LIMITS.maxFilesPerMessage}`,
+    `    const val storageWarnRatio = ${CHAT_LIMITS.warnRatio}`,
+    `    const val invitationTtlDays = ${INVITATION_TTL_DAYS}`,
+    '    /** Filter value for "unassigned" (shared filter semantics). */',
+    `    const val unassigned = ${kStr(UNASSIGNED)}`,
+    "    val allowedFileTypes: List<Limits.AllowedFileType> = listOf(",
+    ...ALLOWED_FILE_TYPES.map(
+      (t) =>
+        `        Limits.AllowedFileType(label = ${kStr(t.label)}, extensions = listOf(${t.extensions.map(kStr).join(", ")}), mimeType = ${kStr(t.mime)}),`,
+    ),
+    "    )",
+    "}",
+    "",
+    ...kotlinEnumExtension("IdeaStatus", IDEA_STATUSES, IDEA_STATUS_LABEL),
+    ...kotlinEnumExtension("AttractionStatus", ATTRACTION_STATUSES, ATTRACTION_STATUS_LABEL, ATTRACTION_STATUS_COLOR),
+    ...kotlinEnumExtension("DecisionType", DECISION_TYPES, DECISION_TYPE_LABEL),
+    ...kotlinEnumExtension("DecisionStatus", DECISION_STATUSES, DECISION_STATUS_LABEL, DECISION_STATUS_COLOR),
+    ...kotlinEnumExtension("DecisionSort", DECISION_SORTS, DECISION_SORT_LABEL),
+    "/** Status set of this type, in workflow order. */",
+    "val DecisionType.statuses: List<DecisionStatus>",
+    "    get() = when (this) {",
+    ...DECISION_TYPES.map((t) => `        ${ktCase("DecisionType", t)} -> listOf(${STATUSES_BY_TYPE[t].map((s) => ktCase("DecisionStatus", s)).join(", ")})`),
+    "        is DecisionType.Unknown -> emptyList()",
+    "    }",
+    "",
+    "/** Long-form fields this type shows (keys of `Decision`). */",
+    "val DecisionType.textFields: List<String>",
+    "    get() = when (this) {",
+    ...DECISION_TYPES.map((t) => `        ${ktCase("DecisionType", t)} -> listOf(${FIELDS_BY_TYPE[t].map(kStr).join(", ")})`),
+    "        is DecisionType.Unknown -> emptyList()",
+    "    }",
+    "",
+    "/** Concluded entries need a documented result (enforced by the server). */",
+    "val DecisionStatus.isConcluded: Boolean",
+    `    get() = this in listOf(${CONCLUDED_STATUSES.map((s) => ktCase("DecisionStatus", s)).join(", ")})`,
+    "",
+    "/** Manual CRM timeline entries (the other activity types are written by the server). */",
+    "object ManualActivity {",
+    `    val types: List<ActivityType> = listOf(${MANUAL_ACTIVITY_TYPES.map((t) => ktCase("ActivityType", t)).join(", ")})`,
+    '    /** Count as "Letzter Kontakt". */',
+    `    val contactTypes: List<ActivityType> = listOf(${CONTACT_ACTIVITY_TYPES.map((t) => ktCase("ActivityType", t)).join(", ")})`,
+    "    fun label(type: ActivityType): String? = when (type) {",
+    ...MANUAL_ACTIVITY_TYPES.map((t) => `        ${ktCase("ActivityType", t)} -> ${kStr(MANUAL_ACTIVITY_LABEL[t])}`),
+    "        else -> null",
+    "    }",
+    "}",
+    "",
+    "object TodoDefaults {",
+    `    const val maxPerUser = ${TODO_LIMITS.perUser}`,
+    "}",
+    "",
+    "object CRMDefaults {",
+    `    const val activityMaxLength = ${CRM_LIMITS.activityMax}`,
+    "}",
   ];
   return lines.join("\n");
 }
@@ -100,3 +312,8 @@ write(path.join(swiftDir, "APIModels.swift"), generateSwiftModels(doc as any));
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 write(path.join(swiftDir, "APIEndpoints.swift"), generateSwiftEndpoints(doc as any));
 write(path.join(swiftDir, "DomainConstants.swift"), domainConstants());
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+write(path.join(kotlinDir, "ApiModels.kt"), generateKotlinModels(doc as any));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+write(path.join(kotlinDir, "ApiEndpoints.kt"), generateKotlinEndpoints(doc as any));
+write(path.join(kotlinDir, "DomainConstants.kt"), domainConstantsKotlin());

@@ -8,6 +8,7 @@ struct TaskFields: Equatable {
     var status: TaskStatus = .open
     var projectId = ""
     var assigneeId: String?
+    var milestoneId: String?
     var startDate: CalendarDate?
     var endDate: CalendarDate?
 
@@ -17,6 +18,7 @@ struct TaskFields: Equatable {
         status = task.status
         projectId = task.projectId
         assigneeId = task.assigneeId
+        milestoneId = task.milestoneId
         startDate = task.startDate
         endDate = task.endDate
     }
@@ -54,6 +56,8 @@ struct TaskFieldsForm: View {
     var viewerId: String?
     /// New tasks: keyboard opens on the title right away.
     var autofocusTitle = false
+    /// Workspace milestones (open ones; the current one stays selectable even if completed).
+    var milestones: [Milestone] = []
     @FocusState private var titleFocused: Bool
 
     private var projects: [Project] {
@@ -125,6 +129,21 @@ struct TaskFieldsForm: View {
         }
         .disabled(readOnly)
 
+        if !milestones.isEmpty || fields.milestoneId != nil {
+            Section {
+                Picker("Meilenstein", selection: $fields.milestoneId) {
+                    Text("Kein Meilenstein").tag(String?.none)
+                    ForEach(milestones.filter { !$0.completed || $0.id == fields.milestoneId }) { m in
+                        Text(m.name).tag(String?.some(m.id))
+                    }
+                    if let id = fields.milestoneId, !milestones.contains(where: { $0.id == id }) {
+                        Text("Meilenstein").tag(String?.some(id))
+                    }
+                }
+            }
+            .disabled(readOnly)
+        }
+
         // Rarely changed after creation, so below the everyday fields when editing.
         if !autofocusTitle {
             Section { projectPicker }
@@ -193,7 +212,8 @@ struct TaskCreateView: View {
                     serverErrors: failure?.fieldErrors ?? [:],
                     datesFocused: $datesFocused,
                     viewerId: session.userId,
-                    autofocusTitle: true
+                    autofocusTitle: true,
+                    milestones: session.milestones.milestones
                 )
                 if let failure {
                     Section {
@@ -217,6 +237,7 @@ struct TaskCreateView: View {
             }
             .interactiveDismissDisabled(saving)
             .sensoryFeedback(.success, trigger: created)
+            .task { if session.milestones.state == .idle { await session.milestones.reload() } }
         }
     }
 
@@ -229,6 +250,7 @@ struct TaskCreateView: View {
         d.status = fields.status
         d.projectId = fields.projectId
         d.assigneeId = fields.assigneeId
+        d.milestoneId = fields.milestoneId
         d.startDate = fields.startDate
         d.endDate = fields.endDate
         do {
@@ -315,6 +337,7 @@ struct TaskDetailView: View {
             Text("„\(task?.title ?? "")“ wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.")
         }
         .sensoryFeedback(.success, trigger: saved)
+        .task { if session.milestones.state == .idle { await session.milestones.reload() } }
     }
 
     @ViewBuilder private func form(_ task: TaskItem) -> some View {
@@ -325,7 +348,8 @@ struct TaskDetailView: View {
                 readOnly: readOnly,
                 serverErrors: failure?.fieldErrors ?? [:],
                 datesFocused: $datesFocused,
-                viewerId: session.userId
+                viewerId: session.userId,
+                milestones: session.milestones.milestones
             )
             if let failure, failure.code != .conflict {
                 Section {
@@ -371,6 +395,7 @@ struct TaskDetailView: View {
         if fields.status != original.status { patch.status = fields.status }
         if fields.projectId != original.projectId { patch.projectId = fields.projectId }
         if fields.assigneeId != original.assigneeId { patch.assigneeId = Patchable(fields.assigneeId) }
+        if fields.milestoneId != original.milestoneId { patch.milestoneId = Patchable(fields.milestoneId) }
         if fields.startDate != original.startDate { patch.startDate = Patchable(fields.startDate) }
         if fields.endDate != original.endDate { patch.endDate = Patchable(fields.endDate) }
 

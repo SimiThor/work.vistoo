@@ -322,17 +322,20 @@ export type DecisionPatch = z.input<typeof decisionPatchSchema>;
 export const updateDecisionSchema = z.object({ id: uuid, patch: decisionPatchSchema });
 
 /** Replace a decided decision by an existing decision or by a new one (title). */
-export const supersedeDecisionSchema = z
-  .object({
-    id: uuid,
-    successorId: uuid.optional(),
-    newTitle: title.optional(),
-    /** Client id for the new decision (idempotent retries). */
-    newId: uuid.optional(),
-  })
-  .refine((v) => (v.successorId === undefined) !== (v.newTitle === undefined), {
-    error: "Bitte wähle eine bestehende Entscheidung oder gib einen Titel ein.",
-  });
+const supersedeFields = z.object({
+  successorId: uuid.optional(),
+  newTitle: title.optional(),
+  /** Client id for the new decision (idempotent retries). */
+  newId: uuid.optional(),
+});
+const exactlyOneSuccessor = [
+  (v: z.infer<typeof supersedeFields>) => (v.successorId === undefined) !== (v.newTitle === undefined),
+  { error: "Bitte wähle eine bestehende Entscheidung oder gib einen Titel ein." },
+] as const;
+
+/** Request body of the HTTP API (the decision id comes from the path). */
+export const supersedeRequestSchema = supersedeFields.refine(...exactlyOneSuccessor);
+export const supersedeDecisionSchema = supersedeFields.extend({ id: uuid }).refine(...exactlyOneSuccessor);
 
 const linkTitle = boundedText(LINK_LIMITS.titleMax, "Der Name").nullable().default(null);
 

@@ -1,9 +1,10 @@
 import SwiftUI
 import VistooCore
 
-/// Start tab: what needs me now. Unread conversations first, then my open tasks
+/// Start tab: what needs me now. Unread conversations first, then my own
+/// to-dos (with an inline field to add one in a second), then my open tasks
 /// grouped by urgency (overdue, today, next 7 days, later, without date).
-/// Everything else (whole team, projects, settings) is one tap away but not here.
+/// Everything else (whole team, projects, ideas, CRM …) is one tap away but not here.
 struct HomeScreen: View {
     let session: SessionModel
     @Environment(Navigator.self) private var navigator
@@ -13,8 +14,13 @@ struct HomeScreen: View {
     @State private var confirmDelete: TaskItem?
     @State private var failure: ActionFailure?
     @State private var feedback = 0
+    @State private var editingTodo: Todo?
+    @FocusState private var todoFieldFocused: Bool
 
     private var work: WorkStore { session.work }
+    private var todos: TodoStore { session.todos }
+    /// The start tab shows the first few; the rest is behind "Alle To-dos".
+    private let todoPreviewCount = 6
 
     private var unread: [ConversationSummary] {
         session.chat.conversations
@@ -34,16 +40,25 @@ struct HomeScreen: View {
             .toolbar {
                 ToolbarItem(placement: .leading) { AccountButton(session: session) }
                 ToolbarItem(placement: .trailing) {
-                    Button { newTask() } label: { Label("Neue Aufgabe", systemImage: "plus") }
-                        .disabled(work.activeProjects.isEmpty)
+                    Menu {
+                        Button { todoFieldFocused = true } label: { Label("Neues To-do", systemImage: "checklist.checked") }
+                        Button { newTask() } label: { Label("Neue Aufgabe", systemImage: "checklist") }
+                            .disabled(work.activeProjects.isEmpty)
+                    } label: {
+                        Label("Neu", systemImage: "plus")
+                    }
                 }
             }
             .refreshable {
                 async let w: Void = work.reload()
                 async let c: Void = session.chat.reload()
-                _ = await (w, c)
+                async let t: Void = todos.reload()
+                _ = await (w, c, t)
             }
             .sheet(item: $draft) { TaskCreateView(session: session, draft: $0) }
+            .sheet(item: $editingTodo) { todo in
+                NavigationStack { TodoEditView(store: todos, todo: todo) }
+            }
             .sheet(item: Binding(get: { openTask.map(OpenID.init) }, set: { openTask = $0?.id })) { open in
                 NavigationStack { TaskDetailView(session: session, taskId: open.id) }
             }
@@ -67,6 +82,7 @@ struct HomeScreen: View {
     private var list: some View {
         List {
             if !unread.isEmpty { unreadSection }
+            todoSection
             ForEach(buckets) { bucket in
                 Section {
                     ForEach(bucket.tasks) { row($0) }
@@ -84,6 +100,7 @@ struct HomeScreen: View {
         }
         .groupedListStyle()
         .animation(.default, value: myOpenTasks.map(\.id))
+        .animation(.default, value: todos.open.map(\.id))
     }
 
     private var unreadSection: some View {
@@ -98,6 +115,38 @@ struct HomeScreen: View {
         } header: {
             Text("Ungelesen")
         }
+    }
+
+    private var todoSection: some View {
+        let open = todos.open
+        return Section {
+            TodoQuickAddRow(store: todos, focused: $todoFieldFocused) { failure = $0 }
+            ForEach(open.prefix(todoPreviewCount)) { todo in
+                TodoRow(todo: todo, toggle: { toggle(todo) }, open: { editingTodo = todo })
+                    .todoActions(todo: todo, toggle: { toggle(todo) }, edit: { editingTodo = todo }, delete: { deleteTodo(todo) })
+            }
+            if open.count > todoPreviewCount || !todos.completed.isEmpty {
+                NavigationLink(value: AreaRoute.todos) {
+                    Text(open.count > todoPreviewCount ? "Alle \(open.count) To-dos" : "Alle To-dos und erledigte")
+                        .foregroundStyle(Tokens.Palette.accentBlue)
+                }
+            }
+        } header: {
+            HStack {
+                Text("Meine To-dos")
+                Spacer()
+                if !open.isEmpty { Text("\(open.count)").monospacedDigit() }
+            }
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func toggle(_ todo: Todo) {
+        run("Ändern fehlgeschlagen") { try await todos.setCompleted(todo, !todo.completed) }
+    }
+
+    private func deleteTodo(_ todo: Todo) {
+        run("Löschen fehlgeschlagen") { try await todos.delete(todo) }
     }
 
     private var emptyState: some View {

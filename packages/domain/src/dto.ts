@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { CONVERSATION_KINDS, MEMBER_ROLES, TASK_STATUSES } from "./constants";
+import { ACTIVITY_TYPES, ATTRACTION_STATUSES } from "./crm";
+import { DECISION_SORTS, DECISION_STATUSES, DECISION_TYPES, HISTORY_KINDS, RELATION_KINDS } from "./decisions";
 import { PROJECT_COLOR_KEYS } from "./domain";
+import { IDEA_STATUSES } from "./ideas";
 
 /**
  * Data transfer objects returned by the backend — to the web app (Server
@@ -296,6 +299,210 @@ export const NotificationSchema = named(
 export const NotificationPageSchema = named(
   "NotificationPage",
   z.object({ notifications: z.array(NotificationSchema), unreadCount: z.number().int() }),
+);
+
+// ---------------------------------------------------------------------------
+// Personal to-dos, ideas, CRM, decisions (shapes of the hand-written DTO types
+// in todos.ts / ideas.ts / crm.ts / decisions.ts; the API handlers return
+// those types, so the compiler checks that both stay in line).
+// ---------------------------------------------------------------------------
+
+export const TodoSchema = named(
+  "Todo",
+  z.object({
+    id,
+    title: z.string(),
+    description: z.string(),
+    dueDate: calendarDay.nullable(),
+    completed: z.boolean(),
+    completedAt: instant.nullable(),
+    /** Sort key among open to-dos (ascending). */
+    position: z.number(),
+    createdAt: instant,
+    updatedAt: instant,
+  }),
+  "Personal to-do. Only its owner can see it (also hidden from admins).",
+);
+
+export const IdeaStatusSchema = named("IdeaStatus", z.enum(IDEA_STATUSES), "Clients must tolerate unknown values.");
+
+export const IdeaSchema = named(
+  "Idea",
+  z.object({
+    id,
+    title: z.string(),
+    description: z.string(),
+    status: IdeaStatusSchema,
+    createdBy: id,
+    assigneeId: id.nullable(),
+    /** Issue created from this idea (null if none or deleted). */
+    task: z.object({ id, number: z.number().int(), title: z.string(), projectId: id }).nullable(),
+    createdAt: instant,
+    updatedAt: instant,
+  }),
+  "Entry of the shared idea backlog.",
+);
+
+export const AttractionStatusSchema = named(
+  "AttractionStatus",
+  z.enum(ATTRACTION_STATUSES),
+  "CRM contact status. Clients must tolerate unknown values.",
+);
+
+export const AttractionSchema = named(
+  "Attraction",
+  z.object({
+    id,
+    name: z.string(),
+    city: z.string().nullable(),
+    country: z.string().nullable(),
+    website: z.string().nullable(),
+    email: z.string().nullable(),
+    contactName: z.string().nullable(),
+    status: AttractionStatusSchema,
+    ownerId: id.nullable(),
+    notes: z.string(),
+    nextFollowUp: calendarDay.nullable(),
+    /** Latest call / e-mail / meeting. */
+    lastContactAt: instant.nullable(),
+    createdBy: id,
+    createdAt: instant,
+    updatedAt: instant,
+  }),
+  "CRM entry (potential partner attraction).",
+);
+
+export const ActivityTypeSchema = named(
+  "ActivityType",
+  z.enum(ACTIVITY_TYPES),
+  "call/email/meeting/note are manual; the rest are system entries. Clients must tolerate unknown values.",
+);
+
+export const ActivitySchema = named(
+  "Activity",
+  z.object({
+    id,
+    attractionId: id,
+    type: ActivityTypeSchema,
+    /** System entries are immutable. */
+    system: z.boolean(),
+    description: z.string(),
+    /** System entries: old and new value (status key, user id or calendar day). */
+    metadata: z.object({ from: z.string().nullable().optional(), to: z.string().nullable().optional() }),
+    actorId: id,
+    occurredAt: instant,
+    createdAt: instant,
+    updatedAt: instant,
+  }),
+  "Entry of an attraction's timeline.",
+);
+
+export const DecisionTypeSchema = named("DecisionType", z.enum(DECISION_TYPES), "Clients must tolerate unknown values.");
+export const DecisionStatusSchema = named(
+  "DecisionStatus",
+  z.enum(DECISION_STATUSES),
+  "Status set depends on the type. Clients must tolerate unknown values.",
+);
+
+export const DecisionSortSchema = named("DecisionSort", z.enum(DECISION_SORTS), "Order of the decisions overview.");
+
+export const DecisionRefSchema = named("DecisionRef", z.object({ id, title: z.string(), status: DecisionStatusSchema }));
+
+const decisionSummaryShape = {
+  id,
+  type: DecisionTypeSchema,
+  title: z.string(),
+  status: DecisionStatusSchema,
+  assigneeId: id.nullable(),
+  createdBy: id,
+  /** Day of the decision / end of the experiment (concluded entries only). */
+  concludedOn: calendarDay.nullable(),
+  createdAt: instant,
+  updatedAt: instant,
+};
+
+export const DecisionSummarySchema = named(
+  "DecisionSummary",
+  z.object({
+    ...decisionSummaryShape,
+    /** First characters of the decision / result (empty if none). */
+    outcomePreview: z.string(),
+  }),
+  "Row of the decisions overview.",
+);
+
+export const DecisionSchema = named(
+  "Decision",
+  z.object({
+    ...decisionSummaryShape,
+    description: z.string(),
+    optionsConsidered: z.string(),
+    objective: z.string(),
+    testDescription: z.string(),
+    results: z.string(),
+    outcome: z.string(),
+    reasoning: z.string(),
+    supersededBy: DecisionRefSchema.nullable(),
+    supersedes: z.array(DecisionRefSchema),
+  }),
+  "Decision or experiment with all content fields.",
+);
+
+export const DecisionLinkSchema = named(
+  "DecisionLink",
+  z.object({ id, decisionId: id, url: z.string(), title: z.string().nullable(), createdBy: id, createdAt: instant, updatedAt: instant }),
+);
+
+export const RelationKindSchema = named("RelationKind", z.enum(RELATION_KINDS), "Clients must tolerate unknown values.");
+
+const relationShape = {
+  kind: RelationKindSchema,
+  targetId: id,
+  title: z.string(),
+  /** Task status or idea status. */
+  status: z.string(),
+  /** Issues only. */
+  projectId: id.nullable(),
+  /** Issues only (`#42`). */
+  number: z.number().int().nullable(),
+};
+
+export const DecisionRelationSchema = named("DecisionRelation", z.object({ id, ...relationShape }), "Linked issue or idea.");
+export const RelationCandidateSchema = named("RelationCandidate", z.object(relationShape), "Issue or idea that can be linked.");
+
+export const HistoryKindSchema = named("HistoryKind", z.enum(HISTORY_KINDS), "Clients must tolerate unknown values.");
+
+export const DecisionHistorySchema = named(
+  "DecisionHistory",
+  z.object({
+    id,
+    kind: HistoryKindSchema,
+    actorId: id,
+    createdAt: instant,
+    details: z.object({
+      /** Changed fields (title, description, …, status, concludedOn). */
+      fields: z.array(z.string()).optional(),
+      /** Values before the change. */
+      previous: z.record(z.string(), z.string().nullable()).optional(),
+      fromStatus: DecisionStatusSchema.optional(),
+      toStatus: DecisionStatusSchema.optional(),
+      supersededBy: z.string().optional(),
+      /** "successor_deleted": reopened because the replacing decision was deleted. */
+      reason: z.string().optional(),
+    }),
+  }),
+  "Change of a concluded entry (append-only).",
+);
+
+export const DecisionDetailSchema = named(
+  "DecisionDetail",
+  z.object({
+    decision: DecisionSchema,
+    links: z.array(DecisionLinkSchema),
+    relations: z.array(DecisionRelationSchema),
+    /** Newest first. */
+    history: z.array(DecisionHistorySchema),
+  }),
 );
 
 export type TaskDTO = z.infer<typeof TaskSchema>;
