@@ -78,7 +78,7 @@ describe("removing members", () => {
       title: "Von Mitglied erstellt",
       description: "",
       status: "open",
-      groupId: null,
+      milestoneId: null,
       assigneeId: user.id,
       startDate: null,
       endDate: null,

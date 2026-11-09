@@ -389,7 +389,7 @@ function Timeline({
         </div>
       ) : (
         <ol className="space-y-0.5">
-          {activities.map((a) =>
+          {activities.map((a, i) =>
             editing === a.id ? (
               <li key={a.id}>
                 <ActivityForm
@@ -406,6 +406,7 @@ function Timeline({
                 key={a.id}
                 activity={a}
                 people={people}
+                latest={i === 0}
                 onEdit={() => setEditing(a.id)}
                 onDeleted={(next) => onChanged(next)}
               />
@@ -420,11 +421,14 @@ function Timeline({
 function ActivityItem({
   activity: a,
   people,
+  latest,
   onEdit,
   onDeleted,
 }: {
   activity: ActivityDTO;
   people: Map<string, MemberDTO>;
+  /** Newest entry (the list is sorted newest first): gets a quiet highlight. */
+  latest: boolean;
   onEdit: () => void;
   onDeleted: (attraction: AttractionDTO) => void;
 }) {
@@ -437,11 +441,17 @@ function ActivityItem({
     onDeleted(res.data.attraction);
   };
   return (
-    <li className="group relative flex gap-3 rounded-lg px-1 py-2">
+    <li
+      className={cn(
+        "group relative flex gap-3 rounded-lg px-1 py-2",
+        latest && "bg-surface-subtle/70 ring-1 ring-border/60 ring-inset",
+      )}
+    >
       <span
         className={cn(
           "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full",
-          a.system ? "text-muted-foreground" : "bg-surface-subtle text-foreground/80",
+          a.system ? "text-muted-foreground" : "text-foreground/80",
+          !a.system && (latest ? "bg-background" : "bg-surface-subtle"),
         )}
       >
         <Icon className="size-3.5" aria-hidden />

@@ -30,13 +30,13 @@ describe("ideas", () => {
     expect(a).toMatchObject({ status: "new", createdBy: anna.userId, assigneeId: null, task: null });
     expect((await listIdeas(anna)).map((i) => i.id)).toEqual([b.id, a.id]);
 
-    const edited = await patch(anna, b.id, { status: "considering", assigneeId: anna.userId });
-    expect(edited).toMatchObject({ status: "considering", assigneeId: anna.userId, description: "Rätsel am Turm" });
+    const edited = await patch(anna, b.id, { status: "planned", assigneeId: anna.userId });
+    expect(edited).toMatchObject({ status: "planned", assigneeId: anna.userId, description: "Rätsel am Turm" });
     // Partial updates keep fields someone else changed meanwhile.
     await patch(max, b.id, { title: "Neue Challenge: Festung" });
     expect((await listIdeas(anna)).find((i) => i.id === b.id)).toMatchObject({
       title: "Neue Challenge: Festung",
-      status: "considering",
+      status: "planned",
     });
 
     await deleteIdea(max, a.id);
@@ -53,7 +53,7 @@ describe("ideas", () => {
     const idea = await add(anna, { title: "Monetarisierung prüfen" });
     const other = (await makeMemberCtx((await makeWorkspace("Andere")).id)).ctx;
     expect(await listIdeas(other)).toEqual([]);
-    await expect(patch(other, idea.id, { status: "archived" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(patch(other, idea.id, { status: "irrelevant" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(deleteIdea(other, idea.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
@@ -61,7 +61,7 @@ describe("ideas", () => {
     const idea = await add(anna, { id: randomUUID(), title: "KI-Assistent erweitern", description: "Mehr Sprachen" });
     const { idea: linked, task } = await createIssueFromIdea(anna, createIssueFromIdeaSchema.parse({ ideaId: idea.id, projectId }));
     expect(task).toMatchObject({ projectId, title: "KI-Assistent erweitern", description: "Mehr Sprachen", status: "open" });
-    expect(linked.task).toEqual({ id: task.id, title: task.title, projectId });
+    expect(linked.task).toEqual({ id: task.id, number: task.number, title: task.title, projectId });
     expect((await listTasks(anna)).map((t) => t.id)).toContain(task.id);
 
     const again = await createIssueFromIdea(max, createIssueFromIdeaSchema.parse({ ideaId: idea.id, projectId }));

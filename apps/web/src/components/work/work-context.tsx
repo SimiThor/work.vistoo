@@ -21,12 +21,15 @@ import {
   setTaskStatusAction,
   updateTaskAction,
 } from "@/app/actions/tasks";
-import type { MemberDTO, ProjectDTO, TaskDTO, TaskStatus } from "@vistoo/domain";
+import type { MemberDTO, MilestoneDTO, ProjectDTO, TaskDTO, TaskStatus } from "@vistoo/domain";
 import type { ActionError, ActionResult } from "@vistoo/domain/result";
 import type { CreateTaskInput } from "@vistoo/domain/validation";
 import { useRealtimeSync } from "./realtime";
 
-export type Scope = { kind: "all" } | { kind: "project"; projectId: string };
+export type Scope =
+  | { kind: "all" }
+  | { kind: "project"; projectId: string }
+  | { kind: "milestone"; milestoneId: string };
 
 export type Viewer = { userId: string; email: string; fullName: string | null; role: "admin" | "member" };
 
@@ -38,6 +41,9 @@ type WorkContextValue = {
   workspaceId: string;
   projects: ProjectDTO[];
   projectById: Map<string, ProjectDTO>;
+  /** All milestones (completed ones included, flagged). */
+  milestones: MilestoneDTO[];
+  milestoneById: Map<string, MilestoneDTO>;
   members: MemberDTO[];
   /** active + former members, for historical names */
   people: Map<string, MemberDTO>;
@@ -88,6 +94,7 @@ export function WorkProvider({
   workspaceId,
   initialTasks,
   projects,
+  milestones,
   members,
   formerMembers,
   children,
@@ -97,6 +104,7 @@ export function WorkProvider({
   workspaceId: string;
   initialTasks: TaskDTO[];
   projects: ProjectDTO[];
+  milestones: MilestoneDTO[];
   members: MemberDTO[];
   formerMembers: MemberDTO[];
   children: ReactNode;
@@ -273,16 +281,18 @@ export function WorkProvider({
 
   // ---- Realtime + resync ----------------------------------------------------
   const projectId = scope.kind === "project" ? scope.projectId : null;
+  const milestoneId = scope.kind === "milestone" ? scope.milestoneId : null;
   const resync = useCallback(async () => {
-    const res = await listTasksAction({ projectId });
+    const res = await listTasksAction({ projectId, milestoneId });
     if (res.ok) reconcile(res.data);
     else handleError(res.error);
-  }, [projectId, reconcile, handleError]);
+  }, [projectId, milestoneId, reconcile, handleError]);
 
   useRealtimeSync({ workspaceId, onTask: upsert, onTaskDeleted: remove, onResync: resync });
 
   // ---- Derived --------------------------------------------------------------
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+  const milestoneById = useMemo(() => new Map(milestones.map((m) => [m.id, m])), [milestones]);
   const people = useMemo(
     () => new Map([...formerMembers, ...members].map((m) => [m.userId, m])),
     [members, formerMembers],
@@ -292,6 +302,7 @@ export function WorkProvider({
     return Object.values(map)
       .filter((t) => {
         if (scope.kind === "project") return t.projectId === scope.projectId;
+        if (scope.kind === "milestone" && t.milestoneId !== scope.milestoneId) return false;
         const p = projectById.get(t.projectId);
         return Boolean(p && !p.archived);
       })
@@ -310,6 +321,8 @@ export function WorkProvider({
     workspaceId,
     projects,
     projectById,
+    milestones,
+    milestoneById,
     members,
     people,
     tasks,

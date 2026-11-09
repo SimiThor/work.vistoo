@@ -56,7 +56,7 @@ export const createTaskSchema = z
     title: taskTitle,
     description: taskDescription.default(""),
     status: z.enum(TASK_STATUSES).default("open"),
-    groupId: uuid.nullable().default(null),
+    milestoneId: uuid.nullable().default(null),
     assigneeId: uuid.nullable().default(null),
     startDate: calendarDate.default(null),
     endDate: calendarDate.default(null),
@@ -70,7 +70,7 @@ export const taskPatchSchema = z
     title: taskTitle,
     description: taskDescription,
     status: z.enum(TASK_STATUSES),
-    groupId: uuid.nullable(),
+    milestoneId: uuid.nullable(),
     assigneeId: uuid.nullable(),
     startDate: calendarDate,
     endDate: calendarDate,
@@ -96,6 +96,17 @@ export const moveTaskSchema = z.object({
 export type MoveTaskInput = z.input<typeof moveTaskSchema>;
 
 export const setStatusSchema = z.object({ id: uuid, status: z.enum(TASK_STATUSES) });
+/** Tick or untick one checklist item (`- [ ]`) in a task description. `text` identifies the item as the user saw it. */
+export const setChecklistItemSchema = z.object({
+  id: uuid,
+  index: z.number().int().min(0).max(10000),
+  checked: z.boolean(),
+  text: z.string().max(20000),
+});
+/** `#` picker: text typed after `#` (number and/or title words). */
+export const searchIssuesSchema = z.object({ q: z.string().max(100).default("") });
+/** Resolve `<#task-id>` tokens (e.g. from a restored draft) to number/title/status. */
+export const resolveIssueRefsSchema = z.object({ ids: z.array(uuid).max(50) });
 export const setAssigneeSchema = z.object({ id: uuid, assigneeId: uuid.nullable() });
 export const idSchema = z.object({ id: uuid });
 
@@ -108,9 +119,15 @@ export const createProjectSchema = projectSchema.extend({ id: clientId });
 export const updateProjectSchema = projectSchema.extend({ id: uuid });
 export const archiveProjectSchema = z.object({ id: uuid, archived: z.boolean() });
 
-export const groupNameSchema = trimmed(80, "Der Name").min(1, { error: "Bitte gib einen Namen ein." });
-export const createGroupSchema = z.object({ id: clientId, projectId: uuid, name: groupNameSchema });
-export const renameGroupSchema = z.object({ id: uuid, name: groupNameSchema });
+export const milestoneSchema = z.object({
+  name: trimmed(120, "Der Name").min(1, { error: "Bitte gib einen Namen ein." }),
+  description: trimmed(500, "Die Beschreibung").default(""),
+  dueDate: calendarDate.default(null),
+});
+export const createMilestoneSchema = milestoneSchema.extend({ id: clientId });
+export const updateMilestoneSchema = milestoneSchema.extend({ id: uuid });
+export const completeMilestoneSchema = z.object({ id: uuid, completed: z.boolean() });
+
 
 export const emailSchema = z
   .string()
@@ -250,4 +267,9 @@ export const notificationSettingsPatchSchema = z.object({
   directMessages: z.boolean().optional(),
   channelMessages: z.boolean().optional(),
   taskAssignments: z.boolean().optional(),
+});
+
+/** Marks in-app notifications as read: the given ids, or all of mine when `ids` is omitted. */
+export const markNotificationsReadSchema = z.object({
+  ids: z.array(uuid).min(1).max(200).optional(),
 });

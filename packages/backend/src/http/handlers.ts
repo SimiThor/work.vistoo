@@ -4,8 +4,11 @@ import type { AuthContext, AuthUser } from "../auth";
 import { DOWNLOAD_URL_TTL_SECONDS } from "../chat-storage";
 import * as chat from "../services/chat";
 import * as files from "../services/chat-files";
+import * as inbox from "../services/inbox";
+import * as issueRefs from "../services/issue-refs";
 import { acceptInvitation } from "../services/invitations";
 import { requestLoginCode, type OtpSender } from "../services/login";
+import * as milestones from "../services/milestones";
 import * as projects from "../services/projects";
 import * as notifications from "../services/notifications";
 import { getMe, getViewerProfile } from "../services/session";
@@ -75,13 +78,23 @@ export const handlers: Handlers = {
   },
   getNotificationSettings: (ctx) => notifications.getNotificationSettings(ctx),
   updateNotificationSettings: (ctx, { body }) => notifications.updateNotificationSettings(ctx, body),
+  listNotifications: (ctx) => inbox.listNotifications(ctx),
+  markNotificationsRead: (ctx, { body }) => inbox.markNotificationsRead(ctx, body),
 
   // ---- Tasks
   listTasks: async (ctx, { query }) => {
-    if (query.projectId) await projects.getProject(ctx, query.projectId); // NOT_FOUND for foreign ids
-    return { tasks: await tasks.listTasks(ctx, query.projectId ? { projectId: query.projectId } : {}) };
+    // NOT_FOUND for foreign ids
+    if (query.projectId) await projects.getProject(ctx, query.projectId);
+    if (query.milestoneId) await milestones.getMilestone(ctx, query.milestoneId);
+    return {
+      tasks: await tasks.listTasks(ctx, {
+        ...(query.projectId ? { projectId: query.projectId } : {}),
+        ...(query.milestoneId ? { milestoneId: query.milestoneId } : {}),
+      }),
+    };
   },
   createTask: (ctx, { body }) => tasks.createTask(ctx, body),
+  searchIssues: async (ctx, { query }) => ({ issues: await issueRefs.searchIssues(ctx, { q: query.q ?? "" }) }),
   getTask: (ctx, { params }) => tasks.getTask(ctx, params.id),
   updateTask: (ctx, { params, body }) => tasks.updateTask(ctx, { id: params.id, ...body }),
   deleteTask: async (ctx, { params }) => {
@@ -90,6 +103,7 @@ export const handlers: Handlers = {
   moveTask: (ctx, { params, body }) => tasks.moveTask(ctx, { id: params.id, ...body }),
   setTaskStatus: (ctx, { params, body }) => tasks.setTaskStatus(ctx, { id: params.id, ...body }),
   setTaskAssignee: (ctx, { params, body }) => tasks.setTaskAssignee(ctx, { id: params.id, ...body }),
+  setTaskChecklistItem: (ctx, { params, body }) => tasks.setTaskChecklistItem(ctx, { id: params.id, ...body }),
 
   listTaskLinks: async (ctx, { params }) => ({ links: await taskLinks.listTaskLinks(ctx, params.id) }),
   createTaskLink: (ctx, { params, body }) => taskLinks.createTaskLink(ctx, { taskId: params.id, ...body }),
@@ -98,7 +112,7 @@ export const handlers: Handlers = {
     await taskLinks.deleteTaskLink(ctx, params.id);
   },
 
-  // ---- Projects & groups
+  // ---- Projects
   listProjects: async (ctx) => {
     const [list, stats] = await Promise.all([projects.listProjects(ctx), projects.projectStats(ctx)]);
     return { projects: list, stats };
@@ -107,9 +121,14 @@ export const handlers: Handlers = {
   getProject: (ctx, { params }) => projects.getProject(ctx, params.id),
   updateProject: (ctx, { params, body }) => projects.updateProject(ctx, { id: params.id, ...body }),
   setProjectArchived: (ctx, { params, body }) => projects.setProjectArchived(ctx, { id: params.id, ...body }),
-  createGroup: (ctx, { params, body }) => projects.createGroup(ctx, { projectId: params.id, ...body }),
-  renameGroup: (ctx, { params, body }) => projects.renameGroup(ctx, { id: params.id, ...body }),
-  deleteGroup: (ctx, { params }) => projects.deleteGroup(ctx, params.id),
+
+  // ---- Milestones
+  listMilestones: async (ctx) => ({ milestones: await milestones.listMilestones(ctx) }),
+  createMilestone: (ctx, { body }) => milestones.createMilestone(ctx, body),
+  getMilestone: (ctx, { params }) => milestones.getMilestone(ctx, params.id),
+  updateMilestone: (ctx, { params, body }) => milestones.updateMilestone(ctx, { id: params.id, ...body }),
+  setMilestoneCompleted: (ctx, { params, body }) => milestones.setMilestoneCompleted(ctx, { id: params.id, ...body }),
+  deleteMilestone: (ctx, { params }) => milestones.deleteMilestone(ctx, params.id),
 
   // ---- Team
   getTeam: (ctx) => team.listTeam(ctx),

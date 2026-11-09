@@ -8,7 +8,7 @@ public enum WorkScope: Hashable, Sendable {
     case project(String)
 }
 
-/// Projects, groups, people and tasks of the workspace.
+/// Projects, people and tasks of the workspace.
 ///
 /// Mutations go through the API (server rules are authoritative) with an
 /// optimistic local update and rollback on failure. Realtime events and API
@@ -53,11 +53,6 @@ public final class WorkStore {
     public func person(_ id: String?) -> Member? {
         guard let id else { return nil }
         return members.first { $0.userId == id } ?? formerMembers.first { $0.userId == id }
-    }
-
-    public func group(_ id: String?, in projectId: String) -> ProjectGroup? {
-        guard let id else { return nil }
-        return project(projectId)?.groups.first { $0.id == id }
     }
 
     public func task(_ id: String) -> TaskItem? { tasksById[id] }
@@ -151,15 +146,13 @@ public final class WorkStore {
         public var title: String = ""
         public var description: String = ""
         public var status: TaskStatus = .open
-        public var groupId: String?
         public var assigneeId: String?
         public var startDate: CalendarDate?
         public var endDate: CalendarDate?
 
-        public init(projectId: String, status: TaskStatus = .open, groupId: String? = nil, assigneeId: String? = nil) {
+        public init(projectId: String, status: TaskStatus = .open, assigneeId: String? = nil) {
             self.projectId = projectId
             self.status = status
-            self.groupId = groupId
             self.assigneeId = assigneeId
         }
     }
@@ -171,7 +164,6 @@ public final class WorkStore {
             title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines),
             description: draft.description,
             status: draft.status,
-            groupId: Patchable(draft.groupId),
             assigneeId: Patchable(draft.assigneeId),
             startDate: Patchable(draft.startDate),
             endDate: Patchable(draft.endDate)
@@ -257,7 +249,7 @@ public final class WorkStore {
         bumpStats(projectId: task.projectId)
     }
 
-    // MARK: Projects & groups
+    // MARK: Projects
 
     public func createProject(id: String = newClientId(), name: String, description: String, color: String) async throws(APIError) -> Project {
         let project = try await backend.send(API.createProject(body: CreateProjectRequest(name: name, description: description, color: ProjectColorKey(rawValue: color), id: id)))
@@ -274,25 +266,6 @@ public final class WorkStore {
         await reload()
     }
 
-    public func createGroup(projectId: String, name: String) async throws(APIError) {
-        _ = try await backend.send(API.createGroup(id: projectId, body: CreateGroupRequest(id: newClientId(), name: name)))
-        await refreshProject(projectId)
-    }
-
-    public func renameGroup(_ group: ProjectGroup, name: String) async throws(APIError) {
-        _ = try await backend.send(API.renameGroup(id: group.id, body: RenameGroupRequest(name: name)))
-        await refreshProject(group.projectId)
-    }
-
-    public func deleteGroup(_ group: ProjectGroup) async throws(APIError) {
-        _ = try await backend.send(API.deleteGroup(id: group.id))
-        await refreshProject(group.projectId)
-        await loadTasks(ofProject: group.projectId)
-    }
-
-    private func refreshProject(_ id: String) async {
-        if let project = try? await backend.send(API.getProject(id: id)) { upsert(project) }
-    }
 
     private func upsert(_ project: Project) {
         if let i = projects.firstIndex(where: { $0.id == project.id }) { projects[i] = project }

@@ -3,14 +3,13 @@ import { boundedText, uuid } from "./validation";
 
 /** Shared idea backlog ("Ideen"): every active member can read and edit. */
 
-export const IDEA_STATUSES = ["new", "considering", "planned", "archived"] as const;
+export const IDEA_STATUSES = ["new", "planned", "irrelevant"] as const;
 export type IdeaStatus = (typeof IDEA_STATUSES)[number];
 
 export const IDEA_STATUS_LABEL: Record<IdeaStatus, string> = {
   new: "Neu",
-  considering: "In Prüfung",
   planned: "Geplant",
-  archived: "Archiviert",
+  irrelevant: "Irrelevant",
 };
 
 export const IDEA_LIMITS = { titleMax: 300, descriptionMax: 20000 } as const;
@@ -23,7 +22,7 @@ export type IdeaDTO = {
   createdBy: string;
   assigneeId: string | null;
   /** Issue created from this idea (null if none or deleted). */
-  task: { id: string; title: string; projectId: string } | null;
+  task: { id: string; number: number; title: string; projectId: string } | null;
   createdAt: string;
   updatedAt: string;
 };

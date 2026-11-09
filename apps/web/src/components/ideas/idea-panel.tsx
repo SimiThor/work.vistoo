@@ -25,6 +25,7 @@ import { displayName, type MemberDTO, type ProjectDTO } from "@vistoo/domain";
 import { formatInstantDate } from "@vistoo/domain/dates";
 import { IDEA_LIMITS, type IdeaDTO, type IdeaStatus } from "@vistoo/domain/ideas";
 import { IdeaStatusSelect } from "./idea-status";
+import { IssueNumber } from "@/components/work/issue-number";
 
 type Values = { title: string; description: string; status: IdeaStatus; assigneeId: string | null };
 const valuesOf = (i: IdeaDTO): Values => ({
@@ -233,7 +234,10 @@ function IssueSection({
           className="group flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm outline-none hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-ring/35"
         >
           <SquareKanban className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="min-w-0 flex-1 truncate">{idea.task.title}</span>
+          <span className="min-w-0 flex-1 truncate">
+            <IssueNumber number={idea.task.number} className="mr-1.5" />
+            {idea.task.title}
+          </span>
           {project && (
             <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
               <ProjectDot color={project.color} />

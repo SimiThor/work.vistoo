@@ -33,7 +33,7 @@ describe("API contract", () => {
       if (d.method === "POST" && d.retry === "safe") {
         // POST is only "safe" where the operation is idempotent by nature (documented per endpoint).
         expect(
-          ["requestLoginCode", "acceptInvitation", "moveTask", "openDirectMessage", "addChannelMembers", "removeChannelMember", "finalizeUpload", "resendInvitation"],
+          ["requestLoginCode", "acceptInvitation", "moveTask", "openDirectMessage", "addChannelMembers", "removeChannelMember", "finalizeUpload", "resendInvitation", "markNotificationsRead"],
           id,
         ).toContain(id);
       }

@@ -6,9 +6,8 @@ import { IDEA_STATUS_LABEL, IDEA_STATUSES, type IdeaStatus } from "@vistoo/domai
 /** Muted dot per idea status (same visual language as the CRM badges). */
 export const IDEA_STATUS_COLOR: Record<IdeaStatus, string> = {
   new: "#4a7fd4",
-  considering: "#c49a3a",
   planned: "#4f9a5c",
-  archived: "#8e8e93",
+  irrelevant: "#8e8e93",
 };
 
 export function IdeaStatusSelect({
@@ -27,7 +26,7 @@ export function IdeaStatusSelect({
       <SelectTrigger size="sm" aria-label={label} className={className}>
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" align="start">
         {IDEA_STATUSES.map((s) => (
           <SelectItem key={s} value={s}>
             <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: IDEA_STATUS_COLOR[s] }} />

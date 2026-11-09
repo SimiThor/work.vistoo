@@ -1,7 +1,7 @@
 "use client";
 
 import { MoreHorizontal } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { setProjectArchivedAction } from "@/app/actions/projects";
 import {
@@ -23,21 +23,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useWork } from "@/components/work/work-context";
-import { GroupsDialog } from "./groups-dialog";
 import { ProjectDialog } from "./project-dialog";
 
-/** Header actions on a project page: edit, groups, archive / restore. */
+/** Header actions on a project page: edit, archive / restore. */
 export function ProjectActions({ projectId }: { projectId: string }) {
-  const { projectById, tasks } = useWork();
+  const { projectById } = useWork();
   const project = projectById.get(projectId);
-  const [dialog, setDialog] = useState<"edit" | "groups" | "archive" | null>(null);
+  const [dialog, setDialog] = useState<"edit" | "archive" | null>(null);
   const [pending, startTransition] = useTransition();
-
-  const taskCountByGroup = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const t of tasks) if (t.groupId) m.set(t.groupId, (m.get(t.groupId) ?? 0) + 1);
-    return m;
-  }, [tasks]);
 
   if (!project) return null;
 
@@ -66,18 +59,11 @@ export function ProjectActions({ projectId }: { projectId: string }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuItem onSelect={() => setDialog("edit")}>Projekt bearbeiten</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setDialog("groups")}>Gruppen verwalten</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => setDialog("archive")}>Archivieren …</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <ProjectDialog open={dialog === "edit"} onOpenChange={(o) => setDialog(o ? "edit" : null)} project={project} />
-      <GroupsDialog
-        open={dialog === "groups"}
-        onOpenChange={(o) => setDialog(o ? "groups" : null)}
-        project={project}
-        taskCountByGroup={taskCountByGroup}
-      />
       <AlertDialog open={dialog === "archive"} onOpenChange={(o) => setDialog(o ? "archive" : null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

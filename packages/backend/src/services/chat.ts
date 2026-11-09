@@ -10,6 +10,9 @@ import type {
   MessageDTO,
 } from "@vistoo/domain/chat-types";
 import { displayName } from "@vistoo/domain";
+import { extractMentionIds, mentionsAll, renderMentionsPlain } from "@vistoo/domain/mentions";
+import { extractIssueRefIds, renderIssueRefsPlain } from "@vistoo/domain/issue-refs";
+import type { IssueRefDTO } from "@vistoo/domain/dto";
 import type {
   archiveChannelSchema,
   channelMembersSchema,
@@ -36,7 +39,9 @@ import {
 } from "@vistoo/database/schema";
 import { AppError, invalid } from "../errors";
 import { deleteAttachmentFiles } from "./chat-files";
+import { deleteMessageNotifications, markConversationNotificationsRead, syncMentionNotifications } from "./inbox";
 import { notifyNewMessage } from "./notifications";
+import { assertReferenceable, resolveIssueRefs } from "./issue-refs";
 
 /*
  * Authorization rules (also mirrored by RLS for Realtime):
@@ -541,18 +546,131 @@ async function attachmentsFor(db: DbOrTx, messageIds: string[]): Promise<Map<str
   return map;
 }
 
-function toMessageDTO(m: Message, attachments: AttachmentDTO[]): MessageDTO {
+type NameOf = (userId: string) => string | null | undefined;
+
+type IssueRefs = Map<string, IssueRefDTO>;
+
+function toMessageDTO(m: Message, attachments: AttachmentDTO[], nameOf: NameOf, refs: IssueRefs = new Map()): MessageDTO {
+  const markup = m.deletedAt ? "" : m.body;
+  const issueRefIds = extractIssueRefIds(markup);
   return {
     id: m.id,
     seq: m.seq,
     conversationId: m.conversationId,
     authorId: m.authorId,
-    body: m.deletedAt ? "" : m.body,
+    body: renderIssueRefsPlain(renderMentionsPlain(markup, nameOf), (id) => refs.get(id)?.number),
     createdAt: m.createdAt.toISOString(),
     editedAt: m.editedAt?.toISOString() ?? null,
     deleted: m.deletedAt !== null,
     attachments: m.deletedAt ? [] : attachments,
+    markup,
+    mentionIds: extractMentionIds(markup),
+    issueRefs: issueRefIds.flatMap((id) => refs.get(id) ?? []),
   };
+}
+
+/** Referenced tasks of the given messages that the reader can see (same workspace, not deleted). */
+async function issueRefsFor(db: DbOrTx, ctx: AuthContext, rows: Message[]): Promise<IssueRefs> {
+  const ids = rows.flatMap((r) => (r.deletedAt ? [] : extractIssueRefIds(r.body)));
+  return new Map((await resolveIssueRefs(db, ctx, ids)).map((t) => [t.id, t]));
+}
+
+/** Authors and mentioned people of the given messages, plus a name lookup. */
+async function peopleFor(db: DbOrTx, ctx: AuthContext, rows: Message[]): Promise<{ people: ChatPerson[]; nameOf: NameOf }> {
+  const people = await authorsFor(
+    db,
+    ctx,
+    rows.flatMap((r) => [r.authorId, ...(r.deletedAt ? [] : extractMentionIds(r.body))]),
+  );
+  const byId = new Map(people.map((p) => [p.userId, p]));
+  return {
+    people,
+    nameOf: (id) => {
+      const p = byId.get(id);
+      return p ? displayName(p) : null;
+    },
+  };
+}
+
+/**
+ * Mentions must point to people who can read the conversation: active
+ * workspace members, and for private channels / DMs explicit participants.
+ * Mentions already present in an edited message stay allowed (the person may
+ * have left since); only newly added ones are checked. Ids from the request
+ * prove nothing, so every new one is verified against the database.
+ */
+async function assertMentionable(
+  db: DbOrTx,
+  ctx: AuthContext,
+  conv: Conversation,
+  mentionIds: string[],
+  alreadyMentioned: string[] = [],
+): Promise<string[]> {
+  if (mentionIds.length > CHAT_LIMITS.maxMentionsPerMessage) {
+    const msg = `Du kannst höchstens ${CHAT_LIMITS.maxMentionsPerMessage} Personen in einer Nachricht erwähnen.`;
+    throw invalid(msg, { body: msg });
+  }
+  const added = mentionIds.filter((id) => !alreadyMentioned.includes(id));
+  if (added.length === 0) return [];
+  const rows = await db
+    .select({ userId: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, ctx.workspaceId),
+        eq(workspaceMembers.status, "active"),
+        inArray(workspaceMembers.userId, added),
+        conv.kind === "open_channel"
+          ? undefined
+          : sql`exists (select 1 from ${conversationMembers} cm
+                        where cm.conversation_id = ${conv.id} and cm.user_id = ${workspaceMembers.userId})`,
+      ),
+    );
+  if (rows.length !== added.length) {
+    const msg = "Mindestens eine erwähnte Person hat keinen Zugriff auf diese Unterhaltung.";
+    throw invalid(msg, { body: msg });
+  }
+  return added;
+}
+
+/** Everyone who can currently read the conversation: active members (open channel) or active participants. */
+async function conversationAudience(db: DbOrTx, ctx: AuthContext, conv: Conversation): Promise<string[]> {
+  const rows = await db
+    .select({ userId: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, ctx.workspaceId),
+        eq(workspaceMembers.status, "active"),
+        conv.kind === "open_channel"
+          ? undefined
+          : sql`exists (select 1 from ${conversationMembers} cm
+                        where cm.conversation_id = ${conv.id} and cm.user_id = ${workspaceMembers.userId})`,
+      ),
+    );
+  return rows.map((r) => r.userId);
+}
+
+/**
+ * Who a message notifies: individually mentioned people plus, with `<@all>`,
+ * everyone who can read the conversation. `added` are the ones that are new
+ * compared to the previous version (an `<@all>` that was already there does
+ * not notify again, e.g. people who joined later).
+ */
+async function mentionRecipients(
+  db: DbOrTx,
+  ctx: AuthContext,
+  conv: Conversation,
+  body: string,
+  addedIndividuals: string[],
+  previousBody: string | null = null,
+): Promise<{ current: string[]; added: string[] }> {
+  const individuals = extractMentionIds(body);
+  if (!mentionsAll(body)) return { current: individuals, added: addedIndividuals };
+  const audience = await conversationAudience(db, ctx, conv);
+  const current = [...new Set([...individuals, ...audience])];
+  const allIsNew = previousBody === null || !mentionsAll(previousBody);
+  return { current, added: allIsNew ? current : addedIndividuals };
 }
 
 /**
@@ -610,10 +728,13 @@ export async function listMessages(
     db,
     rows.filter((r) => r.attachmentCount > 0).map((r) => r.id),
   );
+  const { people, nameOf } = await peopleFor(db, ctx, rows);
+  const refs = await issueRefsFor(db, ctx, rows);
   return {
-    messages: rows.map((r) => toMessageDTO(r, att.get(r.id) ?? [])),
+    messages: rows.map((r) => toMessageDTO(r, att.get(r.id) ?? [], nameOf, refs)),
     hasMore,
-    authors: await authorsFor(db, ctx, rows.map((r) => r.authorId)),
+    // Authors and mentioned people (clients resolve both by id).
+    authors: people,
   };
 }
 
@@ -629,8 +750,9 @@ export async function getMessage(
   if (!m) throw new AppError("NOT_FOUND", "Nachricht nicht gefunden.");
   await getAccessibleConversation(db, ctx, m.conversationId);
   const att = await attachmentsFor(db, [m.id]);
-  const [author] = await authorsFor(db, ctx, [m.authorId]);
-  return { message: toMessageDTO(m, att.get(m.id) ?? []), author: author ?? null };
+  const { people, nameOf } = await peopleFor(db, ctx, [m]);
+  const author = people.find((p) => p.userId === m.authorId) ?? null;
+  return { message: toMessageDTO(m, att.get(m.id) ?? [], nameOf, await issueRefsFor(db, ctx, [m])), author };
 }
 
 /**
@@ -652,11 +774,19 @@ export async function sendMessage(ctx: AuthContext, input: z.output<typeof sendM
         throw new AppError("CONFLICT", "Diese Nachricht konnte nicht gesendet werden.");
       }
       const att = await attachmentsFor(tx, [existing.id]);
-      return toMessageDTO(existing, att.get(existing.id) ?? []);
+      return toMessageDTO(
+        existing,
+        att.get(existing.id) ?? [],
+        (await peopleFor(tx, ctx, [existing])).nameOf,
+        await issueRefsFor(tx, ctx, [existing]),
+      );
     }
     created = true;
 
     assertWritable(await postability(tx, conv, ctx));
+    const mentionIds = extractMentionIds(body);
+    const addedMentions = await assertMentionable(tx, ctx, conv, mentionIds);
+    await assertReferenceable(tx, ctx, extractIssueRefIds(body));
 
     let ready: { id: string }[] = [];
     if (attachmentIds.length) {
@@ -704,9 +834,10 @@ export async function sendMessage(ctx: AuthContext, input: z.output<typeof sendM
       })
       .where(eq(conversations.id, conv.id));
     await upsertReadState(tx, ctx, conv.id, msg.seq);
+    await syncMentionNotifications(tx, ctx, msg, await mentionRecipients(tx, ctx, conv, body, addedMentions));
 
     const att = await attachmentsFor(tx, [msg.id]);
-    return toMessageDTO(msg, att.get(msg.id) ?? []);
+    return toMessageDTO(msg, att.get(msg.id) ?? [], (await peopleFor(tx, ctx, [msg])).nameOf, await issueRefsFor(tx, ctx, [msg]));
   });
   // After commit and only for new messages (a retried send must not notify twice).
   if (created) notifyNewMessage(result.id);
@@ -732,13 +863,22 @@ export async function editMessage(ctx: AuthContext, input: z.output<typeof editM
     assertWritable(await postability(tx, conv, ctx));
     const body = input.body.replace(/\s+$/u, "");
     if (!body.trim() && msg.attachmentCount === 0) throw invalid("Die Nachricht ist leer.", { body: "Die Nachricht ist leer." });
+    const mentionIds = extractMentionIds(body);
+    const addedMentions = await assertMentionable(tx, ctx, conv, mentionIds, extractMentionIds(msg.body));
+    await assertReferenceable(tx, ctx, extractIssueRefIds(body), extractIssueRefIds(msg.body));
     const [updated] = await tx
       .update(messages)
       .set({ body, editedAt: body === msg.body ? msg.editedAt : new Date() })
       .where(eq(messages.id, msg.id))
       .returning();
+    await syncMentionNotifications(tx, ctx, msg, await mentionRecipients(tx, ctx, conv, body, addedMentions, msg.body));
     const att = await attachmentsFor(tx, [msg.id]);
-    return toMessageDTO(updated, att.get(msg.id) ?? []);
+    return toMessageDTO(
+      updated,
+      att.get(msg.id) ?? [],
+      (await peopleFor(tx, ctx, [updated])).nameOf,
+      await issueRefsFor(tx, ctx, [updated]),
+    );
   });
 }
 
@@ -755,6 +895,7 @@ export async function deleteMessage(ctx: AuthContext, id: string): Promise<Messa
       .set({ body: "", attachmentCount: 0, deletedAt: new Date() })
       .where(eq(messages.id, msg.id))
       .returning();
+    await deleteMessageNotifications(tx, msg.id);
     return updated;
   });
   // Storage is not transactional: free the files now; failures stay in
@@ -762,7 +903,7 @@ export async function deleteMessage(ctx: AuthContext, id: string): Promise<Messa
   await deleteAttachmentFiles({ messageId: result.id }).catch((err) =>
     console.error("[chat] attachment cleanup deferred:", err instanceof Error ? err.message : String(err)),
   );
-  return toMessageDTO(result, []);
+  return toMessageDTO(result, [], () => null);
 }
 
 // ---------------------------------------------------------------------------
@@ -783,6 +924,9 @@ export async function markRead(ctx: AuthContext, input: z.output<typeof markRead
   const db = getDb();
   const conv = await getAccessibleConversation(db, ctx, input.conversationId);
   const seq = Math.min(input.seq, conv.lastMessageSeq);
-  if (seq > 0) await upsertReadState(db, ctx, conv.id, seq);
+  if (seq > 0) {
+    await upsertReadState(db, ctx, conv.id, seq);
+    await markConversationNotificationsRead(db, ctx, conv.id, seq);
+  }
   return { lastReadSeq: seq };
 }

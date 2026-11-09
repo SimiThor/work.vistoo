@@ -26,11 +26,6 @@ function fromPgError(err: unknown): AppError | null {
   const constraint = pg.constraint_name ?? pg.constraint ?? "";
   switch (pg.code) {
     case "23505":
-      if (constraint.includes("project_groups_project_name")) {
-        return new AppError("VALIDATION", "Eine Gruppe mit diesem Namen gibt es in diesem Projekt bereits.", {
-          fieldErrors: { name: "Dieser Name ist bereits vergeben." },
-        });
-      }
       if (constraint.includes("conversations_channel_name")) {
         return new AppError("VALIDATION", "Einen Kanal mit diesem Namen gibt es bereits.", {
           fieldErrors: { name: "Dieser Name ist bereits vergeben." },

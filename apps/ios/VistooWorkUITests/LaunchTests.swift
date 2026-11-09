@@ -51,8 +51,10 @@ final class LocalSignInTests: XCTestCase {
         }
         let app = XCUIApplication()
         app.launch()
-        if app.tabBars.buttons["Einstellungen"].waitForExistence(timeout: 5) {
-            app.tabBars.buttons["Einstellungen"].tap()
+        // Settings live behind the avatar in the top-left corner (no tab).
+        let account = app.buttons["Konto und Einstellungen"].firstMatch
+        if account.waitForExistence(timeout: 5) {
+            account.tap()
             app.buttons["Abmelden"].firstMatch.tap()
             app.buttons["Abmelden"].firstMatch.tap()
         }
@@ -79,7 +81,8 @@ final class LocalSignInTests: XCTestCase {
             return false
         }
         XCTAssertTrue(app.tabBars.buttons["Aufgaben"].waitForExistence(timeout: 20), "Workspace did not open after sign-in")
-        app.tabBars.buttons["Einstellungen"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Für mich"].exists, "Start tab missing")
+        app.buttons["Konto und Einstellungen"].firstMatch.tap()
         XCTAssertTrue(app.switches["Neue Aufgaben für mich"].waitForExistence(timeout: 10), "Notification settings missing")
         XCTAssertFalse(app.staticTexts["Der Code ist ungültig oder abgelaufen."].exists)
     }

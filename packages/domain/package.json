@@ -9,6 +9,8 @@
     "./validation": "./src/validation.ts",
     "./chat-config": "./src/chat-config.ts",
     "./chat-types": "./src/chat-types.ts",
+    "./mentions": "./src/mentions.ts",
+    "./issue-refs": "./src/issue-refs.ts",
     "./dates": "./src/dates.ts",
     "./result": "./src/result.ts",
     "./dto": "./src/dto.ts",
@@ -16,13 +18,18 @@
     "./links": "./src/links.ts",
     "./todos": "./src/todos.ts",
     "./ideas": "./src/ideas.ts",
-    "./crm": "./src/crm.ts"
+    "./crm": "./src/crm.ts",
+    "./markdown": "./src/markdown.ts",
+    "./decisions": "./src/decisions.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run"
   },
   "dependencies": {
+    "mdast-util-from-markdown": "^2.1.0",
+    "mdast-util-gfm": "^3.1.0",
+    "micromark-extension-gfm": "^3.0.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

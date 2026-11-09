@@ -10,6 +10,7 @@ import {
   ListTodo,
   Menu,
   MessageSquare,
+  Scale,
   Settings,
 } from "lucide-react";
 import Link from "next/link";
@@ -25,6 +26,7 @@ const ITEMS = [
   { href: "/tasks", label: "Alle Aufgaben", icon: ListTodo },
   { href: "/todos", label: "Meine To-dos", icon: CircleCheck },
   { href: "/ideas", label: "Ideen", icon: Lightbulb },
+  { href: "/decisions", label: "Entscheidungen", icon: Scale },
   { href: "/crm", label: "CRM", icon: Landmark },
   { href: "/chat", label: "Chat", icon: MessageSquare },
 ] as const;

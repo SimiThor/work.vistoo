@@ -1,10 +1,9 @@
 "use client";
 
-import { Check, ChevronDown, Search, UserRound, X } from "lucide-react";
+import { Check, ChevronDown, Flag, Search, UserRound, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { MemberAvatar } from "@/components/member-avatar";
 import { ProjectDot } from "@/components/project-dot";
-import { StatusIcon } from "@/components/status-icon";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -15,9 +14,9 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { displayName, STATUS_LABEL, TASK_STATUSES } from "@vistoo/domain";
+import { displayName } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
-import { hasActiveFilters, NO_GROUP, UNASSIGNED, type Filters, type WorkUrlState } from "./filters";
+import { hasActiveFilters, NO_MILESTONE, UNASSIGNED, type WorkUrlState } from "./filters";
 import { useWork } from "./work-context";
 
 type Option = { value: string; label: string; icon?: React.ReactNode; group?: string };
@@ -160,10 +159,10 @@ export function FilterBar({
   filters,
   onChange,
 }: {
-  filters: Filters;
+  filters: WorkUrlState;
   onChange: (patch: Partial<WorkUrlState>, mode?: "push" | "replace") => void;
 }) {
-  const { scope, projects, members, me } = useWork();
+  const { scope, projects, milestones, members, me } = useWork();
   const activeProjects = projects.filter((p) => !p.archived);
 
   const projectOptions: Option[] = activeProjects.map((p) => ({
@@ -172,20 +171,16 @@ export function FilterBar({
     icon: <ProjectDot color={p.color} />,
   }));
 
-  // Groups: in the global view, scoped to the selected projects (or all).
-  const groupOptions: Option[] = useMemo(() => {
-    const source =
-      scope.kind === "project"
-        ? projects.filter((p) => p.id === scope.projectId)
-        : activeProjects.filter((p) => !filters.projects.length || filters.projects.includes(p.id));
-    const showProject = scope.kind === "all" && source.length > 1;
-    return [
-      { value: NO_GROUP, label: "Ohne Gruppe" },
-      ...source.flatMap((p) =>
-        p.groups.map((g) => ({ value: g.id, label: g.name, group: showProject ? p.name : undefined })),
-      ),
-    ];
-  }, [scope, projects, activeProjects, filters.projects]);
+  // Open milestones first; completed ones stay filterable under their own heading.
+  const milestoneOptions: Option[] = [
+    { value: NO_MILESTONE, label: "Ohne Meilenstein" },
+    ...milestones.map((m) => ({
+      value: m.id,
+      label: m.name,
+      icon: <Flag className="size-3.5 text-muted-foreground" aria-hidden />,
+      group: m.completed ? "Abgeschlossen" : undefined,
+    })),
+  ];
 
   const assigneeOptions: Option[] = [
     { value: UNASSIGNED, label: "Nicht zugewiesen", icon: <UserRound className="size-4 text-muted-foreground" aria-hidden /> },
@@ -195,12 +190,6 @@ export function FilterBar({
       icon: <MemberAvatar member={m} size="xs" />,
     })),
   ];
-
-  const statusOptions: Option[] = TASK_STATUSES.map((s) => ({
-    value: s,
-    label: STATUS_LABEL[s],
-    icon: <StatusIcon status={s} />,
-  }));
 
   const mine = filters.assignees.length === 1 && filters.assignees[0] === me.userId;
   const active = hasActiveFilters(filters);
@@ -222,7 +211,7 @@ export function FilterBar({
         >
           Meine Aufgaben
         </Button>
-        {scope.kind === "all" && (
+        {scope.kind !== "project" && (
           <MultiSelectFilter
             label="Projekt"
             options={projectOptions}
@@ -231,13 +220,15 @@ export function FilterBar({
             searchable={projectOptions.length > 6}
           />
         )}
-        <MultiSelectFilter
-          label="Gruppe"
-          options={groupOptions}
-          selected={filters.groups}
-          onChange={(v) => onChange({ groups: v })}
-          searchable={groupOptions.length > 8}
-        />
+        {scope.kind !== "milestone" && (
+          <MultiSelectFilter
+            label="Meilenstein"
+            options={milestoneOptions}
+            selected={filters.milestones}
+            onChange={(v) => onChange({ milestones: v })}
+            searchable={milestoneOptions.length > 8}
+          />
+        )}
         <MultiSelectFilter
           label="Person"
           options={assigneeOptions}
@@ -245,18 +236,12 @@ export function FilterBar({
           onChange={(v) => onChange({ assignees: v })}
           searchable={assigneeOptions.length > 8}
         />
-        <MultiSelectFilter
-          label="Status"
-          options={statusOptions}
-          selected={filters.statuses}
-          onChange={(v) => onChange({ statuses: v as Filters["statuses"] })}
-        />
         {active && (
           <Button
             variant="ghost"
             size="sm"
             className="h-8 shrink-0 text-muted-foreground"
-            onClick={() => onChange({ q: "", projects: [], groups: [], assignees: [], statuses: [] })}
+            onClick={() => onChange(CLEARED_FILTERS)}
           >
             Filter zurücksetzen
           </Button>
@@ -265,3 +250,6 @@ export function FilterBar({
     </div>
   );
 }
+
+/** URL patch that clears every filter (search included). */
+export const CLEARED_FILTERS: Partial<WorkUrlState> = { q: "", projects: [], milestones: [], assignees: [] };

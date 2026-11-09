@@ -2,7 +2,8 @@ import SwiftUI
 import UserNotifications
 import VistooCore
 
-/// Settings tab: own account, notifications, team management, sign-out.
+/// Settings sheet (behind the avatar): own account, notifications, team management,
+/// chat storage (admins), sign-out. Deliberately out of the tab bar: rarely needed.
 struct SettingsScreen: View {
     let app: AppModel
     let session: SessionModel
@@ -12,6 +13,7 @@ struct SettingsScreen: View {
     @State private var confirmSignOut = false
     @State private var failure: ActionFailure?
     @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
     private var push: PushCenter { PushCenter.shared }
@@ -32,6 +34,11 @@ struct SettingsScreen: View {
                     }
                 }
             }
+            if let usage = session.chat.storageUsage {
+                Section("Chat") {
+                    StorageUsageRow(usage: usage)
+                }
+            }
             Section {
                 Button("Abmelden", role: .destructive) { confirmSignOut = true }
             } footer: {
@@ -42,6 +49,10 @@ struct SettingsScreen: View {
         }
         .groupedListStyle()
         .navigationTitle("Einstellungen")
+        .inlineNavigationTitle()
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
+        }
         .task {
             await push.refreshAuthorization()
             if notifications.settings == nil { await notifications.load() }

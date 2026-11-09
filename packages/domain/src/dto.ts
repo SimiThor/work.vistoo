@@ -46,7 +46,16 @@ export const TaskSchema = named(
   z.object({
     id,
     projectId: id,
+    /** @deprecated Groups were removed (2026-11-09). Always null; kept so older app builds keep decoding. */
     groupId: id.nullable(),
+    /** Workspace-wide milestone (see Milestone), or null. */
+    milestoneId: id.nullable(),
+    /**
+     * Human-readable issue number, shown as `#42`. Sequential per workspace
+     * across all projects, assigned by the server on create, never changes
+     * and is never reused. `id` stays the technical identifier (links, API).
+     */
+    number: z.number().int().positive(),
     title: z.string(),
     description: z.string(),
     status: TaskStatusSchema,
@@ -60,6 +69,22 @@ export const TaskSchema = named(
     updatedAt: instant,
     /** Incremented on every write (optimistic concurrency). */
     version: z.number().int(),
+  }),
+);
+
+/**
+ * Compact view of a task for `#` references in chat and the `#` picker.
+ * Only tasks of the caller's workspace are ever returned.
+ */
+export const IssueRefSchema = named(
+  "IssueRef",
+  z.object({
+    id,
+    /** Shown as `#42`. */
+    number: z.number().int().positive(),
+    title: z.string(),
+    status: TaskStatusSchema,
+    projectId: id,
   }),
 );
 
@@ -79,6 +104,7 @@ export const TaskLinkSchema = named(
   "External link attached to a task (Google Drive, Figma, GitHub, …).",
 );
 
+/** @deprecated Groups were removed (2026-11-09); only referenced by `Project.groups`, which is always empty. */
 export const GroupSchema = named(
   "Group",
   z.object({ id, projectId: id, name: z.string(), position: z.number() }),
@@ -93,8 +119,27 @@ export const ProjectSchema = named(
     /** Key of the project colour palette (see domain PROJECT_COLORS); unknown keys render grey. */
     color: z.string(),
     archived: z.boolean(),
+    /** @deprecated Groups were removed (2026-11-09). Always empty; kept so older app builds keep decoding. */
     groups: z.array(GroupSchema),
   }),
+);
+
+export const MilestoneSchema = named(
+  "Milestone",
+  z.object({
+    id,
+    name: z.string(),
+    description: z.string(),
+    /** Target day, or null. */
+    dueDate: calendarDay.nullable(),
+    /** Completed milestones leave the navigation; their tasks stay attached. */
+    completed: z.boolean(),
+    /** Tasks attached (non-archived projects only) and how many of them are done. */
+    total: z.number().int(),
+    done: z.number().int(),
+    createdAt: instant,
+  }),
+  "Workspace-wide milestone; tasks of any project can be attached via Task.milestoneId.",
 );
 
 export const ProjectStatSchema = named("ProjectStat", z.object({ total: z.number().int(), done: z.number().int() }));
@@ -176,11 +221,26 @@ export const MessageSchema = named(
     seq: z.number().int(),
     conversationId: id,
     authorId: id,
+    /** Readable text: mentions appear as "@Current Name". Safe to display as is. */
     body: z.string(),
     createdAt: instant,
     editedAt: instant.nullable(),
     deleted: z.boolean(),
     attachments: z.array(AttachmentSchema),
+    /**
+     * Stored text with mention tokens `<@user-uuid>` (see @vistoo/domain/mentions).
+     * Clients that render or edit mentions use this instead of `body`; sending
+     * or editing accepts the same format.
+     */
+    markup: z.string(),
+    /** Distinct user ids mentioned in the message (resolve names via `authors`). */
+    mentionIds: z.array(id),
+    /**
+     * Tasks referenced with `<#task-id>` tokens in `markup`, resolved for the
+     * reader (only tasks of the workspace that still exist). A token whose id
+     * is missing here points to a deleted task. `body` shows them as `#24`.
+     */
+    issueRefs: z.array(IssueRefSchema),
   }),
 );
 
@@ -211,10 +271,39 @@ export const NotificationSettingsSchema = named(
   }),
 );
 
+export const NotificationKindSchema = named("NotificationKind", z.enum(["mention"]));
+
+/** Persistent in-app notification (currently: someone mentioned me in a chat message). */
+export const NotificationSchema = named(
+  "Notification",
+  z.object({
+    id,
+    kind: NotificationKindSchema,
+    /** Who caused it (null if the profile no longer exists). */
+    actor: ChatPersonSchema.nullable(),
+    conversationId: id,
+    /** Channel name or, for DMs, the partner's display name (as seen by the recipient). */
+    conversationTitle: z.string(),
+    conversationKind: ConversationKindSchema,
+    messageId: id,
+    /** Readable message preview (mentions as "@Name"); empty if the message was deleted. */
+    preview: z.string(),
+    createdAt: instant,
+    readAt: instant.nullable(),
+  }),
+);
+
+export const NotificationPageSchema = named(
+  "NotificationPage",
+  z.object({ notifications: z.array(NotificationSchema), unreadCount: z.number().int() }),
+);
+
 export type TaskDTO = z.infer<typeof TaskSchema>;
 export type TaskLinkDTO = z.infer<typeof TaskLinkSchema>;
+export type IssueRefDTO = z.infer<typeof IssueRefSchema>;
 export type GroupDTO = z.infer<typeof GroupSchema>;
 export type ProjectDTO = z.infer<typeof ProjectSchema>;
+export type MilestoneDTO = z.infer<typeof MilestoneSchema>;
 export type MemberDTO = z.infer<typeof MemberSchema>;
 export type InvitationDTO = z.infer<typeof InvitationSchema>;
 export type ChatPerson = z.infer<typeof ChatPersonSchema>;
@@ -225,3 +314,5 @@ export type MessageDTO = z.infer<typeof MessageSchema>;
 export type ChatStorageUsage = z.infer<typeof ChatStorageUsageSchema>;
 export type UploadTicket = z.infer<typeof UploadTicketSchema>;
 export type NotificationSettingsDTO = z.infer<typeof NotificationSettingsSchema>;
+export type NotificationDTO = z.infer<typeof NotificationSchema>;
+export type NotificationPageDTO = z.infer<typeof NotificationPageSchema>;

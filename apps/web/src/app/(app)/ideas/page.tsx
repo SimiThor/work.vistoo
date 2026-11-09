@@ -4,25 +4,29 @@ import { IdeasView } from "@/components/ideas/ideas-view";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPeopleForViewer, getProjectsForViewer, getViewer } from "@/server/queries";
 import { listIdeas } from "@vistoo/backend/services/ideas";
+import { uuid } from "@vistoo/domain/validation";
 
 export const metadata: Metadata = { title: "Ideen" };
 
-export default function IdeasPage() {
+export default function IdeasPage({ searchParams }: PageProps<"/ideas">) {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-6">
         <Suspense fallback={<IdeasSkeleton />}>
-          <Ideas />
+          <Ideas searchParams={searchParams} />
         </Suspense>
       </div>
     </div>
   );
 }
 
-async function Ideas() {
+async function Ideas({ searchParams }: { searchParams: PageProps<"/ideas">["searchParams"] }) {
+  // ?idea=<id> opens that idea (links from Decisions).
+  const { idea } = await searchParams;
+  const openId = typeof idea === "string" && uuid.safeParse(idea).success ? idea : null;
   const { ctx } = await getViewer();
   const [ideas, people, projects] = await Promise.all([listIdeas(ctx), getPeopleForViewer(), getProjectsForViewer()]);
-  return <IdeasView initial={ideas} members={people.members} former={people.former} projects={projects} />;
+  return <IdeasView initial={ideas} initialOpenId={openId} members={people.members} former={people.former} projects={projects} />;
 }
 
 function IdeasSkeleton() {

@@ -1,6 +1,6 @@
 # Vistoo Work – internes Projektmanagement (Web + iOS)
 
-Ein bewusst schlankes Tool für ein kleines Team: Kanban-Board und Timeline über denselben Aufgaben, Projekte mit Gruppen, einfache Filter, Teamverwaltung mit Einladungen und Team-Chat. Es gibt die **Webapp** und eine **native iOS-App**; beide nutzen dasselbe Backend und dieselben Daten.
+Ein bewusst schlankes Tool für ein kleines Team: Kanban-Board und Timeline über denselben Aufgaben, Projekte, einfache Filter, Teamverwaltung mit Einladungen und Team-Chat. Es gibt die **Webapp** und eine **native iOS-App**; beide nutzen dasselbe Backend und dieselben Daten.
 
 **Web:** Next.js 16 (App Router, Cache Components) · TypeScript strict · Tailwind CSS 4 · shadcn/ui (Radix) · dnd-kit · Zod · Vercel.
 **Backend:** Supabase (Postgres, Auth, Realtime, Storage) · Drizzle ORM · gemeinsame Service-Schicht · versionierte HTTP-API `/api/v1` (OpenAPI).
@@ -37,7 +37,7 @@ Browser + iPhone ──(Auth, Realtime: nur SELECT via RLS)──▶ Supabase
 - **Autorisierung im Server:** Drizzle verbindet sich mit einer privilegierten Rolle, RLS greift dort also *nicht*. Deshalb läuft jeder Lese- und Schreibzugriff über die Service-Schicht in `packages/backend/src/services/*`. Sie bekommt einen `AuthContext`, der ausschließlich serverseitig gebaut wird: Der JWT wird verifiziert (`getClaims`), danach folgt ein frischer DB-Lookup der **aktiven** Mitgliedschaft. Alle Queries sind auf `ctx.workspaceId` beschränkt. IDs aus dem Client sind nie ein Berechtigungsnachweis; fremde IDs verhalten sich wie nicht existierende.
 - **Mutationen:** Server Actions (`apps/web/src/app/actions/*`) → `runAction` (Auth, optional Admin-Rolle, Zod-Validierung, Fehler-Mapping) → Service. Die iOS-App ruft dieselben Services über `/api/v1` auf (`packages/backend/src/http`, Vertrag in `packages/contracts`).
 - **RLS als zweite Linie:** RLS ist auf allen Tabellen aktiv. Über die Supabase-API bekommen angemeldete Nutzer **nur SELECT** auf Zeilen ihres Workspaces, und nur als aktive Mitglieder. Mehr braucht Realtime nicht. Es gibt keine Insert-, Update- oder Delete-Policies; `profiles` und `workspace_invitations` sind über die API gar nicht erreichbar.
-- **Integrität in der DB:** zusammengesetzte Foreign Keys (Task ↔ Projekt ↔ Workspace, Task ↔ Gruppe desselben Projekts, Assignee ↔ Mitgliedschaft im Workspace), Trigger „Assignee muss aktiv sein“, Trigger „beim Entfernen Zuweisungen lösen“, Check `end_date >= start_date`, eindeutige Mitgliedschaften und offene Einladungen.
+- **Integrität in der DB:** zusammengesetzte Foreign Keys (Task ↔ Projekt ↔ Workspace, Assignee ↔ Mitgliedschaft im Workspace), Trigger „Assignee muss aktiv sein“, Trigger „beim Entfernen Zuweisungen lösen“, Check `end_date >= start_date`, eindeutige Mitgliedschaften und offene Einladungen.
 - **Konflikte:** Jede Task hat eine `version`. Das Speichern im Detailpanel ist ein bedingtes Update (`WHERE version = expected`). Bei einem Konflikt zeigt die UI einen Hinweis mit „Aktuelle Version laden“ oder „Trotzdem speichern“.
 - **Client-State:** ein schlanker Store (`apps/web/src/components/work/work-context.tsx`) mit Optimistic Updates und Rollback. Realtime-Ereignisse und Server-Antworten werden über die Version zusammengeführt, ohne Duplikate.
 - **Rendering:** Cache Components / Partial Prerendering. Statische Shell (Navigation, Skeletons), benutzerbezogene Inhalte streamen hinter `<Suspense>`. Nutzerdaten werden nie mit `use cache` gecacht; React `cache()` dedupliziert nur innerhalb eines Requests.
@@ -87,7 +87,7 @@ Die App läuft lokal auf <http://localhost:3100> (Port 3100, um Konflikte mit an
 Optional Demo-Daten (nur lokal, wiederholbar):
 
 ```bash
-npm run db:seed     # 3 Projekte, Gruppen, Aufgaben; lokal zusätzlich lena@ / jonas@vistoo.test
+npm run db:seed     # 3 Projekte mit Aufgaben; lokal zusätzlich lena@ / jonas@vistoo.test
 ```
 
 Lokale Auth-Einstellungen (keine öffentliche Registrierung, E-Mail-Templates, Redirect-URLs) liegen in `supabase/config.toml` und `supabase/templates/`.
@@ -159,7 +159,7 @@ Ohne Projekt-Secrets (`DATABASE_URL`, `SUPABASE_SECRET_KEY`) lässt sich das Skr
 
 ## Realtime
 
-- Die Tabellen `tasks`, `projects`, `project_groups` und `workspace_members` werden durch die Migration der Publication `supabase_realtime` hinzugefügt. Im Dashboard ist nichts weiter nötig. Kontrolle: Database → Publications.
+- Die Tabellen `tasks`, `projects` und `workspace_members` werden durch die Migration der Publication `supabase_realtime` hinzugefügt. Im Dashboard ist nichts weiter nötig. Kontrolle: Database → Publications.
 - Clients abonnieren `postgres_changes`, gefiltert auf `workspace_id`. **Der Zugriffsschutz kommt aus RLS:** Realtime prüft für jeden Abonnenten die SELECT-Policy. Entfernte Mitglieder erhalten sofort keine Ereignisse mehr.
 - DELETE-Ereignisse enthalten nur die ID.
 - Nach einem Reconnect, nach `online` und wenn der Tab nach mehr als 30 s wieder sichtbar wird, lädt der Client den aktuellen Stand vollständig nach.
@@ -207,7 +207,6 @@ Fehlt die Supabase-Konfiguration, antwortet die App mit einer klaren Fehlermeldu
 - Zugriff ohne bzw. mit entfernter Mitgliedschaft, workspace-fremde IDs
 - RLS: Mitglieder lesen, Entfernte, Fremde und `anon` sehen nichts, kein Schreiben über die API
 - unberechtigte Admin-Aktionen, letzter Admin (auch bei gleichzeitiger gegenseitiger Herabstufung)
-- ungültige Gruppenzuordnung (Service **und** DB-Constraint), Gruppenreset beim Projektwechsel
 - ungültige Datumsbereiche, Kalendertage ohne Zeitzonenverschiebung
 - Versionskonflikte (auch parallel), Board-Reihenfolge inkl. Renormalisierung
 - Einladungen: E-Mail-Bindung, Ablauf, Widerruf, erneutes Senden, Re-Invite, Rollback bei Mailfehler
@@ -234,7 +233,7 @@ npm run test:e2e
 
 - **Sortieren bei aktiven Filtern** ist erlaubt. Eine Aufgabe wird zwischen ihre *sichtbaren* Nachbarn einsortiert, ausgeblendete Aufgaben behalten ihre Position. Die UI weist darauf hin. Statuswechsel gehen immer, auch über das Kartenmenü und das Detailpanel (tastaturbedienbar).
 - **Schnellaktionen** (Status, Person, Verschieben) speichern sofort und bewusst ohne Versionsprüfung, weil sie jeweils genau ein Feld setzen. Das Detailformular speichert explizit mit Versionsprüfung.
-- **Neue Aufgaben** übernehmen eindeutige Filterwerte (Projekt, Gruppe, Person), damit sie sichtbar bleiben.
+- **Neue Aufgaben** übernehmen eindeutige Filterwerte (Projekt, Meilenstein, Person), damit sie sichtbar bleiben.
 - **Archivierte Projekte** sind in „Alle Aufgaben“ ausgeblendet und schreibgeschützt, bleiben aber über die Projektliste erreichbar.
 - **Zurückgestellt:** Task-Abhängigkeiten (optional laut Briefing), Drag zum Verschieben von Timeline-Balken, Dark Mode, Push-Benachrichtigungen. Für zurückgestellte Funktionen gibt es keine Bedienelemente (auch nicht in der iOS-App).
 - **Nicht Teil des MVP:** Billing, öffentliche Registrierung, Gäste, Kommentare, Anhänge, Zeiterfassung, Automationen, Benachrichtigungen, Custom Fields, Workflows, Unteraufgaben, KI, Reporting.

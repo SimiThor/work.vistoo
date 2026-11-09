@@ -41,13 +41,15 @@ TestFlight-Builds nutzen das APNs-Produktionssystem, Xcode-Builds die Sandbox. D
 ## 3c. Anhänge, Files, Besprechung (Rollout)
 
 - Migrationen `0006_task_links` bis `0009_todos_ideas_crm_security` gegen Produktion ausführen (`npm run db:migrate` mit Produktions-`DIRECT_DATABASE_URL`), **vor** dem Web-Deployment. Rein additiv: neue Tabellen (`task_links`, `personal_todos`, `ideas`, `attractions`, `attraction_activities`), drei neue Enums, neue nullable Spalte `workspaces.meeting_url`, Unique-Constraint auf `tasks (workspace_id, id)` (immer erfüllt, da `id` Primärschlüssel ist), RLS-Policies und ein Schutz-Trigger für automatische CRM-Einträge. Bestehende Daten werden nicht verändert.
+- Migrationen `0010_milestones` und `0011_milestones_security` ebenfalls vor dem Web-Deployment ausführen. Rein additiv: neue Tabelle `milestones` (RLS: nur Lesen für aktive Mitglieder, Realtime) und neue nullable Spalte `tasks.milestone_id` mit Fremdschlüssel auf denselben Workspace. Bestehende Aufgaben bleiben ohne Meilenstein.
 - Discord-Link hinterlegen: als Admin unter **Einstellungen → Besprechung** (Zahnrad neben dem eigenen Namen) einfügen (Discord: Rechtsklick auf den Sprachkanal → „Link kopieren“). Für Vistoo: `https://discord.com/channels/1568996767473733634/1568996768421642354`.
 - Der Google-Drive-Ordner für „Files“ steht in `apps/web/src/lib/external-links.ts`. Alle Teammitglieder brauchen in Google Drive selbst Zugriff auf den Ordner.
 
 ## 4. Erste Builds
 
 - Simulator-Build, Login und UI-Tests gegen den lokalen Stack laufen (Xcode 26.5). Offen: Test auf einem echten iPhone gegen Produktion, echter APNs-Versand.
-- TestFlight und App Store: Version, App-Store-Connect-Eintrag, Datenschutzangaben (Vorlage: `apps/ios/VistooWork/PrivacyInfo.xcprivacy`), Screenshots. **Nicht ohne ausdrücklichen Auftrag veröffentlichen.**
+- TestFlight automatisch bei jedem Merge auf `main`: einmalige Einrichtung (Zertifikat, Profil, API-Key, GitHub-Umgebung `testflight`) in [ios-testflight.md](ios-testflight.md).
+- App Store: Version, App-Store-Connect-Eintrag, Datenschutzangaben (Vorlage: `apps/ios/VistooWork/PrivacyInfo.xcprivacy`), Screenshots. **Nicht ohne ausdrücklichen Auftrag veröffentlichen.**
 
 ## 5. Optional
 

@@ -1,7 +1,8 @@
 import SwiftUI
 import VistooCore
 
-/// Conversation list (channels by name with "Allgemein" first, DMs by recent activity, archived collapsed).
+/// Conversation list: unread first, then channels by name ("Allgemein" first), DMs by
+/// recent activity, archived collapsed. The storage gauge only shows up when it matters.
 struct ChatListScreen: View {
     let session: SessionModel
     @Binding var path: [ConversationRoute]
@@ -11,15 +12,21 @@ struct ChatListScreen: View {
 
     private var chat: ChatStore { session.chat }
 
+    private var unread: [ConversationSummary] {
+        chat.conversations.filter { $0.unread && !$0.archived }.sorted {
+            ($0.lastMessageAt ?? .distantPast) > ($1.lastMessageAt ?? .distantPast)
+        }
+    }
+
     private var channels: [ConversationSummary] {
-        chat.conversations.filter { $0.kind != .dm && !$0.archived }.sorted {
+        chat.conversations.filter { $0.kind != .dm && !$0.archived && !$0.unread }.sorted {
             if $0.isDefault != $1.isDefault { return $0.isDefault }
             return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
         }
     }
 
     private var directMessages: [ConversationSummary] {
-        chat.conversations.filter { $0.kind == .dm && !$0.archived }.sorted {
+        chat.conversations.filter { $0.kind == .dm && !$0.archived && !$0.unread }.sorted {
             ($0.lastMessageAt ?? .distantPast, $1.title) > ($1.lastMessageAt ?? .distantPast, $0.title)
         }
     }
@@ -40,6 +47,7 @@ struct ChatListScreen: View {
         }
         .navigationTitle("Chat")
         .toolbar {
+            ToolbarItem(placement: .leading) { AccountButton(session: session) }
             ToolbarItem(placement: .trailing) {
                 Menu {
                     Button { showNewChannel = true } label: { Label("Neuer Kanal", systemImage: "number") }
@@ -60,12 +68,21 @@ struct ChatListScreen: View {
 
     private var list: some View {
         List {
-            Section("Kanäle") {
-                ForEach(channels) { row($0) }
+            if !unread.isEmpty {
+                Section("Ungelesen") {
+                    ForEach(unread) { row($0) }
+                }
+            }
+            if !channels.isEmpty {
+                Section("Kanäle") {
+                    ForEach(channels) { row($0) }
+                }
             }
             Section("Direktnachrichten") {
-                if directMessages.isEmpty {
-                    Text("Noch keine Direktnachrichten.").foregroundStyle(Tokens.Palette.mutedForeground)
+                if directMessages.isEmpty, !unread.contains(where: { $0.kind == .dm }) {
+                    Button { showNewDM = true } label: {
+                        Label("Direktnachricht schreiben", systemImage: "person.bubble")
+                    }
                 }
                 ForEach(directMessages) { row($0) }
             }
@@ -76,7 +93,8 @@ struct ChatListScreen: View {
                     Text("Archiviert (\(archived.count))")
                 }
             }
-            if let usage = chat.storageUsage {
+            // Admins see the full gauge in the settings; here only when uploads are at risk.
+            if let usage = chat.storageUsage, usage.ratio >= DomainDefaults.storageWarnRatio {
                 Section {
                     StorageUsageRow(usage: usage)
                 }
@@ -87,29 +105,7 @@ struct ChatListScreen: View {
 
     private func row(_ c: ConversationSummary) -> some View {
         NavigationLink(value: ConversationRoute(id: c.id)) {
-            HStack(spacing: Tokens.Spacing.md) {
-                Group {
-                    if let partner = c.dmPartner {
-                        Avatar(fullName: partner.fullName, email: partner.email, size: 28)
-                    } else {
-                        Image(systemName: c.kind == .privateChannel ? "lock" : "number")
-                            .frame(width: 28)
-                            .foregroundStyle(Tokens.Palette.mutedForeground)
-                    }
-                }
-                Text(c.title)
-                    .fontWeight(c.unread ? .semibold : .regular)
-                    .lineLimit(1)
-                Spacer()
-                if c.unread {
-                    Circle().fill(Tokens.Palette.accentBlue).frame(width: 9, height: 9)
-                }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(
-                "\(c.kind == .dm ? "Direktnachricht" : c.kind == .privateChannel ? "Geschlossener Kanal" : "Kanal") \(c.title)"
-                    + (c.unread ? ", ungelesene Nachrichten" : "")
-            )
+            ConversationRowLabel(conversation: c)
         }
     }
 }

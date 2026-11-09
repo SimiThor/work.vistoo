@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { requireMemberPage } from "./auth";
+import { listMilestones } from "@vistoo/backend/services/milestones";
 import { listProjects } from "@vistoo/backend/services/projects";
 import { getViewerProfile } from "@vistoo/backend/services/session";
 import { listFormerMembers, listMembers } from "@vistoo/backend/services/team";
@@ -24,6 +25,11 @@ export const getViewer = cache(async () => {
 export const getProjectsForViewer = cache(async () => {
   const { ctx } = await getViewer();
   return listProjects(ctx);
+});
+
+export const getMilestonesForViewer = cache(async () => {
+  const { ctx } = await getViewer();
+  return listMilestones(ctx);
 });
 
 export const getPeopleForViewer = cache(async () => {

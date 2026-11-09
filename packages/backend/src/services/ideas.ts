@@ -12,7 +12,7 @@ import { insertTask, toTaskDTO } from "./tasks";
 
 /** Shared idea backlog: every active member of the workspace may read and change ideas. */
 
-type IdeaRow = { idea: Idea; task: { id: string; title: string; projectId: string } | null };
+type IdeaRow = { idea: Idea; task: { id: string; number: number; title: string; projectId: string } | null };
 
 function toIdeaDTO({ idea, task }: IdeaRow): IdeaDTO {
   return {
@@ -30,7 +30,7 @@ function toIdeaDTO({ idea, task }: IdeaRow): IdeaDTO {
 
 function selectIdeas(db: DbOrTx, ctx: AuthContext, extra?: SQL) {
   return db
-    .select({ idea: ideas, task: { id: tasks.id, title: tasks.title, projectId: tasks.projectId } })
+    .select({ idea: ideas, task: { id: tasks.id, number: tasks.number, title: tasks.title, projectId: tasks.projectId } })
     .from(ideas)
     .leftJoin(tasks, and(eq(tasks.id, ideas.taskId), eq(tasks.workspaceId, ideas.workspaceId)))
     .where(and(eq(ideas.workspaceId, ctx.workspaceId), extra));
@@ -139,7 +139,7 @@ export async function createIssueFromIdea(
       title: idea.title,
       description: idea.description,
       status: "open",
-      groupId: null,
+      milestoneId: null,
       assigneeId: null,
       startDate: null,
       endDate: null,

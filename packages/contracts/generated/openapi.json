@@ -24,6 +24,9 @@
       "name": "Projects"
     },
     {
+      "name": "Milestones"
+    },
+    {
       "name": "Team"
     },
     {
@@ -1747,222 +1750,6 @@
         }
       }
     },
-    "/groups/{id}": {
-      "patch": {
-        "operationId": "renameGroup",
-        "tags": [
-          "Projects"
-        ],
-        "summary": "Rename a group.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-vistoo-auth": "member",
-        "x-vistoo-retry": "safe",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RenameGroupRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Group"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Error codes: UNAUTHENTICATED",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Error codes: FORBIDDEN",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Error codes: NOT_FOUND",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Error codes: ARCHIVED",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Error codes: VALIDATION",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "426": {
-            "description": "Error codes: CLIENT_OUTDATED",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error codes: INTERNAL",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "operationId": "deleteGroup",
-        "tags": [
-          "Projects"
-        ],
-        "summary": "Delete a group; its tasks are kept without group.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-vistoo-auth": "member",
-        "x-vistoo-retry": "not-found-means-done",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeleteGroupResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Error codes: UNAUTHENTICATED",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Error codes: FORBIDDEN",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Error codes: NOT_FOUND",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Error codes: ARCHIVED",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "426": {
-            "description": "Error codes: CLIENT_OUTDATED",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error codes: INTERNAL",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/invitations": {
       "post": {
         "operationId": "inviteMember",
@@ -2305,6 +2092,96 @@
         }
       }
     },
+    "/issue-refs": {
+      "get": {
+        "operationId": "searchIssues",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Tasks for the `#` picker in chat, matched by issue number and title.",
+        "description": "`q` is the text typed after `#`: digits match the number (exact first, then prefix), words match the title. At most 8 results, best first; tasks of archived projects are omitted. Insert the chosen task as `<#task-id>` into the message markup.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "safe",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueRefList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: VALIDATION",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/me": {
       "get": {
         "operationId": "getMe",
@@ -2463,6 +2340,166 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NotificationSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: VALIDATION",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/notifications": {
+      "get": {
+        "operationId": "listNotifications",
+        "tags": [
+          "Session"
+        ],
+        "summary": "My latest in-app notifications (chat mentions) and the unread count.",
+        "description": "Newest first, at most 50. Only conversations I can still access. Opening a notification means: open conversation `conversationId` and scroll to `messageId`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "safe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/notifications/read": {
+      "post": {
+        "operationId": "markNotificationsRead",
+        "tags": [
+          "Session"
+        ],
+        "summary": "Mark my notifications as read (the given ids, or all when `ids` is omitted).",
+        "description": "Reading a conversation (markRead) also marks the mentions up to that position as read.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "safe",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkNotificationsReadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationUnreadCount"
                 }
               }
             }
@@ -3141,13 +3178,561 @@
         }
       }
     },
+    "/milestones": {
+      "get": {
+        "operationId": "listMilestones",
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "All milestones (open first, by due date; then completed) with task counts.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "safe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MilestoneList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createMilestone",
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "Create a milestone.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "idempotent-with-client-id",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMilestoneRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Milestone"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: CONFLICT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: VALIDATION",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/milestones/{id}": {
+      "get": {
+        "operationId": "getMilestone",
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "One milestone with task counts.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "safe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Milestone"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMilestone",
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "Edit name, description and due date.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "safe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMilestoneRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Milestone"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: VALIDATION",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMilestone",
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "Delete a milestone; its tasks are kept without milestone.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "not-found-means-done",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteMilestoneResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/milestones/{id}/completed": {
+      "put": {
+        "operationId": "setMilestoneCompleted",
+        "tags": [
+          "Milestones"
+        ],
+        "summary": "Complete or reopen a milestone (its tasks stay attached).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "safe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCompletedRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Milestone"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/projects": {
       "get": {
         "operationId": "listProjects",
         "tags": [
           "Projects"
         ],
-        "summary": "All projects (incl. archived, flagged) with groups and task statistics.",
+        "summary": "All projects (incl. archived, flagged) with task statistics.",
         "security": [
           {
             "bearerAuth": []
@@ -3313,7 +3898,7 @@
         "tags": [
           "Projects"
         ],
-        "summary": "One project with its groups.",
+        "summary": "One project.",
         "security": [
           {
             "bearerAuth": []
@@ -3612,125 +4197,6 @@
         }
       }
     },
-    "/projects/{id}/groups": {
-      "post": {
-        "operationId": "createGroup",
-        "tags": [
-          "Projects"
-        ],
-        "summary": "Add a group to a project.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "x-vistoo-auth": "member",
-        "x-vistoo-retry": "idempotent-with-client-id",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateGroupRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Group"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Error codes: UNAUTHENTICATED",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Error codes: FORBIDDEN",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Error codes: NOT_FOUND",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Error codes: ARCHIVED, CONFLICT",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Error codes: VALIDATION",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "426": {
-            "description": "Error codes: CLIENT_OUTDATED",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error codes: INTERNAL",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/task-links/{id}": {
       "patch": {
         "operationId": "updateTaskLink",
@@ -3946,7 +4412,7 @@
         "tags": [
           "Tasks"
         ],
-        "summary": "Tasks of all active projects, or of one project (archived allowed, read-only).",
+        "summary": "Tasks of all active projects, or of one project (archived allowed, read-only), or of one milestone.",
         "description": "Not paginated: bounded by the workspace. Ordered by board position.",
         "security": [
           {
@@ -3958,6 +4424,15 @@
         "parameters": [
           {
             "name": "projectId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "milestoneId",
             "in": "query",
             "required": false,
             "schema": {
@@ -4513,6 +4988,125 @@
           },
           "409": {
             "description": "Error codes: ARCHIVED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: VALIDATION",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{id}/checklist": {
+      "put": {
+        "operationId": "setTaskChecklistItem",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Quick action: tick or untick the n-th Markdown checklist item (`- [ ]`) in the description. Applied to the current description; `text` (the item's first line) identifies the item if lines moved. CONFLICT with `current` if the item is gone or ambiguous. Does not change the status.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "safe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTaskChecklistItemRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: ARCHIVED, CONFLICT",
             "content": {
               "application/json": {
                 "schema": {
@@ -5821,17 +6415,34 @@
           "visibility"
         ]
       },
-      "CreateGroupRequest": {
+      "CreateMilestoneRequest": {
         "type": "object",
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 80
+            "maxLength": 120
+          },
+          "description": {
+            "default": "",
+            "type": "string",
+            "maxLength": 500
+          },
+          "dueDate": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
@@ -5936,7 +6547,7 @@
               "done"
             ]
           },
-          "groupId": {
+          "milestoneId": {
             "default": null,
             "anyOf": [
               {
@@ -5990,7 +6601,7 @@
           "title"
         ]
       },
-      "DeleteGroupResponse": {
+      "DeleteMilestoneResponse": {
         "type": "object",
         "properties": {
           "id": {
@@ -6191,6 +6802,53 @@
           "email"
         ]
       },
+      "IssueRef": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "number": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "status",
+          "projectId"
+        ],
+        "additionalProperties": false
+      },
+      "IssueRefList": {
+        "type": "object",
+        "properties": {
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueRef"
+            }
+          }
+        },
+        "required": [
+          "issues"
+        ],
+        "additionalProperties": false
+      },
       "Limits": {
         "type": "object",
         "properties": {
@@ -6278,6 +6936,20 @@
           "email"
         ],
         "additionalProperties": false
+      },
+      "MarkNotificationsReadRequest": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
       },
       "MarkReadRequest": {
         "type": "object",
@@ -6471,6 +7143,22 @@
             "items": {
               "$ref": "#/components/schemas/Attachment"
             }
+          },
+          "markup": {
+            "type": "string"
+          },
+          "mentionIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "issueRefs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueRef"
+            }
           }
         },
         "required": [
@@ -6482,7 +7170,10 @@
           "createdAt",
           "editedAt",
           "deleted",
-          "attachments"
+          "attachments",
+          "markup",
+          "mentionIds",
+          "issueRefs"
         ],
         "additionalProperties": false
       },
@@ -6568,6 +7259,75 @@
         ],
         "additionalProperties": false
       },
+      "Milestone": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "dueDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "done": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "dueDate",
+          "completed",
+          "total",
+          "done",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "MilestoneList": {
+        "type": "object",
+        "properties": {
+          "milestones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Milestone"
+            }
+          }
+        },
+        "required": [
+          "milestones"
+        ],
+        "additionalProperties": false
+      },
       "MoveTaskRequest": {
         "type": "object",
         "properties": {
@@ -6609,6 +7369,100 @@
           "beforeId"
         ]
       },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/NotificationKind"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChatPerson"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationTitle": {
+            "type": "string"
+          },
+          "conversationKind": {
+            "$ref": "#/components/schemas/ConversationKind"
+          },
+          "messageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "preview": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "actor",
+          "conversationId",
+          "conversationTitle",
+          "conversationKind",
+          "messageId",
+          "preview",
+          "createdAt",
+          "readAt"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationKind": {
+        "type": "string",
+        "enum": [
+          "mention"
+        ]
+      },
+      "NotificationPage": {
+        "type": "object",
+        "properties": {
+          "notifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            }
+          },
+          "unreadCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "notifications",
+          "unreadCount"
+        ],
+        "additionalProperties": false
+      },
       "NotificationSettings": {
         "type": "object",
         "properties": {
@@ -6626,6 +7480,20 @@
           "directMessages",
           "channelMessages",
           "taskAssignments"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationUnreadCount": {
+        "type": "object",
+        "properties": {
+          "unreadCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "unreadCount"
         ],
         "additionalProperties": false
       },
@@ -6826,19 +7694,6 @@
         ],
         "additionalProperties": false
       },
-      "RenameGroupRequest": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 80
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
       "ReserveUploadRequest": {
         "type": "object",
         "properties": {
@@ -6890,6 +7745,17 @@
           "archived"
         ]
       },
+      "SetCompletedRequest": {
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "completed"
+        ]
+      },
       "SetTaskAssigneeRequest": {
         "type": "object",
         "properties": {
@@ -6907,6 +7773,28 @@
         },
         "required": [
           "assigneeId"
+        ]
+      },
+      "SetTaskChecklistItemRequest": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "checked": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 20000
+          }
+        },
+        "required": [
+          "index",
+          "checked",
+          "text"
         ]
       },
       "SetTaskStatusRequest": {
@@ -6947,6 +7835,22 @@
                 "type": "null"
               }
             ]
+          },
+          "milestoneId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "number": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           },
           "title": {
             "type": "string"
@@ -7015,6 +7919,8 @@
           "id",
           "projectId",
           "groupId",
+          "milestoneId",
+          "number",
           "title",
           "description",
           "status",
@@ -7173,6 +8079,36 @@
           "meetingUrl"
         ]
       },
+      "UpdateMilestoneRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "description": {
+            "default": "",
+            "type": "string",
+            "maxLength": 500
+          },
+          "dueDate": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
       "UpdateNotificationSettingsRequest": {
         "type": "object",
         "properties": {
@@ -7292,7 +8228,7 @@
                   "done"
                 ]
               },
-              "groupId": {
+              "milestoneId": {
                 "anyOf": [
                   {
                     "type": "string",

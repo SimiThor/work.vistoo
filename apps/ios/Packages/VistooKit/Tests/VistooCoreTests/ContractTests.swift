@@ -22,11 +22,11 @@ private func json(_ object: some Encodable) throws -> [String: Any] {
 struct TaskFilterConformanceTests {
     struct Fixture: Decodable {
         struct FixtureTask: Decodable {
-            let id: String, title: String, projectId: String, groupId: String?, assigneeId: String?, status: String
+            let id: String, number: Int?, title: String, projectId: String, assigneeId: String?, status: String
         }
         struct Case: Decodable {
             struct Filters: Decodable {
-                var q: String?, projects: [String]?, groups: [String]?, assignees: [String]?, statuses: [String]?
+                var q: String?, projects: [String]?, assignees: [String]?, statuses: [String]?
             }
             let name: String, filters: Filters, expected: [String]
         }
@@ -45,13 +45,12 @@ struct TaskFilterConformanceTests {
         let filters = TaskFilters(
             query: c.filters.q ?? "",
             projects: Set(c.filters.projects ?? []),
-            groups: Set(c.filters.groups ?? []),
             assignees: Set(c.filters.assignees ?? []),
             statuses: Set((c.filters.statuses ?? []).map(TaskStatus.init(rawValue:)))
         )
         let result = Self.fixture.tasks.filter {
             filters.matches(
-                title: $0.title, projectId: $0.projectId, groupId: $0.groupId,
+                title: $0.title, number: $0.number, projectId: $0.projectId,
                 assigneeId: $0.assigneeId, status: TaskStatus(rawValue: $0.status)
             )
         }.map(\.id)
@@ -71,7 +70,7 @@ struct GeneratedModelTests {
 
     @Test func taskDecodesFromAPIJSON() throws {
         let raw = """
-        {"id":"0b3b5f0e-6f2c-4f7a-9d55-1f7d8c1b2a10","projectId":"9f1c6a2e-3d4b-4c5d-8e6f-7a8b9c0d1e2f","groupId":null,
+        {"id":"0b3b5f0e-6f2c-4f7a-9d55-1f7d8c1b2a10","projectId":"9f1c6a2e-3d4b-4c5d-8e6f-7a8b9c0d1e2f","groupId":null,"number":42,
          "title":"Angebot","description":"","status":"in_progress","assigneeId":null,"startDate":"2026-11-09","endDate":null,
          "position":1024,"createdBy":"1f1c6a2e-3d4b-4c5d-8e6f-7a8b9c0d1e2f","createdAt":"2026-11-06T07:43:29.456Z",
          "updatedAt":"2026-11-06T07:43:29.456Z","version":3,"someFutureField":true}
@@ -81,14 +80,15 @@ struct GeneratedModelTests {
         #expect(task.startDate?.iso == "2026-11-09")
         #expect(task.endDate == nil)
         #expect(task.version == 3)
+        #expect(task.number == 42)
     }
 
     @Test func partialUpdateDistinguishesUnsetNullAndValue() throws {
-        let patch = UpdateTaskRequest.Patch(title: "Neu", groupId: .null, assigneeId: .value("u1"))
+        let patch = UpdateTaskRequest.Patch(title: "Neu", milestoneId: .null, assigneeId: .value("u1"))
         let body = try json(UpdateTaskRequest(expectedVersion: 2, patch: patch))
         let p = body["patch"] as! [String: Any]
         #expect(p["title"] as? String == "Neu")
-        #expect(p["groupId"] is NSNull)            // explicit null clears
+        #expect(p["milestoneId"] is NSNull)        // explicit null clears
         #expect(p["assigneeId"] as? String == "u1")
         #expect(p["startDate"] == nil)              // unset → omitted → unchanged
         #expect(p["status"] == nil)
@@ -178,13 +178,14 @@ struct LinkTests {
             "description": .string(""), "status": .string("done"), "assignee_id": .null, "start_date": .string("2026-11-09"),
             "end_date": .string("2026-11-10"), "position": .integer(2048), "created_by": .string(id),
             "created_at": .string("2026-11-06T07:43:29.456789+00:00"), "updated_at": .string("2026-11-06T07:43:29+00:00"),
-            "version": .integer(4),
+            "version": .integer(4), "number": .integer(24),
         ]
         let task = TaskRow.decode(row)
         #expect(task?.id == id)
         #expect(task?.status == .done)
         #expect(task?.position == 2048)
         #expect(task?.endDate?.iso == "2026-11-10")
+        #expect(task?.number == 24)
     }
 }
 

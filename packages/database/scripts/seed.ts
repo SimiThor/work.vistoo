@@ -14,7 +14,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { fromDayNumber, toDayNumber, todayIso } from "@vistoo/domain/dates";
 import { adminSupabase, connect, isLocalUrl, WORKSPACE_SLUG, schema } from "./lib";
 
-const { workspaces, workspaceMembers, profiles, projects, projectGroups, tasks } = schema;
+const { workspaces, workspaceMembers, profiles, projects, tasks } = schema;
 
 const DEMO_PROJECTS = ["Website-Relaunch", "Vistoo App 2.0", "Seed-Finanzierung"];
 
@@ -26,43 +26,40 @@ const DEMO_USERS = [
 type T = {
   title: string;
   status: "open" | "in_progress" | "in_review" | "done";
-  group?: string;
   start?: number; // offset in days from today
   end?: number;
   who?: number; // index into members, undefined = unassigned
   description?: string;
 };
 
-const PLAN: { name: string; description: string; color: string; groups: string[]; tasks: T[] }[] = [
+const PLAN: { name: string; description: string; color: string; tasks: T[] }[] = [
   {
     name: "Website-Relaunch",
     description: "Neue Marketing-Website mit klarer Positionierung",
     color: "blue",
-    groups: ["Design", "Engineering", "Launch"],
     tasks: [
-      { title: "Moodboard und Bildsprache festlegen", status: "done", group: "Design", start: -14, end: -10, who: 0 },
-      { title: "Wireframes für Startseite und Preise", status: "done", group: "Design", start: -10, end: -6, who: 0 },
-      { title: "Hi-Fi-Designs der Startseite", status: "in_review", group: "Design", start: -5, end: 1, who: 0,
+      { title: "Moodboard und Bildsprache festlegen", status: "done", start: -14, end: -10, who: 0 },
+      { title: "Wireframes für Startseite und Preise", status: "done", start: -10, end: -6, who: 0 },
+      { title: "Hi-Fi-Designs der Startseite", status: "in_review", start: -5, end: 1, who: 0,
         description: "Feedback aus der Runde vom Montag einarbeiten.\nFokus: Hero-Text und Kundenlogos." },
-      { title: "Komponentenbibliothek aufsetzen", status: "in_progress", group: "Engineering", start: -3, end: 4, who: 1 },
-      { title: "CMS-Anbindung für Blogartikel", status: "open", group: "Engineering", start: 3, end: 9, who: 1 },
-      { title: "Tracking und Cookie-Banner datenschutzkonform umsetzen", status: "open", group: "Engineering", start: 8, end: 10 },
-      { title: "Texte für Produktseiten finalisieren", status: "in_progress", group: "Launch", start: 0, end: 5, who: 2 },
-      { title: "Go-live-Checkliste", status: "open", group: "Launch", end: 14, who: 2 },
-      { title: "Redirects der alten URLs prüfen", status: "open", group: "Launch" },
+      { title: "Komponentenbibliothek aufsetzen", status: "in_progress", start: -3, end: 4, who: 1 },
+      { title: "CMS-Anbindung für Blogartikel", status: "open", start: 3, end: 9, who: 1 },
+      { title: "Tracking und Cookie-Banner datenschutzkonform umsetzen", status: "open", start: 8, end: 10 },
+      { title: "Texte für Produktseiten finalisieren", status: "in_progress", start: 0, end: 5, who: 2 },
+      { title: "Go-live-Checkliste", status: "open", end: 14, who: 2 },
+      { title: "Redirects der alten URLs prüfen", status: "open" },
     ],
   },
   {
     name: "Vistoo App 2.0",
     description: "Onboarding und Team-Funktionen",
     color: "teal",
-    groups: ["Produkt", "Engineering"],
     tasks: [
-      { title: "Interviews mit fünf Bestandskunden", status: "done", group: "Produkt", start: -20, end: -12, who: 2 },
-      { title: "Onboarding-Flow skizzieren", status: "in_review", group: "Produkt", start: -4, end: 0, who: 2 },
-      { title: "Einladungen per E-Mail", status: "in_progress", group: "Engineering", start: -2, end: 6, who: 1 },
-      { title: "Rollen und Rechte", status: "open", group: "Engineering", start: 7, end: 15, who: 1 },
-      { title: "Fehlermeldungen vereinheitlichen", status: "open", group: "Engineering" },
+      { title: "Interviews mit fünf Bestandskunden", status: "done", start: -20, end: -12, who: 2 },
+      { title: "Onboarding-Flow skizzieren", status: "in_review", start: -4, end: 0, who: 2 },
+      { title: "Einladungen per E-Mail", status: "in_progress", start: -2, end: 6, who: 1 },
+      { title: "Rollen und Rechte", status: "open", start: 7, end: 15, who: 1 },
+      { title: "Fehlermeldungen vereinheitlichen", status: "open" },
       { title: "Performance-Budget für mobile Ansicht definieren", status: "open", start: 2, end: 2 },
     ],
   },
@@ -70,7 +67,6 @@ const PLAN: { name: string; description: string; color: string; groups: string[]
     name: "Seed-Finanzierung",
     description: "",
     color: "amber",
-    groups: [],
     tasks: [
       { title: "Pitch-Deck überarbeiten", status: "in_progress", start: -1, end: 3, who: 0 },
       { title: "Datenraum strukturieren", status: "open", start: 4, end: 11 },
@@ -141,20 +137,11 @@ async function main() {
         .insert(projects)
         .values({ workspaceId: ws.id, name: p.name, description: p.description, color: p.color, createdBy: creator })
         .returning();
-      const groupIds = new Map<string, string>();
-      for (const [i, g] of p.groups.entries()) {
-        const [row] = await db
-          .insert(projectGroups)
-          .values({ workspaceId: ws.id, projectId: project.id, name: g, position: (i + 1) * 1024 })
-          .returning();
-        groupIds.set(g, row.id);
-      }
       for (const t of p.tasks) {
         position += 1024;
         await db.insert(tasks).values({
           workspaceId: ws.id,
           projectId: project.id,
-          groupId: t.group ? groupIds.get(t.group) : null,
           title: t.title,
           description: t.description ?? "",
           status: t.status,

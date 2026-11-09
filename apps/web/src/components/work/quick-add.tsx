@@ -10,7 +10,7 @@ import { useWork } from "./work-context";
 /** Values derived from scope + active filters, so a new task stays visible. */
 export type QuickAddDefaults = {
   projectId: string | null;
-  groupId: string | null;
+  milestoneId: string | null;
   assigneeId: string | null;
 };
 
@@ -89,7 +89,7 @@ export function QuickAdd({
         projectId,
         title,
         status,
-        groupId: projectId === defaults.projectId ? defaults.groupId : null,
+        milestoneId: defaults.milestoneId,
         assigneeId: defaults.assigneeId,
       });
       if (res.ok) {
@@ -144,7 +144,7 @@ export function QuickAdd({
         </p>
       )}
       <div className="mt-2 flex items-center justify-between gap-2">
-        {scope.kind === "all" ? (
+        {scope.kind !== "project" ? (
           <Select value={projectId ?? undefined} onValueChange={setProjectId}>
             <SelectTrigger size="sm" className="h-7 max-w-[60%] text-xs" aria-label="Projekt">
               <SelectValue placeholder="Projekt" />

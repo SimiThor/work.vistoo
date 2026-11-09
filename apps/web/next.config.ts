@@ -24,6 +24,15 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // HTTPS only (Vercel serves HTTPS; this pins it in the browser for two years).
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+          // Baseline CSP without nonces: no framing, no <base> or plugin injection,
+          // forms only to this origin. Scripts are covered by React escaping and
+          // the markdown renderer (no raw HTML), see docs/security.md.
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'",
+          },
         ],
       },
     ];

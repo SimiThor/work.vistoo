@@ -26,7 +26,7 @@ async function newTask(c: AuthContext, project: string) {
     title: "Pitch Deck",
     description: "",
     status: "open",
-    groupId: null,
+    milestoneId: null,
     assigneeId: null,
     startDate: null,
     endDate: null,

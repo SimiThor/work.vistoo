@@ -2,6 +2,7 @@ import "server-only";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "@vistoo/database/schema";
+import { databaseTlsOptions } from "@vistoo/database/tls";
 
 function createDb() {
   const url = process.env.DATABASE_URL;
@@ -12,6 +13,8 @@ function createDb() {
     );
   }
   const client = postgres(url, {
+    // Encrypted (and for Supabase verified) connection; postgres.js defaults to plaintext.
+    ...databaseTlsOptions(url),
     // Required for Supabase's transaction pooler (port 6543).
     prepare: false,
     max: Number(process.env.DATABASE_POOL_MAX ?? 5),

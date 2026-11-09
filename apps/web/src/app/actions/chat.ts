@@ -5,6 +5,7 @@ import { z } from "zod";
 import { runAction } from "@/server/action";
 import * as chat from "@vistoo/backend/services/chat";
 import * as files from "@vistoo/backend/services/chat-files";
+import * as inbox from "@vistoo/backend/services/inbox";
 import { listMembers } from "@vistoo/backend/services/team";
 import {
   archiveChannelSchema,
@@ -13,6 +14,7 @@ import {
   editMessageSchema,
   idSchema,
   listMessagesSchema,
+  markNotificationsReadSchema,
   markReadSchema,
   openDmSchema,
   removeChannelMemberSchema,
@@ -106,6 +108,14 @@ export async function downloadUrlAction(input: unknown) {
 export async function chatStorageUsageAction() {
   const res = await runAction(empty, {}, (ctx) => files.getChatStorageUsage(ctx), { admin: true });
   return res;
+}
+
+export async function listNotificationsAction() {
+  return runAction(empty, {}, (ctx) => inbox.listNotifications(ctx));
+}
+
+export async function markNotificationsReadAction(input: unknown) {
+  return runAction(markNotificationsReadSchema, input, (ctx, d) => inbox.markNotificationsRead(ctx, d));
 }
 
 /** Used after membership changes so server-rendered pieces pick them up. */

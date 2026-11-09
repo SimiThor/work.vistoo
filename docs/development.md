@@ -63,7 +63,7 @@ Es gibt genau eine Migrationskette: `packages/database/migrations`. Jede neue Ta
 | --- | --- |
 | `npm run typecheck` | alle TS-Workspaces |
 | `npm run lint` | Web (ESLint) |
-| `npm test` | Domain (inkl. gemeinsamer Filter-Fixtures), Contracts, Design-Tokens, Backend-Integrationstests inkl. `/api/v1`-Berechtigungen gegen eine Wegwerf-Postgres (`TEST_DATABASE_ADMIN_URL`, z. B. in `apps/web/.env.test.local`) |
+| `npm test` | Domain (inkl. gemeinsamer Filter-Fixtures), Contracts, Design-Tokens, Backend-Integrationstests inkl. `/api/v1`-Berechtigungen gegen eine Wegwerf-Postgres (`TEST_DATABASE_ADMIN_URL`, z. B. in `apps/web/.env.test.local`; Datenbankname `vistoo_test`, für parallele Läufe per `TEST_DATABASE_NAME` änderbar) |
 | `npm run build` | Produktionsbuild Web |
 | `npm run test:e2e` | Playwright gegen den lokalen Stack und einen laufenden Server: Web-Abläufe **und** Web ↔ iOS-Protokoll (`cross-platform.spec.ts`) |
 | `npm run ios:test-kit` | VistooKit (Swift) bauen und Unit-Tests: Modelle, Filter-Fixtures, Datum, Links; auch ohne Xcode (nur Command Line Tools) |
@@ -73,3 +73,5 @@ Es gibt genau eine Migrationskette: `packages/database/migrations`. Jede neue Ta
 ## CI
 
 `.github/workflows/web-and-backend.yml` läuft bei Änderungen an `apps/web`, `packages/**`, `supabase/**` oder am Lockfile. `.github/workflows/ios.yml` läuft bei Änderungen an `apps/ios` und an den Paketen, die Swift-Code erzeugen (`contracts`, `domain`, `design-tokens`). Reine Web-Änderungen starten keinen macOS-Runner. Änderungen an gemeinsamen Verträgen lösen beide aus.
+
+Auf `main` (und manuell per „Run workflow“) baut `ios.yml` nach grünen Tests zusätzlich einen signierten Release-Build und lädt ihn zu TestFlight hoch: [docs/setup/ios-testflight.md](setup/ios-testflight.md).

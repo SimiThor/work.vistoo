@@ -2,10 +2,10 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 import postgres from "postgres";
-import { loginWithCode } from "./support";
+import { card, loginWithCode } from "./support";
 
 /**
- * Personal to-dos, ideas and CRM end to end: two real users in an isolated
+ * Personal to-dos, ideas, milestones and CRM end to end: two real users in an isolated
  * workspace (local stack only). simon = admin, felix = member.
  */
 test.describe.configure({ mode: "serial" });
@@ -66,8 +66,11 @@ test("my to-dos: add, complete, reopen, edit — and nobody else sees them", asy
   await expect(page.getByRole("heading", { name: "Meine To-dos", level: 1 })).toBeVisible();
 
   const input = page.getByLabel("Neues To-do");
+  // With a note: ⌘/Ctrl+Enter in the note field adds the to-do.
   await input.fill("Domain verlängern");
-  await input.press("Enter");
+  await page.getByLabel("Notiz zum neuen To-do").fill("Bei INWX, läuft Ende des Monats ab");
+  await page.getByLabel("Notiz zum neuen To-do").press("ControlOrMeta+Enter");
+  await expect(page.getByLabel("Notiz zum neuen To-do")).toHaveCount(0);
   await input.fill("Fördermöglichkeiten recherchieren");
   await page.getByRole("button", { name: "Fälligkeitsdatum hinzufügen" }).click();
   await page.getByLabel("Fällig am").fill("2026-11-20");
@@ -78,6 +81,7 @@ test("my to-dos: add, complete, reopen, edit — and nobody else sees them", asy
   // Newest on top.
   await expect(open.getByRole("listitem").first()).toContainText("Fördermöglichkeiten recherchieren");
   await expect(open.getByRole("listitem").first()).toContainText("20. Nov.");
+  await expect(open.getByRole("listitem").last()).toContainText("Bei INWX, läuft Ende des Monats ab");
 
   const saved = actionDone(page, '"completed":true');
   await page.getByRole("checkbox", { name: "„Domain verlängern“ erledigt" }).click();
@@ -118,16 +122,16 @@ test("ideas: shared backlog with status, panel and 'create issue'", async () => 
   // Felix sees them and changes a status directly in the list.
   const felix = pages.felix;
   await felix.goto("/ideas");
-  const statusSaved = actionDone(felix, '"status":"considering"');
-  await choose(felix, felix.getByRole("combobox", { name: "Status von „KI-Assistent erweitern“" }), "In Prüfung");
+  const statusSaved = actionDone(felix, '"status":"planned"');
+  await choose(felix, felix.getByRole("combobox", { name: "Status von „KI-Assistent erweitern“" }), "Geplant");
   await statusSaved;
   await felix.reload();
-  await expect(felix.getByRole("combobox", { name: "Status von „KI-Assistent erweitern“" })).toContainText("In Prüfung");
+  await expect(felix.getByRole("combobox", { name: "Status von „KI-Assistent erweitern“" })).toContainText("Geplant");
 
   // Filter + search.
-  await felix.getByRole("button", { name: "In Prüfung" }).click();
+  await felix.getByRole("button", { name: "Geplant" }).click();
   await expect(felix.getByRole("list", { name: "Ideen" }).getByRole("listitem")).toHaveCount(1);
-  await felix.getByRole("button", { name: "Offen" }).click();
+  await felix.getByRole("button", { name: "Alle" }).click();
   await felix.getByLabel("Ideen durchsuchen").filter({ visible: true }).fill("offline");
   await expect(felix.getByRole("list", { name: "Ideen" }).getByRole("listitem")).toHaveCount(1);
   await expect(felix.getByRole("button", { name: /Karten vorab laden/ })).toBeVisible();
@@ -151,8 +155,83 @@ test("ideas: shared backlog with status, panel and 'create issue'", async () => 
   await expect(page).toHaveURL(/\/projects\/.+\?task=/);
   const taskPanel = page.getByRole("dialog");
   await expect(taskPanel.getByLabel("Titel")).toHaveValue("KI-Assistent erweitern");
-  await expect(taskPanel.getByLabel("Beschreibung")).toHaveValue("Mehr Sprachen und Offline-Antworten");
+  // A non-empty description is shown rendered (Markdown); the editor opens via "Bearbeiten".
+  await expect(taskPanel.getByTestId("task-description").locator(".markdown-body")).toHaveText(
+    "Mehr Sprachen und Offline-Antworten",
+  );
   await taskPanel.getByRole("button", { name: "Schließen" }).first().click();
+});
+
+test("milestones: create, add issues from several places, filter and delete without losing tasks", async () => {
+  const page = pages.simon;
+  const MS = `Launch ${run}`;
+  await page.goto("/tasks");
+  // The task filter bar offers no group or status filter any more.
+  const filters = page.getByRole("search", { name: "Aufgaben filtern" }).filter({ visible: true });
+  await expect(filters.getByRole("button", { name: "Meilenstein" })).toBeVisible();
+  await expect(filters.getByRole("button", { name: "Gruppe" })).toHaveCount(0);
+  await expect(filters.getByRole("button", { name: "Status" })).toHaveCount(0);
+
+  // Create from the sidebar → lands on the milestone page.
+  await page.getByRole("button", { name: "Meilenstein erstellen" }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name").fill(MS);
+  await dialog.getByLabel(/Zieldatum/).fill("2026-12-15");
+  await dialog.getByRole("button", { name: "Meilenstein erstellen" }).click();
+  await expect(page.getByRole("heading", { name: MS })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).first().getByRole("link", { name: new RegExp(MS) })).toBeVisible();
+
+  // A task created on the milestone page belongs to it.
+  await page.getByRole("button", { name: "Aufgabe erstellen" }).first().click();
+  const panel = page.getByRole("dialog");
+  await panel.getByLabel("Titel").fill("Landingpage fertigstellen");
+  await expect(panel.getByLabel("Meilenstein")).toContainText(MS);
+  await panel.getByRole("button", { name: "Erstellen" }).click();
+  await expect(panel).toBeHidden();
+  await expect(card(page, "Landingpage fertigstellen")).toBeVisible();
+
+  // Attach an existing issue (from the ideas test) in its task panel.
+  await page.goto("/tasks");
+  await card(page, "KI-Assistent erweitern").click();
+  await choose(page, page.getByRole("dialog").getByLabel("Meilenstein"), MS);
+  await page.getByRole("dialog").getByRole("button", { name: "Speichern" }).click();
+  await expect(page.getByRole("dialog").getByText("Gespeichert")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // Filter in "Alle Aufgaben": only tasks of the milestone, then those without one.
+  await page.goto("/tasks");
+  await page.getByRole("button", { name: "Aufgabe erstellen" }).first().click();
+  await page.getByRole("dialog").getByLabel("Titel").fill("Ohne Meilenstein");
+  await page.getByRole("dialog").getByRole("button", { name: "Erstellen" }).click();
+  await expect(card(page, "Ohne Meilenstein")).toBeVisible();
+  await filters.getByRole("button", { name: "Meilenstein" }).click();
+  await page.getByRole("option", { name: MS }).click();
+  await page.keyboard.press("Escape");
+  await expect(card(page, "Landingpage fertigstellen")).toBeVisible();
+  await expect(card(page, "KI-Assistent erweitern")).toBeVisible();
+  await expect(card(page, "Ohne Meilenstein")).toHaveCount(0);
+  await expect(page).toHaveURL(/milestone=/);
+
+  // Felix sees the milestone with both issues and its progress in the overview.
+  const felix = pages.felix;
+  await felix.goto("/milestones");
+  const row = felix.getByRole("list", { name: "Offene Meilensteine" }).getByRole("listitem").filter({ hasText: MS });
+  await expect(row).toContainText("0 von 2 erledigt");
+  await row.getByRole("link", { name: MS }).click();
+  await expect(card(felix, "Landingpage fertigstellen")).toBeVisible();
+  await expect(card(felix, "KI-Assistent erweitern")).toBeVisible();
+
+  // Deleting the milestone keeps the tasks.
+  await page.goto("/milestones");
+  await page.getByRole("list", { name: "Offene Meilensteine" }).getByRole("link", { name: MS }).click();
+  await page.getByRole("button", { name: "Meilensteinaktionen" }).click();
+  await page.getByRole("menuitem", { name: "Löschen …" }).click();
+  await expect(page.getByRole("alertdialog")).toContainText("2 zugeordneten Aufgaben bleiben");
+  await page.getByRole("alertdialog").getByRole("button", { name: "Löschen" }).click();
+  await page.waitForURL(/\/milestones$/);
+  await page.goto("/tasks");
+  await expect(card(page, "Landingpage fertigstellen")).toBeVisible();
+  await expect(card(page, "KI-Assistent erweitern")).toBeVisible();
 });
 
 test("CRM: add attraction, timeline logs each change exactly once, manual activity sets follow-up", async () => {

@@ -11,12 +11,14 @@ import {
   MemberRoleSchema,
   MemberSchema,
   MessageSchema,
+  MilestoneSchema,
   ProjectSchema,
   ProjectStatSchema,
   TaskLinkSchema,
   TaskSchema,
+  IssueRefSchema,
   UploadTicketSchema,
-  GroupSchema,
+  NotificationPageSchema,
   NotificationSettingsSchema,
 } from "@vistoo/domain/dto";
 import { ERROR_CODES, type ErrorCode } from "@vistoo/domain/result";
@@ -51,7 +53,7 @@ export type EndpointDef = {
   method: HttpMethod;
   /** Relative to API_BASE_PATH, with {param} placeholders. */
   path: string;
-  tag: "Meta" | "Session" | "Tasks" | "Projects" | "Team" | "Chat" | "Files";
+  tag: "Meta" | "Session" | "Tasks" | "Projects" | "Milestones" | "Team" | "Chat" | "Files";
   summary: string;
   description?: string;
   auth: AuthLevel;
@@ -303,16 +305,40 @@ export const endpoints = {
     errors: [...MEMBER_ERRORS, "VALIDATION"],
     retry: "safe",
   }),
+  listNotifications: endpoint({
+    method: "GET",
+    path: "/me/notifications",
+    tag: "Session",
+    summary: "My latest in-app notifications (chat mentions) and the unread count.",
+    description:
+      "Newest first, at most 50. Only conversations I can still access. Opening a notification means: open conversation `conversationId` and scroll to `messageId`.",
+    auth: "member",
+    response: NotificationPageSchema,
+    errors: MEMBER_ERRORS,
+    retry: "safe",
+  }),
+  markNotificationsRead: endpoint({
+    method: "POST",
+    path: "/me/notifications/read",
+    tag: "Session",
+    summary: "Mark my notifications as read (the given ids, or all when `ids` is omitted).",
+    description: "Reading a conversation (markRead) also marks the mentions up to that position as read.",
+    auth: "member",
+    body: req("MarkNotificationsReadRequest", v.markNotificationsReadSchema),
+    response: res("NotificationUnreadCount", z.object({ unreadCount: z.number().int() })),
+    errors: [...MEMBER_ERRORS, "VALIDATION"],
+    retry: "safe",
+  }),
 
   // ---- Tasks -----------------------------------------------------------------
   listTasks: endpoint({
     method: "GET",
     path: "/tasks",
     tag: "Tasks",
-    summary: "Tasks of all active projects, or of one project (archived allowed, read-only).",
+    summary: "Tasks of all active projects, or of one project (archived allowed, read-only), or of one milestone.",
     description: "Not paginated: bounded by the workspace. Ordered by board position.",
     auth: "member",
-    query: z.object({ projectId: v.uuid.optional() }),
+    query: z.object({ projectId: v.uuid.optional(), milestoneId: v.uuid.optional() }),
     response: res("TaskList", z.object({ tasks: z.array(TaskSchema) })),
     errors: [...MEMBER_ERRORS, "NOT_FOUND"],
     retry: "safe",
@@ -329,6 +355,20 @@ export const endpoints = {
     status: 201,
     errors: [...MEMBER_ERRORS, "VALIDATION", "NOT_FOUND", "ARCHIVED", "CONFLICT"],
     retry: "idempotent-with-client-id",
+  }),
+  searchIssues: endpoint({
+    method: "GET",
+    path: "/issue-refs",
+    tag: "Tasks",
+    summary: "Tasks for the `#` picker in chat, matched by issue number and title.",
+    description:
+      "`q` is the text typed after `#`: digits match the number (exact first, then prefix), words match the title. " +
+      "At most 8 results, best first; tasks of archived projects are omitted. Insert the chosen task as `<#task-id>` into the message markup.",
+    auth: "member",
+    query: z.object({ q: z.string().max(100).optional() }),
+    response: res("IssueRefList", z.object({ issues: z.array(IssueRefSchema) })),
+    errors: [...MEMBER_ERRORS, "VALIDATION"],
+    retry: "safe",
   }),
   getTask: endpoint({
     method: "GET",
@@ -404,6 +444,19 @@ export const endpoints = {
     errors: [...MEMBER_ERRORS, "VALIDATION", "NOT_FOUND", "ARCHIVED"],
     retry: "safe",
   }),
+  setTaskChecklistItem: endpoint({
+    method: "PUT",
+    path: "/tasks/{id}/checklist",
+    tag: "Tasks",
+    summary:
+      "Quick action: tick or untick the n-th Markdown checklist item (`- [ ]`) in the description. Applied to the current description; `text` (the item's first line) identifies the item if lines moved. CONFLICT with `current` if the item is gone or ambiguous. Does not change the status.",
+    auth: "member",
+    params: idParam,
+    body: req("SetTaskChecklistItemRequest", v.setChecklistItemSchema.omit({ id: true })),
+    response: TaskSchema,
+    errors: [...MEMBER_ERRORS, "VALIDATION", "NOT_FOUND", "ARCHIVED", "CONFLICT"],
+    retry: "safe",
+  }),
 
   listTaskLinks: endpoint({
     method: "GET",
@@ -456,12 +509,12 @@ export const endpoints = {
     retry: "not-found-means-done",
   }),
 
-  // ---- Projects & groups --------------------------------------------------------
+  // ---- Projects ---------------------------------------------------------------------
   listProjects: endpoint({
     method: "GET",
     path: "/projects",
     tag: "Projects",
-    summary: "All projects (incl. archived, flagged) with groups and task statistics.",
+    summary: "All projects (incl. archived, flagged) with task statistics.",
     auth: "member",
     response: res(
       "ProjectList",
@@ -486,7 +539,7 @@ export const endpoints = {
     method: "GET",
     path: "/projects/{id}",
     tag: "Projects",
-    summary: "One project with its groups.",
+    summary: "One project.",
     auth: "member",
     params: idParam,
     response: ProjectSchema,
@@ -517,40 +570,73 @@ export const endpoints = {
     errors: [...MEMBER_ERRORS, "NOT_FOUND"],
     retry: "safe",
   }),
-  createGroup: endpoint({
-    method: "POST",
-    path: "/projects/{id}/groups",
-    tag: "Projects",
-    summary: "Add a group to a project.",
+  // ---- Milestones ---------------------------------------------------------------
+  listMilestones: endpoint({
+    method: "GET",
+    path: "/milestones",
+    tag: "Milestones",
+    summary: "All milestones (open first, by due date; then completed) with task counts.",
     auth: "member",
-    params: idParam,
-    body: req("CreateGroupRequest", v.createGroupSchema.omit({ projectId: true })),
-    response: GroupSchema,
-    status: 201,
-    errors: [...MEMBER_ERRORS, "VALIDATION", "NOT_FOUND", "ARCHIVED", "CONFLICT"],
-    retry: "idempotent-with-client-id",
-  }),
-  renameGroup: endpoint({
-    method: "PATCH",
-    path: "/groups/{id}",
-    tag: "Projects",
-    summary: "Rename a group.",
-    auth: "member",
-    params: idParam,
-    body: req("RenameGroupRequest", v.renameGroupSchema.omit({ id: true })),
-    response: GroupSchema,
-    errors: [...MEMBER_ERRORS, "VALIDATION", "NOT_FOUND", "ARCHIVED"],
+    response: res("MilestoneList", z.object({ milestones: z.array(MilestoneSchema) })),
+    errors: MEMBER_ERRORS,
     retry: "safe",
   }),
-  deleteGroup: endpoint({
-    method: "DELETE",
-    path: "/groups/{id}",
-    tag: "Projects",
-    summary: "Delete a group; its tasks are kept without group.",
+  createMilestone: endpoint({
+    method: "POST",
+    path: "/milestones",
+    tag: "Milestones",
+    summary: "Create a milestone.",
+    auth: "member",
+    body: req("CreateMilestoneRequest", v.createMilestoneSchema),
+    response: MilestoneSchema,
+    status: 201,
+    errors: [...MEMBER_ERRORS, "VALIDATION", "CONFLICT"],
+    retry: "idempotent-with-client-id",
+  }),
+  getMilestone: endpoint({
+    method: "GET",
+    path: "/milestones/{id}",
+    tag: "Milestones",
+    summary: "One milestone with task counts.",
     auth: "member",
     params: idParam,
-    response: res("DeleteGroupResponse", z.object({ id: v.uuid, detachedTasks: z.number().int() })),
-    errors: [...MEMBER_ERRORS, "NOT_FOUND", "ARCHIVED"],
+    response: MilestoneSchema,
+    errors: [...MEMBER_ERRORS, "NOT_FOUND"],
+    retry: "safe",
+  }),
+  updateMilestone: endpoint({
+    method: "PATCH",
+    path: "/milestones/{id}",
+    tag: "Milestones",
+    summary: "Edit name, description and due date.",
+    auth: "member",
+    params: idParam,
+    body: req("UpdateMilestoneRequest", v.updateMilestoneSchema.omit({ id: true })),
+    response: MilestoneSchema,
+    errors: [...MEMBER_ERRORS, "VALIDATION", "NOT_FOUND"],
+    retry: "safe",
+  }),
+  setMilestoneCompleted: endpoint({
+    method: "PUT",
+    path: "/milestones/{id}/completed",
+    tag: "Milestones",
+    summary: "Complete or reopen a milestone (its tasks stay attached).",
+    auth: "member",
+    params: idParam,
+    body: req("SetCompletedRequest", z.object({ completed: z.boolean() })),
+    response: MilestoneSchema,
+    errors: [...MEMBER_ERRORS, "NOT_FOUND"],
+    retry: "safe",
+  }),
+  deleteMilestone: endpoint({
+    method: "DELETE",
+    path: "/milestones/{id}",
+    tag: "Milestones",
+    summary: "Delete a milestone; its tasks are kept without milestone.",
+    auth: "member",
+    params: idParam,
+    response: res("DeleteMilestoneResponse", z.object({ id: v.uuid, detachedTasks: z.number().int() })),
+    errors: [...MEMBER_ERRORS, "NOT_FOUND"],
     retry: "not-found-means-done",
   }),
 

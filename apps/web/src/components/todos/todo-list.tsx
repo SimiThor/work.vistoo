@@ -179,6 +179,7 @@ export function TodoList({ initial }: { initial: TodoDTO[] }) {
 
 function QuickAdd({ onCreated, count }: { onCreated: (t: TodoDTO) => void; count: number }) {
   const [title, setTitle] = useState("");
+  const [note, setNote] = useState("");
   const [dueDate, setDueDate] = useState<string | null>(null);
   const [showDate, setShowDate] = useState(false);
   const [, startTransition] = useTransition();
@@ -191,59 +192,84 @@ function QuickAdd({ onCreated, count }: { onCreated: (t: TodoDTO) => void; count
     if (count >= TODO_LIMITS.perUser) return toast.error(`Höchstens ${TODO_LIMITS.perUser} To-dos.`);
     // Clear right away so the next entry can be typed while this one saves.
     const date = dueDate;
+    const description = note.trim();
     setTitle("");
+    setNote("");
     setDueDate(null);
     setShowDate(false);
     inputRef.current?.focus();
     startTransition(async () => {
-      const res = await createTodoAction({ id: crypto.randomUUID(), title: value, dueDate: date });
+      const res = await createTodoAction({ id: crypto.randomUUID(), title: value, description, dueDate: date });
       if (res.ok) return onCreated(res.data);
-      toast.error(res.error.fieldErrors?.title ?? res.error.message);
+      toast.error(res.error.fieldErrors?.title ?? res.error.fieldErrors?.description ?? res.error.message);
       setTitle((current) => current || value);
+      setNote((current) => current || description);
       setDueDate((current) => current ?? date);
     });
   };
 
+  // The note field shows up once a title is typed (or a note is already there),
+  // so the quick "type + Enter" flow stays a single line.
+  const expanded = title.trim() !== "" || note !== "";
+
   return (
     <form
       noValidate
-      className="mt-5 flex flex-wrap items-center gap-2 rounded-xl border bg-background px-3 py-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/35"
+      className="mt-5 rounded-xl border bg-background px-3 py-2 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/35"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
     >
-      <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-      <label htmlFor={id} className="sr-only">
-        Neues To-do
-      </label>
-      <input
-        ref={inputRef}
-        id={id}
-        autoFocus
-        autoComplete="off"
-        value={title}
-        maxLength={TODO_LIMITS.titleMax}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Neues To-do – mit Enter hinzufügen"
-        className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-      />
-      {showDate || dueDate ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <label htmlFor={id} className="sr-only">
+          Neues To-do
+        </label>
         <input
-          type="date"
-          aria-label="Fällig am"
-          value={dueDate ?? ""}
-          onChange={(e) => setDueDate(e.target.value || null)}
-          className="h-7 rounded-md border border-input bg-transparent px-2 text-xs tabular-nums outline-none focus-visible:border-ring"
+          ref={inputRef}
+          id={id}
+          autoFocus
+          autoComplete="off"
+          value={title}
+          maxLength={TODO_LIMITS.titleMax}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Neues To-do – mit Enter hinzufügen"
+          className="h-8 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
-      ) : (
-        <Button type="button" variant="ghost" size="icon-sm" onClick={() => setShowDate(true)} aria-label="Fälligkeitsdatum hinzufügen" title="Fälligkeitsdatum">
-          <CalendarDays aria-hidden />
+        {showDate || dueDate ? (
+          <input
+            type="date"
+            aria-label="Fällig am"
+            value={dueDate ?? ""}
+            onChange={(e) => setDueDate(e.target.value || null)}
+            className="h-7 rounded-md border border-input bg-transparent px-2 text-xs tabular-nums outline-none focus-visible:border-ring"
+          />
+        ) : (
+          <Button type="button" variant="ghost" size="icon-sm" onClick={() => setShowDate(true)} aria-label="Fälligkeitsdatum hinzufügen" title="Fälligkeitsdatum">
+            <CalendarDays aria-hidden />
+          </Button>
+        )}
+        <Button type="submit" size="sm" disabled={!title.trim()}>
+          Hinzufügen
         </Button>
+      </div>
+      {expanded && (
+        <textarea
+          aria-label="Notiz zum neuen To-do"
+          value={note}
+          maxLength={TODO_LIMITS.descriptionMax}
+          onChange={(e) => setNote(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          placeholder="Notiz (optional) – ⌘↵ zum Hinzufügen"
+          className="field-sizing-content mt-1 mb-1 block max-h-80 min-h-12 w-full resize-none border-t bg-transparent pt-2 pl-6 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
+        />
       )}
-      <Button type="submit" size="sm" disabled={!title.trim()}>
-        Hinzufügen
-      </Button>
     </form>
   );
 }

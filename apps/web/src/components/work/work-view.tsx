@@ -7,8 +7,8 @@ import { toast } from "sonner";
 import { Segmented } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
 import { Board } from "./board";
-import { applyFilters, hasActiveFilters, NO_GROUP, UNASSIGNED, useWorkUrl, type View } from "./filters";
-import { FilterBar } from "./filter-bar";
+import { applyFilters, hasActiveFilters, NO_MILESTONE, UNASSIGNED, useWorkUrl, type View } from "./filters";
+import { CLEARED_FILTERS, FilterBar } from "./filter-bar";
 import type { QuickAddDefaults } from "./quick-add";
 import { TaskPanel, type PanelTarget } from "./task-panel";
 import { Timeline } from "./timeline";
@@ -39,8 +39,13 @@ export function WorkView({
   const { scope, projects, projectById, tasks } = work;
   const { state: url, update } = useWorkUrl();
 
+  // The scope already fixes the project / milestone: ignore those filters there.
   const filters = useMemo(
-    () => ({ ...url, projects: scope.kind === "all" ? url.projects : [] }),
+    () => ({
+      ...url,
+      projects: scope.kind === "project" ? [] : url.projects,
+      milestones: scope.kind === "milestone" ? [] : url.milestones,
+    }),
     [url, scope.kind],
   );
   const filtered = useMemo(() => applyFilters(tasks, filters), [tasks, filters]);
@@ -50,15 +55,19 @@ export function WorkView({
   const readOnly = Boolean(scopeProject?.archived);
   const noProjects = projects.filter((p) => !p.archived).length === 0;
 
-  // New tasks inherit unambiguous filter values, so they stay visible.
+  // New tasks inherit the scope and unambiguous filter values, so they stay visible.
   const defaults: QuickAddDefaults = useMemo(() => {
     const projectId =
       scope.kind === "project" ? scope.projectId : filters.projects.length === 1 ? filters.projects[0] : null;
-    const groupId =
-      projectId && filters.groups.length === 1 && filters.groups[0] !== NO_GROUP ? filters.groups[0] : null;
+    const milestoneId =
+      scope.kind === "milestone"
+        ? scope.milestoneId
+        : filters.milestones.length === 1 && filters.milestones[0] !== NO_MILESTONE
+          ? filters.milestones[0]
+          : null;
     const assigneeId =
       filters.assignees.length === 1 && filters.assignees[0] !== UNASSIGNED ? filters.assignees[0] : null;
-    return { projectId, groupId, assigneeId };
+    return { projectId, milestoneId, assigneeId };
   }, [scope, filters]);
 
   // ---- Panel state (URL is the source of truth; guarded on back navigation) ----
@@ -97,7 +106,7 @@ export function WorkView({
 
   let content: React.ReactNode;
   if (tasks.length === 0) {
-    content = noProjects && scope.kind === "all" ? (
+    content = noProjects && scope.kind !== "project" ? (
       <EmptyState
         title="Noch keine Projekte"
         text="Aufgaben gehören immer zu einem Projekt. Lege zuerst ein Projekt an."
@@ -110,7 +119,13 @@ export function WorkView({
     ) : (
       <EmptyState
         title="Noch keine Aufgaben"
-        text={readOnly ? "Dieses archivierte Projekt enthält keine Aufgaben." : "Erstelle die erste Aufgabe, um loszulegen."}
+        text={
+          readOnly
+            ? "Dieses archivierte Projekt enthält keine Aufgaben."
+            : scope.kind === "milestone"
+              ? "Erstelle hier eine Aufgabe oder ordne bestehende Aufgaben im Aufgabenpanel diesem Meilenstein zu."
+              : "Erstelle die erste Aufgabe, um loszulegen."
+        }
         action={
           !readOnly && (
             <Button onClick={() => openNew()}>
@@ -126,7 +141,7 @@ export function WorkView({
         title="Keine passenden Aufgaben"
         text="Keine Aufgabe passt zu den aktiven Filtern."
         action={
-          <Button variant="outline" onClick={() => update({ q: "", projects: [], groups: [], assignees: [], statuses: [] })}>
+          <Button variant="outline" onClick={() => update(CLEARED_FILTERS)}>
             Filter zurücksetzen
           </Button>
         }

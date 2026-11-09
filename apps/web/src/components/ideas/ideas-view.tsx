@@ -16,9 +16,9 @@ import { IDEA_LIMITS, IDEA_STATUS_LABEL, IDEA_STATUSES, type IdeaDTO, type IdeaS
 import { IdeaPanel } from "./idea-panel";
 import { IdeaStatusSelect } from "./idea-status";
 
-type Filter = "active" | IdeaStatus;
+type Filter = "all" | IdeaStatus;
 const FILTERS: { value: Filter; label: string }[] = [
-  { value: "active", label: "Offen" },
+  { value: "all", label: "Alle" },
   ...IDEA_STATUSES.map((s) => ({ value: s as Filter, label: IDEA_STATUS_LABEL[s] })),
 ];
 
@@ -28,20 +28,22 @@ const FILTERS: { value: Filter; label: string }[] = [
  */
 export function IdeasView({
   initial,
+  initialOpenId = null,
   members,
   former,
   projects,
 }: {
   initial: IdeaDTO[];
+  initialOpenId?: string | null;
   members: MemberDTO[];
   former: MemberDTO[];
   projects: ProjectDTO[];
 }) {
   const [ideas, setIdeas] = useState(initial);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("active");
+  const [filter, setFilter] = useState<Filter>("all");
   const [newestFirst, setNewestFirst] = useState(true);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpenId);
   const people = useMemo(() => peopleMap(members, former), [members, former]);
 
   const upsert = (idea: IdeaDTO) =>
@@ -50,7 +52,7 @@ export function IdeasView({
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return ideas
-      .filter((i) => (filter === "active" ? i.status !== "archived" : i.status === filter))
+      .filter((i) => (filter === "all" || i.status === filter))
       .filter((i) => !q || i.title.toLowerCase().includes(q) || i.description.toLowerCase().includes(q))
       .sort((a, b) => (newestFirst ? b.createdAt.localeCompare(a.createdAt) : a.createdAt.localeCompare(b.createdAt)));
   }, [ideas, query, filter, newestFirst]);
@@ -107,7 +109,7 @@ export function IdeasView({
                   onClick={() => setOpenId(idea.id)}
                   className="min-w-0 flex-1 rounded py-0.5 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/35"
                 >
-                  <span className={cn("block truncate text-sm font-medium", idea.status === "archived" && "text-muted-foreground")}>
+                  <span className={cn("block truncate text-sm font-medium", idea.status === "irrelevant" && "text-muted-foreground")}>
                     {idea.title}
                   </span>
                   <span className="block truncate text-xs text-muted-foreground">

@@ -1,34 +1,57 @@
 # iOS app. Runs for iOS changes and for shared contract/domain/token changes
-# (they regenerate Swift sources). Pure web changes do not trigger it.
+# (they regenerate Swift sources). Pure web/backend changes do not trigger it.
+#
+# Pull requests: build + tests only.
+# main (push) and manual runs: build + tests → signed Release archive → upload to
+# App Store Connect → wait for processing → internal TestFlight groups.
+# Nothing is ever submitted for App Store review. Setup: docs/setup/ios-testflight.md
 name: iOS
 
 on:
   pull_request:
-    paths:
+    paths: &ios-paths
       - "apps/ios/**"
+      - "!apps/ios/**/*.md"
       - "packages/contracts/**"
       - "packages/domain/**"
       - "packages/design-tokens/**"
       - ".github/workflows/ios.yml"
   push:
     branches: [main]
-    paths:
-      - "apps/ios/**"
-      - "packages/contracts/**"
-      - "packages/domain/**"
-      - "packages/design-tokens/**"
-      - ".github/workflows/ios.yml"
+    paths: *ios-paths
+  workflow_dispatch:
+    inputs:
+      testflight:
+        description: "Upload to TestFlight (only on main)"
+        type: boolean
+        default: true
 
+# PRs: a new push cancels the old run. main: runs queue up instead of being cancelled
+# mid-upload; if several commits land while one runs, only the newest waits (GitHub
+# replaces the pending run), so superseded commits are skipped.
 concurrency:
   group: ios-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Pinned toolchain. Must match the runner image (see actions/runner-images, macos-26).
+  XCODE_VERSION: "26.5"
+  DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
 
 jobs:
   build-and-test:
-    runs-on: macos-15
+    name: Build & test
+    runs-on: macos-26
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Select Xcode ${{ env.XCODE_VERSION }}
+        run: |
+          [ -d "$DEVELOPER_DIR" ] || { echo "::error title=Xcode::Xcode $XCODE_VERSION is not installed on this runner. Available: $(ls -d /Applications/Xcode_*.app | xargs -n1 basename | tr '\n' ' ')"; exit 1; }
+          xcodebuild -version && swift --version
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -36,13 +59,22 @@ jobs:
       - run: npm ci
       - name: Generated Swift sources match the contract
         run: npm run generate:check
-      - name: Toolchain
-        run: xcodebuild -version && swift --version
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/ios/Packages/VistooKit/.build/checkouts
+            apps/ios/Packages/VistooKit/.build/repositories
+            apps/ios/build/ci/SourcePackages
+          key: spm-${{ runner.os }}-${{ env.XCODE_VERSION }}-${{ hashFiles('apps/ios/Packages/VistooKit/Package.resolved') }}
       - name: VistooKit unit tests (SwiftPM)
         working-directory: apps/ios/Packages/VistooKit
         run: swift test
+      - name: Install XcodeGen (pinned)
+        run: bash apps/ios/scripts/ci/install-xcodegen.sh
       - name: Generate Xcode project
-        run: brew install xcodegen && cd apps/ios && xcodegen generate
+        working-directory: apps/ios
+        run: xcodegen generate
       - name: Build and test on the iOS simulator (no signing)
         working-directory: apps/ios
         run: |
@@ -50,5 +82,112 @@ jobs:
           echo "Simulator: $DEVICE"
           xcodebuild test -quiet \
             -project VistooWork.xcodeproj -scheme VistooWork \
-            -destination "platform=iOS Simulator,name=$DEVICE" \
+            -destination "platform=iOS Simulator,name=$DEVICE,OS=latest" \
+            -clonedSourcePackagesDirPath build/ci/SourcePackages \
             CODE_SIGNING_ALLOWED=NO
+
+  testflight:
+    name: Archive & upload to TestFlight
+    needs: build-and-test
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.testflight))
+    runs-on: macos-26
+    timeout-minutes: 40
+    # Secrets live in this environment; restrict it to the main branch (docs/setup/ios-testflight.md).
+    environment: testflight
+    # Never two uploads at once, never cancel one that is running.
+    concurrency:
+      group: testflight-upload
+      cancel-in-progress: false
+    outputs:
+      build_number: ${{ steps.number.outputs.build_number }}
+      version: ${{ steps.number.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode ${{ env.XCODE_VERSION }}
+        run: xcodebuild -version
+      - name: Build number
+        id: number
+        # UTC timestamp (YYYYMMDDHHMM): unique and increasing, same scheme as
+        # apps/ios/scripts/testflight.sh, so CI and manual uploads never collide or go backwards.
+        run: |
+          BUILD_NUMBER=$(date -u +%Y%m%d%H%M)
+          VERSION=$(grep -m1 'MARKETING_VERSION' apps/ios/project.yml | sed -E 's/.*"(.*)".*/\1/')
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "Version $VERSION, build $BUILD_NUMBER, commit ${GITHUB_SHA::7}"
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: apps/ios/build/ci/SourcePackages
+          key: spm-${{ runner.os }}-${{ env.XCODE_VERSION }}-${{ hashFiles('apps/ios/Packages/VistooKit/Package.resolved') }}
+      - name: Install XcodeGen (pinned)
+        run: bash apps/ios/scripts/ci/install-xcodegen.sh
+      - name: Install signing certificate and profile
+        env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+          IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          IOS_APPSTORE_PROFILE_BASE64: ${{ secrets.IOS_APPSTORE_PROFILE_BASE64 }}
+        run: bash apps/ios/scripts/ci/setup-signing.sh
+      - name: Archive (signed Release build)
+        env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: bash apps/ios/scripts/ci/archive-and-upload.sh archive
+      - name: Upload to App Store Connect
+        env:
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: bash apps/ios/scripts/ci/archive-and-upload.sh upload
+      - name: Summary
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then RESULT="✅ uploaded to App Store Connect"; else RESULT="❌ failed (see the step with the red ✗)"; fi
+          {
+            echo "### iOS ${{ steps.number.outputs.version }} (${{ steps.number.outputs.build_number }})"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Result | $RESULT |"
+            echo "| Commit | \`${GITHUB_SHA::7}\` |"
+            echo "| Xcode | $XCODE_VERSION |"
+            echo "| Trigger | ${{ github.event_name }} by @${{ github.actor }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove signing material
+        if: always()
+        run: |
+          [ -n "${VISTOO_KEYCHAIN:-}" ] && security delete-keychain "$VISTOO_KEYCHAIN" || true
+          rm -rf "$RUNNER_TEMP/signing" "$RUNNER_TEMP/asc" apps/ios/Config/Signing.local.xcconfig
+          if [ -n "${VISTOO_PROFILE_UUID:-}" ]; then
+            rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/$VISTOO_PROFILE_UUID.mobileprovision" \
+              "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/$VISTOO_PROFILE_UUID.mobileprovision"
+          fi
+
+  # Waiting for Apple's processing takes 5–30 min; do it on a cheap Linux runner.
+  distribute:
+    name: TestFlight processing & internal testers
+    needs: testflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: testflight
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: apps/ios/scripts/ci
+      - name: Wait for processing, distribute to internal groups
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          BUILD_NUMBER: ${{ needs.testflight.outputs.build_number }}
+          TESTFLIGHT_GROUPS: ${{ vars.TESTFLIGHT_GROUPS }}
+        run: |
+          python3 -I apps/ios/scripts/ci/testflight_distribute.py \
+            --bundle-id de.vistoo.work \
+            --build "$BUILD_NUMBER" \
+            --groups "$TESTFLIGHT_GROUPS" \
+            --timeout-min 45

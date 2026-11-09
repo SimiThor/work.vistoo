@@ -9,7 +9,8 @@ import { authorizeRealtime, getBrowserSupabase } from "@/lib/supabase-browser";
 type TaskRow = {
   id: string;
   project_id: string;
-  group_id: string | null;
+  milestone_id: string | null;
+  number: number;
   title: string;
   description: string;
   status: TaskStatus;
@@ -27,7 +28,9 @@ function rowToTask(r: TaskRow): TaskDTO {
   return {
     id: r.id,
     projectId: r.project_id,
-    groupId: r.group_id,
+    groupId: null, // groups were removed
+    milestoneId: r.milestone_id ?? null,
+    number: r.number,
     title: r.title,
     description: r.description,
     status: r.status,
@@ -59,7 +62,7 @@ function emitTaskLinksChanged(detail: TaskLinksChangedDetail) {
  * - tasks: merged into the local store by version (no duplicates with
  *   optimistic updates or server responses).
  * - task links: announced as a window event for the open task panel.
- * - projects / groups / members: trigger a router refresh (debounced).
+ * - projects / milestones / members: trigger a router refresh (debounced).
  * - after a reconnect or when the tab becomes visible again: full resync.
  */
 export function useRealtimeSync({
@@ -134,7 +137,7 @@ export function useRealtimeSync({
           if (id) emitTaskLinksChanged({ taskId: null, linkId: id });
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "projects", filter }, refreshSoon)
-        .on("postgres_changes", { event: "*", schema: "public", table: "project_groups", filter }, refreshSoon)
+        .on("postgres_changes", { event: "*", schema: "public", table: "milestones", filter }, refreshSoon)
         .on("postgres_changes", { event: "*", schema: "public", table: "workspace_members", filter }, refreshSoon)
         .subscribe((status, err) => {
           if (status === "SUBSCRIBED") {

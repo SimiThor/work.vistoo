@@ -8,6 +8,7 @@ import {
   idSchema,
   moveTaskSchema,
   setAssigneeSchema,
+  setChecklistItemSchema,
   setStatusSchema,
   updateTaskSchema,
   uuid,
@@ -33,6 +34,10 @@ export async function setTaskAssigneeAction(input: unknown) {
   return runAction(setAssigneeSchema, input, (ctx, data) => tasks.setTaskAssignee(ctx, data));
 }
 
+export async function setTaskChecklistItemAction(input: unknown) {
+  return runAction(setChecklistItemSchema, input, (ctx, data) => tasks.setTaskChecklistItem(ctx, data));
+}
+
 export async function deleteTaskAction(input: unknown) {
   return runAction(idSchema, input, (ctx, data) => tasks.deleteTask(ctx, data.id));
 }
@@ -43,7 +48,13 @@ export async function getTaskAction(input: unknown) {
 
 /** Full re-sync after a realtime reconnect. */
 export async function listTasksAction(input: unknown) {
-  return runAction(z.object({ projectId: uuid.nullable() }), input, (ctx, data) =>
-    tasks.listTasks(ctx, data.projectId ? { projectId: data.projectId } : {}),
+  return runAction(
+    z.object({ projectId: uuid.nullable(), milestoneId: uuid.nullable().default(null) }),
+    input,
+    (ctx, data) =>
+      tasks.listTasks(ctx, {
+        ...(data.projectId ? { projectId: data.projectId } : {}),
+        ...(data.milestoneId ? { milestoneId: data.milestoneId } : {}),
+      }),
   );
 }

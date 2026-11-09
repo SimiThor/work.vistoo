@@ -72,7 +72,7 @@ Nachrichten werden per `PUT /conversations/{id}/messages/{messageId}` mit Client
 
 ## Endpunkte (Kurzüberblick)
 
-Die vollständige Liste mit Schemas steht in `openapi.json`. Gruppen: Meta/Session (`/meta`, `/auth/login-code`, `/me`, `/invitations/accept`, `/bootstrap`, `/me/profile`), Tasks (`/tasks…`, Anhänge `/tasks/{id}/links`, `/task-links/{id}`), Projekte und Gruppen (`/projects…`, `/groups/{id}`), Team (`/team`, `/invitations…`, `/members/{userId}…`, `/workspace/meeting-url`), Chat (`/conversations…`, `/messages/{id}`), Dateien (`/conversations/{id}/uploads`, `/uploads/{id}…`, `/attachments/{id}/download`, `/chat/storage`).
+Die vollständige Liste mit Schemas steht in `openapi.json`. Gruppen: Meta/Session (`/meta`, `/auth/login-code`, `/me`, `/invitations/accept`, `/bootstrap`, `/me/profile`), Tasks (`/tasks…`, Anhänge `/tasks/{id}/links`, `/task-links/{id}`), Projekte (`/projects…`), Team (`/team`, `/invitations…`, `/members/{userId}…`, `/workspace/meeting-url`), Chat (`/conversations…`, `/messages/{id}`), Mitteilungen (`/me/notifications`, `/me/notifications/read`), Dateien (`/conversations/{id}/uploads`, `/uploads/{id}…`, `/attachments/{id}/download`, `/chat/storage`).
 
 ## Neuen Endpunkt hinzufügen
 
@@ -80,3 +80,7 @@ Die vollständige Liste mit Schemas steht in `openapi.json`. Gruppen: Meta/Sessi
 2. Eintrag in `packages/contracts/src/endpoints.ts`: Request-/Response-Schemas mit `req()`/`res()` benennen, `errors` und `retry` angeben.
 3. Handler in `packages/backend/src/http/handlers.ts` (eine Zeile, ruft den Service). Fehlt er, schlagen TypeScript und der Test „has a handler for every endpoint“ fehl.
 4. `npm run generate` und anschließend `npm test`.
+
+## Erwähnungen im Chat
+
+Nachrichten speichern Erwähnungen als Token `<@user-uuid>` im Text. `Message.body` bleibt lesbar (Erwähnungen als „@Aktueller Name“), damit ältere App-Versionen nichts Neues brauchen. `Message.markup` enthält den gespeicherten Text mit Tokens, `Message.mentionIds` die erwähnten Personen; ihre Namen stehen in `authors` der Nachrichtenseite. Senden und Bearbeiten akzeptieren denselben Token-Text. Jede neu erwähnte Person muss die Unterhaltung lesen dürfen, sonst `VALIDATION` (422). Erwähnungen, die schon vor dem Bearbeiten im Text standen, bleiben erlaubt. Hilfsfunktionen (Zerlegen, Darstellung, Editor-Modell): `packages/domain/src/mentions.ts`.

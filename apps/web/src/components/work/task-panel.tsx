@@ -1,9 +1,12 @@
 "use client";
 
-import { AlertTriangle, Link2, Loader2, Trash2, X } from "lucide-react";
-import { useEffect, useId, useMemo, useState, useTransition } from "react";
+import { AlertTriangle, Flag, Link2, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { getTaskAction } from "@/app/actions/tasks";
+import { getTaskAction, setTaskChecklistItemAction } from "@/app/actions/tasks";
+import { MarkdownEditor } from "@/components/markdown/markdown-editor";
+import { MarkdownView } from "@/components/markdown/markdown-view";
+import { setChecklistItem, type ChecklistItem } from "@vistoo/domain/markdown";
 import { FormAlert } from "@/components/form-feedback";
 import { MemberAvatar } from "@/components/member-avatar";
 import { ProjectDot } from "@/components/project-dot";
@@ -28,6 +31,8 @@ import type { TaskDTO as T } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 import { rememberProject, readLastProject, type QuickAddDefaults } from "./quick-add";
 import { TaskLinks } from "./task-links";
+import { CopyIssueNumber } from "./issue-number";
+import { formatIssueNumber } from "@vistoo/domain/issue-refs";
 import { DeleteTaskDialog } from "./task-menu";
 import { useWork } from "./work-context";
 
@@ -36,7 +41,7 @@ type FormValues = {
   description: string;
   status: TaskStatus;
   projectId: string;
-  groupId: string | null;
+  milestoneId: string | null;
   assigneeId: string | null;
   startDate: string | null;
   endDate: string | null;
@@ -50,7 +55,7 @@ function valuesFrom(t: TaskDTO): FormValues {
     description: t.description,
     status: t.status,
     projectId: t.projectId,
-    groupId: t.groupId,
+    milestoneId: t.milestoneId,
     assigneeId: t.assigneeId,
     startDate: t.startDate,
     endDate: t.endDate,
@@ -167,7 +172,7 @@ export function TaskPanel({
               description: "",
               status: target.status,
               projectId: "",
-              groupId: defaults.groupId,
+              milestoneId: defaults.milestoneId,
               assigneeId: defaults.assigneeId,
               startDate: null,
               endDate: null,
@@ -235,19 +240,26 @@ export function TaskPanel({
 function PanelHeader({
   titleId,
   title,
+  number,
   onClose,
   children,
 }: {
   titleId: string;
   title: string;
+  /** Issue number of an existing task (`#24`, click copies it). */
+  number?: number;
   onClose: () => void;
   children?: React.ReactNode;
 }) {
   return (
     <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b pr-2 pl-4 sm:pl-6">
-      <SheetTitle id={titleId} className="text-[13px] font-medium text-muted-foreground">
-        {title}
-      </SheetTitle>
+      <div className="flex min-w-0 items-baseline gap-2 text-[13px]">
+        <SheetTitle id={titleId} className="text-[13px] font-medium text-muted-foreground">
+          {title}
+          {number !== undefined && <span className="sr-only"> {formatIssueNumber(number)}</span>}
+        </SheetTitle>
+        {number !== undefined && <CopyIssueNumber number={number} />}
+      </div>
       <SheetDescription className="sr-only">Details der Aufgabe bearbeiten</SheetDescription>
       <div className="flex items-center gap-0.5">
         {children}
@@ -351,7 +363,8 @@ function TaskForm({
   onCreated: (task: T) => void;
   dirtyRef: React.RefObject<boolean>;
 }) {
-  const { projects, projectById, members, people, isReadOnly, createTask, updateTask, acceptServerTask } = useWork();
+  const { projects, projectById, milestones, members, people, isReadOnly, createTask, updateTask, acceptServerTask } =
+    useWork();
   const activeProjects = projects.filter((p) => !p.archived);
 
   const [base, setBase] = useState<{ values: FormValues; version: number }>(() => {
@@ -359,8 +372,7 @@ function TaskForm({
       const last = readLastProject();
       const projectId =
         defaults.projectId ?? activeProjects.find((p) => p.id === last)?.id ?? activeProjects[0]?.id ?? "";
-      const groupOk = projectById.get(projectId)?.groups.some((g) => g.id === defaults.groupId);
-      return { values: { ...initial, projectId, groupId: groupOk ? defaults.groupId : null }, version: 0 };
+      return { values: { ...initial, projectId }, version: 0 };
     }
     return { values: initial, version: task!.version };
   });
@@ -376,7 +388,7 @@ function TaskForm({
     status: useId(),
     assignee: useId(),
     project: useId(),
-    group: useId(),
+    milestone: useId(),
     start: useId(),
     end: useId(),
     description: useId(),
@@ -411,17 +423,10 @@ function TaskForm({
 
   const readOnly = mode === "edit" && task ? isReadOnly(task) : false;
   const project = projectById.get(values.projectId);
-  const groups = project?.groups ?? [];
 
   const set = <K extends keyof FormValues>(key: K, value: FormValues[K]) => {
     setValues((v) => {
-      const next = { ...v, [key]: value };
-      // Changing the project invalidates the group.
-      if (key === "projectId" && v.projectId !== value) {
-        const p = projectById.get(value as string);
-        if (!p?.groups.some((g) => g.id === next.groupId)) next.groupId = null;
-      }
-      return next;
+      return { ...v, [key]: value };
     });
     setSavedAt(null);
     if (errors[key as string] || (key === "startDate" && errors.endDate)) {
@@ -442,7 +447,7 @@ function TaskForm({
   };
 
   const save = (opts: { overwrite?: boolean } = {}) => {
-    if (pending || readOnly) return;
+    if (pending || readOnly || toggling > 0) return;
     const v = validate(values);
     setErrors(v);
     setFormError(null);
@@ -481,6 +486,7 @@ function TaskForm({
         setValues(valuesFrom(res.data));
         setConflict(false);
         setSavedAt(Date.now());
+        if (res.data.description.trim()) setDescEditing(false);
         return;
       }
       if (res.error.code === "CONFLICT") {
@@ -505,6 +511,56 @@ function TaskForm({
     }
   };
 
+  // ---- Description: rendered Markdown by default, editor on demand --------
+  const [descEditing, setDescEditing] = useState(mode === "create" || initial.description.trim() === "");
+  const [descAutoFocus, setDescAutoFocus] = useState(false);
+  const [toggling, setToggling] = useState(0);
+  const toggleQueue = useRef<Promise<void>>(Promise.resolve());
+  const baseVersion = useRef(base.version);
+  useEffect(() => {
+    baseVersion.current = base.version;
+  }, [base.version]);
+
+  /**
+   * Tick a checklist item in the rendered description and save it right away
+   * (without the Save button). The server applies it to the latest text, so
+   * nothing else is overwritten. Clicks are sent one after another.
+   */
+  const toggleChecklist = (item: ChecklistItem, checked: boolean) => {
+    if (!task || readOnly) return;
+    const before = values.description;
+    const optimistic = setChecklistItem(before, item.index, checked, item.text);
+    if (optimistic === null || optimistic === before) return;
+    // Optimistic, without making the form dirty.
+    setBase((b) => ({ ...b, values: { ...b.values, description: optimistic } }));
+    setValues((v) => ({ ...v, description: optimistic }));
+    setToggling((n) => n + 1);
+    toggleQueue.current = toggleQueue.current.then(async () => {
+      try {
+        const res = await setTaskChecklistItemAction({ id: task.id, index: item.index, checked, text: item.text });
+        if (res.ok) {
+          const t = res.data;
+          // Only my toggle happened since the form's base: rebase, keep other local edits.
+          if (t.version === baseVersion.current + 1) {
+            baseVersion.current = t.version;
+            setBase((b) => ({ values: { ...b.values, description: t.description }, version: t.version }));
+            setValues((v) => ({ ...v, description: t.description }));
+          }
+          acceptServerTask(t);
+          return;
+        }
+        setBase((b) =>
+          b.values.description === optimistic ? { ...b, values: { ...b.values, description: before } } : b,
+        );
+        setValues((v) => (v.description === optimistic ? { ...v, description: before } : v));
+        if (res.error.code === "CONFLICT" && res.error.current) acceptServerTask(res.error.current as TaskDTO);
+        toast.error(res.error.message);
+      } finally {
+        setToggling((n) => n - 1);
+      }
+    });
+  };
+
   const creator = task ? people.get(task.createdBy) : undefined;
   const disabled = readOnly || pending;
 
@@ -523,7 +579,12 @@ function TaskForm({
         }
       }}
     >
-      <PanelHeader titleId={titleId} title={mode === "create" ? "Neue Aufgabe" : "Aufgabe"} onClose={onRequestClose}>
+      <PanelHeader
+        titleId={titleId}
+        title={mode === "create" ? "Neue Aufgabe" : "Aufgabe"}
+        number={task?.number}
+        onClose={onRequestClose}
+      >
         {task && (
           <Button type="button" variant="ghost" size="icon" onClick={copyLink} aria-label="Link zur Aufgabe kopieren" title="Link kopieren">
             <Link2 aria-hidden />
@@ -648,27 +709,28 @@ function TaskForm({
                 ))}
               </SelectContent>
             </Select>
-            {mode === "edit" && task && values.projectId !== task.projectId && base.values.groupId && !values.groupId && (
-              <p className="mt-1 text-xs text-muted-foreground">Die bisherige Gruppe gehört nicht zum neuen Projekt und wird entfernt.</p>
-            )}
           </Field>
 
-          <Field label="Gruppe" htmlFor={ids.group}>
+          <Field label="Meilenstein" htmlFor={ids.milestone}>
             <Select
-              value={values.groupId ?? NONE}
-              onValueChange={(v) => set("groupId", v === NONE ? null : v)}
-              disabled={disabled || !project}
+              value={values.milestoneId ?? NONE}
+              onValueChange={(v) => set("milestoneId", v === NONE ? null : v)}
+              disabled={disabled}
             >
-              <SelectTrigger id={ids.group} className="w-full">
+              <SelectTrigger id={ids.milestone} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE}>Keine Gruppe</SelectItem>
-                {groups.map((g) => (
-                  <SelectItem key={g.id} value={g.id}>
-                    {g.name}
-                  </SelectItem>
-                ))}
+                <SelectItem value={NONE}>Kein Meilenstein</SelectItem>
+                {milestones
+                  .filter((m) => !m.completed || m.id === values.milestoneId)
+                  .map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      <Flag className="size-3.5 text-muted-foreground" aria-hidden />
+                      {m.name}
+                      {m.completed && <span className="text-muted-foreground">(abgeschlossen)</span>}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </Field>
@@ -705,18 +767,50 @@ function TaskForm({
           )}
         </div>
 
-        <div className="space-y-1.5">
-          <label htmlFor={ids.description} className="text-[13px] text-muted-foreground">
-            Beschreibung
-          </label>
-          <textarea
-            id={ids.description}
-            value={values.description}
-            disabled={disabled}
-            onChange={(e) => set("description", e.target.value)}
-            placeholder="Details, Kontext, Links …"
-            className="field-sizing-content block min-h-40 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/35 disabled:opacity-70"
-          />
+        <div className="space-y-1.5" data-testid="task-description">
+          <div className="flex min-h-7 items-center justify-between gap-2">
+            {descEditing ? (
+              <label htmlFor={ids.description} className="text-[13px] text-muted-foreground">
+                Beschreibung
+              </label>
+            ) : (
+              <h3 className="text-[13px] font-normal text-muted-foreground">Beschreibung</h3>
+            )}
+            {!descEditing && !readOnly && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                className="text-muted-foreground"
+                disabled={toggling > 0}
+                onClick={() => {
+                  setDescAutoFocus(true);
+                  setDescEditing(true);
+                }}
+              >
+                <Pencil aria-hidden />
+                Bearbeiten
+              </Button>
+            )}
+          </div>
+          {descEditing && !readOnly ? (
+            <MarkdownEditor
+              id={ids.description}
+              value={values.description}
+              disabled={disabled}
+              autoFocus={descAutoFocus}
+              onChange={(v) => set("description", v)}
+              placeholder="Details, Kontext, Links … Markdown und Checklisten (- [ ]) werden unterstützt."
+            />
+          ) : values.description.trim() ? (
+            <MarkdownView
+              source={values.description}
+              onToggle={toggleChecklist}
+              disabled={readOnly || pending}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Keine Beschreibung.</p>
+          )}
         </div>
 
         {task && <TaskLinks taskId={task.id} readOnly={readOnly} />}
@@ -752,7 +846,7 @@ function TaskForm({
             <Button type="button" variant="outline" onClick={onRequestClose}>
               {mode === "create" ? "Abbrechen" : "Schließen"}
             </Button>
-            <Button type="submit" disabled={pending || (mode === "edit" && !dirty)} className={cn("min-w-24")}>
+            <Button type="submit" disabled={pending || toggling > 0 || (mode === "edit" && !dirty)} className={cn("min-w-24")}>
               {pending && <Loader2 className="animate-spin" aria-hidden />}
               {mode === "create" ? "Erstellen" : "Speichern"}
             </Button>

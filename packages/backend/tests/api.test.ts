@@ -244,6 +244,29 @@ describe("tasks", () => {
     expect((await call("DELETE", `/tasks/${a.id}`, { token: anna.token })).status).toBe(404);
   });
 
+  it("ticks a markdown checklist item; unknown items conflict with current", async () => {
+    const t = (
+      await call("POST", "/tasks", {
+        token: anna.token,
+        body: { projectId, title: "Liste", description: "- [ ] Eins\n- [ ] Zwei" },
+      })
+    ).body;
+    const res = await call("PUT", `/tasks/${t.id}/checklist`, {
+      token: anna.token,
+      body: { index: 1, checked: true, text: "Zwei" },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.description).toBe("- [ ] Eins\n- [x] Zwei");
+    expect(res.body.status).toBe("open");
+    const gone = await call("PUT", `/tasks/${t.id}/checklist`, {
+      token: anna.token,
+      body: { index: 5, checked: true, text: "Drei" },
+    });
+    expect(gone.status).toBe(409);
+    expect(gone.body.error.code).toBe("CONFLICT");
+    expect(gone.body.error.current.description).toBe("- [ ] Eins\n- [x] Zwei");
+  });
+
   it("archived projects are read-only", async () => {
     await call("PUT", `/projects/${projectId}/archived`, { token: anna.token, body: { archived: true } });
     const res = await call("POST", "/tasks", { token: anna.token, body: { projectId, title: "Zu spät" } });

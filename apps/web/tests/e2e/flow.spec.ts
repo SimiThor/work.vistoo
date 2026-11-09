@@ -35,7 +35,7 @@ test("an authenticated user without invitation gets no workspace data", async ({
   await page.close();
 });
 
-test("create project and group", async () => {
+test("create a project (no groups any more)", async () => {
   const page = adminPage;
   await page.getByRole("link", { name: "Projekte" }).first().click();
   await page.getByRole("button", { name: "Projekt erstellen", exact: true }).click();
@@ -44,11 +44,9 @@ test("create project and group", async () => {
   await page.getByRole("dialog").getByRole("button", { name: "Projekt erstellen" }).click();
   await expect(page.getByRole("heading", { name: "E2E Website" })).toBeVisible();
 
+  // Groups were removed: neither the project menu nor the task form offers them.
   await page.getByRole("button", { name: "Projektaktionen" }).click();
-  await page.getByRole("menuitem", { name: "Gruppen verwalten" }).click();
-  await page.getByRole("dialog").getByLabel("Neue Gruppe").fill("Design");
-  await page.getByRole("button", { name: "Hinzufügen" }).click();
-  await expect(page.getByRole("dialog").getByText("Design", { exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /Gruppe/ })).toHaveCount(0);
   await page.keyboard.press("Escape");
 });
 
@@ -59,8 +57,7 @@ test("create a task and assign it", async () => {
   await panel.getByLabel("Titel").fill(TASK);
   await panel.getByLabel("Verantwortlich").click();
   await page.getByRole("option", { name: "Anna Admin" }).click();
-  await panel.getByLabel("Gruppe").click();
-  await page.getByRole("option", { name: "Design" }).click();
+  await expect(panel.getByLabel("Gruppe")).toHaveCount(0);
   await panel.getByRole("button", { name: "Erstellen" }).click();
   await expect(panel).toBeHidden();
   await expect(card(page, TASK)).toBeVisible();

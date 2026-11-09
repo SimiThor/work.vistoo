@@ -27,6 +27,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AttachmentDTO, ChatPerson, ConversationDetail, MessageDTO } from "@vistoo/domain/chat-types";
 import { displayName } from "@vistoo/domain";
+import { extractMentionIds, renderMentionsPlain } from "@vistoo/domain/mentions";
+import { renderIssueRefsPlain } from "@vistoo/domain/issue-refs";
+import { issueRefNumber } from "./issue-refs";
 import { authorizeRealtime, getBrowserSupabase } from "@/lib/supabase-browser";
 import { cn } from "@/lib/utils";
 import { useChat } from "./chat-context";
@@ -76,17 +79,23 @@ function sortMessages(list: MessageVM[]): MessageVM[] {
   });
 }
 
+/** Realtime rows carry the stored markup; the web renders from `markup`. */
 function rowToDTO(r: MessageRow, prev?: MessageVM): MessageDTO {
+  const markup = r.deleted_at ? "" : r.body;
   return {
     id: r.id,
     seq: Number(r.seq),
     conversationId: r.conversation_id,
     authorId: r.author_id,
-    body: r.deleted_at ? "" : r.body,
+    body: markup,
     createdAt: new Date(r.created_at).toISOString(),
     editedAt: r.edited_at ? new Date(r.edited_at).toISOString() : null,
     deleted: r.deleted_at !== null,
     attachments: r.deleted_at ? [] : (prev?.attachments ?? []),
+    markup,
+    mentionIds: extractMentionIds(markup),
+    // Realtime rows carry only tokens; IssueRefLink resolves unknown ids via the client cache.
+    issueRefs: prev?.issueRefs ?? [],
   };
 }
 
@@ -114,7 +123,14 @@ export function ConversationSkeleton() {
   );
 }
 
-export function ConversationView({ conversationId }: { conversationId: string }) {
+export function ConversationView({
+  conversationId,
+  focusMessageId = null,
+}: {
+  conversationId: string;
+  /** Scroll to and briefly highlight this message (opened from a notification). */
+  focusMessageId?: string | null;
+}) {
   const chat = useChat();
   const me = chat.me?.userId ?? null;
   const summary = chat.conversations.find((c) => c.id === conversationId);
@@ -146,6 +162,24 @@ export function ConversationView({ conversationId }: { conversationId: string })
   }, [messages]);
 
   const maxSeq = useMemo(() => messages.reduce((m, x) => Math.max(m, x.seq), 0), [messages]);
+
+  // ---- People for mentions ---------------------------------------------------
+  const workspaceMembers = chat.members;
+  const nameOf = useCallback(
+    (userId: string) => {
+      const p = authors.get(userId) ?? workspaceMembers.find((m) => m.userId === userId);
+      return p ? displayName(p) : null;
+    },
+    [authors, workspaceMembers],
+  );
+  // Same rule as the server: open channels → active workspace members,
+  // private channels / DMs → active participants. Never myself.
+  const mentionCandidates = useMemo(() => {
+    const pool = !detail ? [] : detail.kind === "open_channel" ? workspaceMembers : detail.members;
+    return pool
+      .filter((p) => p.active && p.userId !== me)
+      .sort((a, b) => displayName(a).localeCompare(displayName(b), "de"));
+  }, [detail, workspaceMembers, me]);
 
   const mergeAuthors = useCallback((list: (ChatPerson | null)[]) => {
     setAuthors((prev) => {
@@ -256,7 +290,15 @@ export function ConversationView({ conversationId }: { conversationId: string })
             }
             if (payload.eventType === "INSERT" && row.author_id !== me && !prev) {
               const author = authorsRef.current.get(row.author_id);
-              const preview = row.body ? `: ${row.body.slice(0, 140)}` : " mit Anhang";
+              const plain = renderIssueRefsPlain(
+                renderMentionsPlain(row.body, (id) => {
+                  const p = authorsRef.current.get(id);
+                  return p ? displayName(p) : null;
+                }),
+                issueRefNumber,
+                "eine Aufgabe",
+              );
+              const preview = plain ? `: ${plain.slice(0, 140)}` : " mit Anhang";
               setAnnouncement(`Neue Nachricht von ${author ? displayName(author) : "einem Mitglied"}${preview}`);
             }
           },
@@ -349,6 +391,38 @@ export function ConversationView({ conversationId }: { conversationId: string })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
+  // ---- Jump to a message (from a notification) --------------------------------
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const focusAttempts = useRef(0);
+  const focusedMessage = useRef<string | null>(null);
+  useEffect(() => {
+    if (state !== "ready" || !focusMessageId || focusedMessage.current === focusMessageId) return;
+    const found = messages.some((m) => m.id === focusMessageId);
+    if (!found) {
+      // Older than the loaded pages: page back a bounded number of times.
+      if (hasMore && !loadingOlder && focusAttempts.current < 20) {
+        focusAttempts.current++;
+        void loadOlder();
+      } else if (!hasMore || focusAttempts.current >= 20) {
+        focusedMessage.current = focusMessageId;
+        toast.info("Diese Nachricht gibt es nicht mehr.");
+      }
+      return;
+    }
+    focusedMessage.current = focusMessageId;
+    focusAttempts.current = 0;
+    const raf = requestAnimationFrame(() => {
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document.getElementById(`message-${focusMessageId}`)?.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+      setHighlightId(focusMessageId);
+    });
+    const t = setTimeout(() => setHighlightId(null), 2500);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, [state, focusMessageId, messages, hasMore, loadingOlder, loadOlder]);
+
   const scrollToBottom = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -397,7 +471,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
     [conversationId, noteSending, setLastRead, upsert],
   );
 
-  const send = (body: string, attachments: AttachmentDTO[]) => {
+  const send = (markup: string, attachments: AttachmentDTO[]) => {
     const id = crypto.randomUUID(); // idempotency key, reused on retry
     pendingAttachmentIds.current.set(id, attachments.map((a) => a.id));
     stickToBottom.current = true;
@@ -409,7 +483,10 @@ export function ConversationView({ conversationId }: { conversationId: string })
           seq: 0,
           conversationId,
           authorId: me ?? "",
-          body,
+          body: markup,
+          markup,
+          mentionIds: extractMentionIds(markup),
+          issueRefs: [],
           createdAt: new Date().toISOString(),
           editedAt: null,
           deleted: false,
@@ -418,17 +495,17 @@ export function ConversationView({ conversationId }: { conversationId: string })
         },
       ]),
     );
-    void deliver(id, body, attachments.map((a) => a.id));
+    void deliver(id, markup, attachments.map((a) => a.id));
   };
 
   const retry = (m: MessageVM) => {
     setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, status: "sending", error: undefined } : x)));
-    void deliver(m.id, m.body, pendingAttachmentIds.current.get(m.id) ?? []);
+    void deliver(m.id, m.markup, pendingAttachmentIds.current.get(m.id) ?? []);
   };
 
   const backToComposer = (m: MessageVM) => {
     setMessages((prev) => prev.filter((x) => x.id !== m.id));
-    composerRef.current?.setText(m.body);
+    composerRef.current?.setText(m.markup);
     if ((pendingAttachmentIds.current.get(m.id) ?? []).length) {
       toast.info("Anhänge bitte erneut hinzufügen.");
     }
@@ -551,7 +628,7 @@ export function ConversationView({ conversationId }: { conversationId: string })
                   <SeparatedItem key={m.id} day={newDay ? dayLabel(m.createdAt) : null} unread={showUnread}>
                     <MessageItem
                       message={m}
-                      author={authors.get(m.authorId)}
+                      author={authors.get(m.authorId) ?? workspaceMembers.find((w) => w.userId === m.authorId)}
                       own={m.authorId === me}
                       compact={compact}
                       canAct={canPost}
@@ -559,6 +636,10 @@ export function ConversationView({ conversationId }: { conversationId: string })
                       onDelete={() => setToDelete(m)}
                       onRetry={() => retry(m)}
                       onDiscard={() => backToComposer(m)}
+                      me={me}
+                      nameOf={nameOf}
+                      mentionCandidates={mentionCandidates}
+                      highlighted={highlightId === m.id}
                     />
                   </SeparatedItem>
                 );
@@ -589,6 +670,8 @@ export function ConversationView({ conversationId }: { conversationId: string })
           initialDraft={chat.getDraft(conversationId)}
           onDraftChange={(t) => chat.setDraft(conversationId, t)}
           onSend={send}
+          mentionCandidates={mentionCandidates}
+          nameOf={nameOf}
         />
       ) : (
         <p className="shrink-0 border-t bg-surface-subtle px-4 py-3 text-sm text-muted-foreground" role="status">

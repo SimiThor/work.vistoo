@@ -24,6 +24,7 @@ import { STATUS_LABEL, type TaskDTO, type TaskStatus } from "@vistoo/domain";
 import { cn } from "@/lib/utils";
 import type { Scale } from "./filters";
 import { useWork } from "./work-context";
+import { IssueNumber } from "./issue-number";
 
 const DAY_WIDTH: Record<Scale, number> = { day: 36, week: 14 };
 
@@ -82,7 +83,7 @@ function TimelineInner({ tasks, scale, onOpen, today }: TimelineProps & { today:
       (a, b) => a.startDate!.localeCompare(b.startDate!) || a.endDate!.localeCompare(b.endDate!) || a.title.localeCompare(b.title, "de"),
     );
     const out: Row[] = [];
-    if (scope.kind === "all") {
+    if (scope.kind !== "project") {
       const byProject = new Map<string, TaskDTO[]>();
       for (const t of sorted) byProject.set(t.projectId, [...(byProject.get(t.projectId) ?? []), t]);
       const ordered = [...byProject.keys()].sort((a, b) =>
@@ -94,25 +95,7 @@ function TimelineInner({ tasks, scale, onOpen, today }: TimelineProps & { today:
         for (const t of byProject.get(pid)!) out.push({ kind: "task", task: t });
       }
     } else {
-      const project = projectById.get(scope.projectId);
-      const groups = project?.groups ?? [];
-      const byGroup = new Map<string | null, TaskDTO[]>();
-      for (const t of sorted) {
-        const g = groups.some((x) => x.id === t.groupId) ? t.groupId : null;
-        byGroup.set(g, [...(byGroup.get(g) ?? []), t]);
-      }
-      const hasGroups = [...byGroup.keys()].some((k) => k !== null);
-      for (const g of groups) {
-        const list = byGroup.get(g.id);
-        if (!list) continue;
-        out.push({ kind: "group", key: g.id, label: g.name });
-        for (const t of list) out.push({ kind: "task", task: t });
-      }
-      const ungrouped = byGroup.get(null);
-      if (ungrouped) {
-        if (hasGroups) out.push({ kind: "group", key: "none", label: "Ohne Gruppe" });
-        for (const t of ungrouped) out.push({ kind: "task", task: t });
-      }
+      for (const t of sorted) out.push({ kind: "task", task: t });
     }
     return out;
   }, [planned, scope, projectById]);
@@ -248,6 +231,7 @@ function TaskRow({
           className="flex h-full w-full min-w-0 items-center gap-2 px-3 text-left text-[13px] outline-none focus-visible:bg-accent-blue-soft"
         >
           <StatusIcon status={task.status} />
+          <IssueNumber number={task.number} />
           <span className="truncate">{task.title}</span>
           <span className="sr-only">
             , {range}, {duration === 1 ? "1 Tag" : `${duration} Tage`}, Status {STATUS_LABEL[task.status]}
@@ -262,7 +246,7 @@ function TaskRow({
           tabIndex={-1}
           aria-hidden
           onClick={() => onOpen(task.id)}
-          title={`${task.title} · ${formatShortDate(task.startDate!)} – ${formatShortDate(task.endDate!)}`}
+          title={`#${task.number} ${task.title} · ${formatShortDate(task.startDate!)} – ${formatShortDate(task.endDate!)}`}
           className={cn(
             "absolute top-1.5 flex h-7 items-center gap-1.5 overflow-hidden rounded-md border px-1.5 text-xs font-medium shadow-card transition-[filter] hover:brightness-[0.97]",
             BAR_CLASS[task.status],
@@ -386,6 +370,7 @@ function UnplannedSection({ tasks, onOpen }: { tasks: TaskDTO[]; onOpen: (id: st
                 className="min-w-0 flex-1 truncate text-left text-[13px] hover:underline"
                 onClick={() => onOpen(t.id)}
               >
+                <IssueNumber number={t.number} className="mr-1.5" />
                 {t.title}
               </button>
               <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
