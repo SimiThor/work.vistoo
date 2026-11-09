@@ -1,11 +1,11 @@
 {
-  "$comment": "Shared conformance cases for task filtering. Run by packages/domain (TypeScript) and apps/ios VistooCoreTests (Swift). Values within a filter are OR-ed, different filters AND-ed; search matches the title case-insensitively.",
+  "$comment": "Shared conformance cases for task filtering. Run by packages/domain (TypeScript) and apps/ios VistooCoreTests (Swift). Values within a filter are OR-ed, different filters AND-ed; search matches the title case-insensitively; a query of the form `24` or `#24` also matches the task with that issue number.",
   "tasks": [
-    { "id": "t1", "title": "Angebot für Müller GmbH", "projectId": "p1", "groupId": "g1", "assigneeId": "u1", "status": "open" },
-    { "id": "t2", "title": "ÜBERARBEITUNG Logo", "projectId": "p1", "groupId": null, "assigneeId": null, "status": "in_progress" },
-    { "id": "t3", "title": "Release vorbereiten", "projectId": "p2", "groupId": "g2", "assigneeId": "u2", "status": "in_review" },
-    { "id": "t4", "title": "Rechnung prüfen", "projectId": "p2", "groupId": null, "assigneeId": "u1", "status": "done" },
-    { "id": "t5", "title": "Neuer Status aus der Zukunft", "projectId": "p1", "groupId": null, "assigneeId": null, "status": "blocked" }
+    { "id": "t1", "number": 1, "title": "Angebot für Müller GmbH", "projectId": "p1", "assigneeId": "u1", "status": "open" },
+    { "id": "t2", "number": 2, "title": "ÜBERARBEITUNG Logo", "projectId": "p1", "assigneeId": null, "status": "in_progress" },
+    { "id": "t3", "number": 3, "title": "Release vorbereiten", "projectId": "p2", "assigneeId": "u2", "status": "in_review" },
+    { "id": "t4", "number": 12, "title": "Rechnung prüfen", "projectId": "p2", "assigneeId": "u1", "status": "done" },
+    { "id": "t5", "number": 24, "title": "Neuer Status aus der Zukunft", "projectId": "p1", "assigneeId": null, "status": "blocked" }
   ],
   "cases": [
     { "name": "no filters", "filters": {}, "expected": ["t1", "t2", "t3", "t4", "t5"] },
@@ -17,9 +17,11 @@
     { "name": "different filters are AND-ed", "filters": { "projects": ["p1"], "assignees": ["u1"] }, "expected": ["t1"] },
     { "name": "unassigned", "filters": { "assignees": ["none"] }, "expected": ["t2", "t5"] },
     { "name": "unassigned or a person", "filters": { "assignees": ["none", "u2"] }, "expected": ["t2", "t3", "t5"] },
-    { "name": "no group", "filters": { "groups": ["none"] }, "expected": ["t2", "t4", "t5"] },
-    { "name": "group or no group", "filters": { "groups": ["g1", "none"] }, "expected": ["t1", "t2", "t4", "t5"] },
     { "name": "unknown status values only match themselves", "filters": { "statuses": ["in_progress"] }, "expected": ["t2"] },
+    { "name": "search by issue number with #", "filters": { "q": "#12" }, "expected": ["t4"] },
+    { "name": "search by issue number without #", "filters": { "q": " 24 " }, "expected": ["t5"] },
+    { "name": "issue number search is exact, not a prefix", "filters": { "q": "#1" }, "expected": ["t1"] },
+    { "name": "unknown issue number finds nothing", "filters": { "q": "#99" }, "expected": [] },
     { "name": "combined with search", "filters": { "q": "re", "projects": ["p2"], "statuses": ["in_review", "done"] }, "expected": ["t3", "t4"] }
   ]
 }

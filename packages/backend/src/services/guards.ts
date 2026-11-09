@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import type { AuthContext } from "../auth";
 import type { DbOrTx } from "../db";
-import { projectGroups, projects, workspaceMembers } from "@vistoo/database/schema";
+import { milestones, projects, workspaceMembers } from "@vistoo/database/schema";
 import { AppError, invalid, notFound } from "../errors";
 
 /** Loads a project of the caller's workspace. Foreign IDs behave like missing ones. */
@@ -23,22 +23,6 @@ export async function getWritableProject(db: DbOrTx, ctx: AuthContext, projectId
   return project;
 }
 
-export async function assertGroupInProject(db: DbOrTx, ctx: AuthContext, groupId: string, projectId: string) {
-  const [group] = await db
-    .select({ id: projectGroups.id })
-    .from(projectGroups)
-    .where(
-      and(
-        eq(projectGroups.id, groupId),
-        eq(projectGroups.projectId, projectId),
-        eq(projectGroups.workspaceId, ctx.workspaceId),
-      ),
-    );
-  if (!group) {
-    throw invalid("Die Gruppe gehört nicht zu diesem Projekt.", { groupId: "Ungültige Gruppe." });
-  }
-}
-
 export async function assertActiveMember(db: DbOrTx, ctx: AuthContext, userId: string) {
   const [member] = await db
     .select({ userId: workspaceMembers.userId })
@@ -52,5 +36,16 @@ export async function assertActiveMember(db: DbOrTx, ctx: AuthContext, userId: s
     );
   if (!member) {
     throw invalid("Diese Person ist kein aktives Mitglied.", { assigneeId: "Ungültige Person." });
+  }
+}
+
+/** A milestone of the caller's workspace (completed ones included). */
+export async function assertMilestoneInWorkspace(db: DbOrTx, ctx: AuthContext, milestoneId: string) {
+  const [milestone] = await db
+    .select({ id: milestones.id })
+    .from(milestones)
+    .where(and(eq(milestones.id, milestoneId), eq(milestones.workspaceId, ctx.workspaceId)));
+  if (!milestone) {
+    throw invalid("Diesen Meilenstein gibt es nicht.", { milestoneId: "Ungültiger Meilenstein." });
   }
 }

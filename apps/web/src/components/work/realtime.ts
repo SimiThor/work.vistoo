@@ -9,7 +9,8 @@ import { authorizeRealtime, getBrowserSupabase } from "@/lib/supabase-browser";
 type TaskRow = {
   id: string;
   project_id: string;
-  group_id: string | null;
+  milestone_id: string | null;
+  number: number;
   title: string;
   description: string;
   status: TaskStatus;
@@ -27,7 +28,9 @@ function rowToTask(r: TaskRow): TaskDTO {
   return {
     id: r.id,
     projectId: r.project_id,
-    groupId: r.group_id,
+    groupId: null, // groups were removed
+    milestoneId: r.milestone_id ?? null,
+    number: r.number,
     title: r.title,
     description: r.description,
     status: r.status,
@@ -42,6 +45,15 @@ function rowToTask(r: TaskRow): TaskDTO {
   };
 }
 
+/** Window event fired when task links change elsewhere (open task panels reload their links). */
+export const TASK_LINKS_CHANGED_EVENT = "vistoo:task-links-changed";
+/** Deletes only carry the link id (no task id). */
+export type TaskLinksChangedDetail = { taskId: string | null; linkId: string | null };
+
+function emitTaskLinksChanged(detail: TaskLinksChangedDetail) {
+  window.dispatchEvent(new CustomEvent<TaskLinksChangedDetail>(TASK_LINKS_CHANGED_EVENT, { detail }));
+}
+
 /**
  * Subscribes to row changes of the workspace. Access control is enforced by
  * RLS on the server side of Supabase Realtime (SELECT policies for active
@@ -49,7 +61,8 @@ function rowToTask(r: TaskRow): TaskDTO {
  *
  * - tasks: merged into the local store by version (no duplicates with
  *   optimistic updates or server responses).
- * - projects / groups / members: trigger a router refresh (debounced).
+ * - task links: announced as a window event for the open task panel.
+ * - projects / milestones / members: trigger a router refresh (debounced).
  * - after a reconnect or when the tab becomes visible again: full resync.
  */
 export function useRealtimeSync({
@@ -111,8 +124,20 @@ export function useRealtimeSync({
           const id = (payload.old as Partial<TaskRow>).id;
           if (id) handlers.current.onTaskDeleted(id);
         })
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "task_links", filter },
+          (payload: RealtimePostgresChangesPayload<{ id: string; task_id: string }>) => {
+            const row = payload.eventType === "DELETE" ? payload.old : payload.new;
+            emitTaskLinksChanged({ taskId: row.task_id ?? null, linkId: row.id ?? null });
+          },
+        )
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "task_links" }, (payload) => {
+          const id = (payload.old as { id?: string }).id;
+          if (id) emitTaskLinksChanged({ taskId: null, linkId: id });
+        })
         .on("postgres_changes", { event: "*", schema: "public", table: "projects", filter }, refreshSoon)
-        .on("postgres_changes", { event: "*", schema: "public", table: "project_groups", filter }, refreshSoon)
+        .on("postgres_changes", { event: "*", schema: "public", table: "milestones", filter }, refreshSoon)
         .on("postgres_changes", { event: "*", schema: "public", table: "workspace_members", filter }, refreshSoon)
         .subscribe((status, err) => {
           if (status === "SUBSCRIBED") {

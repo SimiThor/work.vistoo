@@ -7,7 +7,7 @@ import { WorkSkeleton } from "@/components/work/work-skeleton";
 import { WorkView } from "@/components/work/work-view";
 import { uuid } from "@vistoo/domain/validation";
 import { AppError } from "@vistoo/backend/errors";
-import { getPeopleForViewer, getProjectsForViewer, getViewer } from "@/server/queries";
+import { getMilestonesForViewer, getPeopleForViewer, getProjectsForViewer, getViewer } from "@/server/queries";
 import { getProject } from "@vistoo/backend/services/projects";
 import { listTasks } from "@vistoo/backend/services/tasks";
 
@@ -29,9 +29,10 @@ async function ProjectContent({ params }: { params: PageProps<"/projects/[projec
     if (e instanceof AppError && e.code === "NOT_FOUND") notFound();
     throw e;
   });
-  const [tasks, projects, people] = await Promise.all([
+  const [tasks, projects, milestones, people] = await Promise.all([
     listTasks(ctx, { projectId }),
     getProjectsForViewer(),
+    getMilestonesForViewer(),
     getPeopleForViewer(),
   ]);
   return (
@@ -41,6 +42,7 @@ async function ProjectContent({ params }: { params: PageProps<"/projects/[projec
       workspaceId={ctx.workspaceId}
       initialTasks={tasks}
       projects={projects}
+      milestones={milestones}
       members={people.members}
       formerMembers={people.former}
     >

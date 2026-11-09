@@ -121,7 +121,7 @@ export function DeleteTaskDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Aufgabe löschen?</AlertDialogTitle>
           <AlertDialogDescription>
-            „{task.title}“ wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.
+            #{task.number} „{task.title}“ wird endgültig gelöscht. Das kann nicht rückgängig gemacht werden.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

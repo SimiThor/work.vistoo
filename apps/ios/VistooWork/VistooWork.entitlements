@@ -2,9 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Push notifications. Xcode/TestFlight export switches to "production" automatically. -->
+	<!-- Push notifications. VISTOO_APS_ENVIRONMENT: development by default (Xcode export switches
+	     to production), production in the CI TestFlight build (Config/Shared.xcconfig). -->
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>$(VISTOO_APS_ENVIRONMENT)</string>
 	<!-- Universal Links: login links (/auth/ios/confirm) and shared task/project/chat links. -->
 	<key>com.apple.developer.associated-domains</key>
 	<array>

@@ -1,8 +1,14 @@
 "use client";
 
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { chatBootstrapAction, listConversationsAction } from "@/app/actions/chat";
+import {
+  chatBootstrapAction,
+  listConversationsAction,
+  listNotificationsAction,
+  markNotificationsReadAction,
+} from "@/app/actions/chat";
 import type { ConversationKind, ConversationSummary } from "@vistoo/domain/chat-types";
+import type { NotificationDTO } from "@vistoo/domain/dto";
 import type { MemberDTO, MemberRole } from "@vistoo/domain";
 import { authorizeRealtime, getBrowserSupabase } from "@/lib/supabase-browser";
 
@@ -20,6 +26,12 @@ type ChatState = {
   noteSending: (conversationId: string, delta: 1 | -1) => void;
   getDraft: (conversationId: string) => string;
   setDraft: (conversationId: string, text: string) => void;
+  /** In-app notifications (mentions), newest first. */
+  notifications: NotificationDTO[];
+  unreadNotifications: number;
+  reloadNotifications: () => Promise<void>;
+  /** Marks the given notifications (or all) as read. */
+  markNotificationsRead: (ids?: string[]) => Promise<void>;
 };
 
 const ChatContext = createContext<ChatState | null>(null);
@@ -70,6 +82,29 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     members: MemberDTO[];
   }>({ ready: false, error: null, me: null, workspaceId: null, conversations: [], members: [] });
   const sending = useRef(new Map<string, number>());
+  const [inbox, setInbox] = useState<{ notifications: NotificationDTO[]; unread: number }>({
+    notifications: [],
+    unread: 0,
+  });
+
+  const reloadNotifications = useCallback(async () => {
+    const res = await listNotificationsAction().catch(() => null);
+    if (res?.ok) setInbox({ notifications: res.data.notifications, unread: res.data.unreadCount });
+  }, []);
+
+  const markNotificationsRead = useCallback(async (ids?: string[]) => {
+    const now = new Date().toISOString();
+    setInbox((s) => {
+      const hit = (n: NotificationDTO) => !n.readAt && (!ids || ids.includes(n.id));
+      const changed = s.notifications.filter(hit).length;
+      return {
+        notifications: s.notifications.map((n) => (hit(n) ? { ...n, readAt: now } : n)),
+        unread: ids ? Math.max(0, s.unread - changed) : 0,
+      };
+    });
+    const res = await markNotificationsReadAction(ids ? { ids } : {}).catch(() => null);
+    if (res?.ok) setInbox((s) => ({ ...s, unread: res.data.unreadCount }));
+  }, []);
 
   const bootstrap = useCallback(async () => {
     const res = await chatBootstrapAction();
@@ -96,7 +131,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     // Initial load is a one-off fetch from an external system.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void bootstrap();
-  }, [bootstrap]);
+    void reloadNotifications();
+  }, [bootstrap, reloadNotifications]);
 
   // ---- Realtime: lightweight list/unread signals ----------------------------
   const workspaceId = state.workspaceId;
@@ -108,9 +144,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let disconnected = false;
     let reloadTimer: ReturnType<typeof setTimeout> | undefined;
+    let inboxTimer: ReturnType<typeof setTimeout> | undefined;
     const reloadSoon = () => {
       clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => void reload(), 300);
+    };
+    const reloadInboxSoon = () => {
+      clearTimeout(inboxTimer);
+      inboxTimer = setTimeout(() => void reloadNotifications(), 300);
+    };
+    const reloadAllSoon = () => {
+      reloadSoon();
+      reloadInboxSoon();
     };
 
     void (async () => {
@@ -162,27 +207,39 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           { event: "INSERT", schema: "public", table: "conversation_members", filter: `user_id=eq.${userId}` },
           reloadSoon,
         )
+        // My mention notifications (RLS: own rows only). New or read elsewhere.
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+          reloadInboxSoon,
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+          reloadInboxSoon,
+        )
         .subscribe((status) => {
           if (status === "SUBSCRIBED" && disconnected) {
             disconnected = false;
-            reloadSoon();
+            reloadAllSoon();
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
             disconnected = true;
           }
         });
     })();
 
-    const onVisible = () => document.visibilityState === "visible" && reloadSoon();
+    const onVisible = () => document.visibilityState === "visible" && reloadAllSoon();
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("online", reloadSoon);
+    window.addEventListener("online", reloadAllSoon);
     return () => {
       cancelled = true;
       clearTimeout(reloadTimer);
+      clearTimeout(inboxTimer);
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("online", reloadSoon);
+      window.removeEventListener("online", reloadAllSoon);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [workspaceId, userId, reload]);
+  }, [workspaceId, userId, reload, reloadNotifications]);
 
   const setLastRead = useCallback((conversationId: string, seq: number) => {
     setState((s) => ({
@@ -232,8 +289,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       noteSending,
       getDraft,
       setDraft,
+      notifications: inbox.notifications,
+      unreadNotifications: inbox.unread,
+      reloadNotifications,
+      markNotificationsRead,
     }),
-    [state, reload, setLastRead, noteSending, getDraft, setDraft],
+    [state, reload, setLastRead, noteSending, getDraft, setDraft, inbox, reloadNotifications, markNotificationsRead],
   );
 
   return <ChatContext value={value}>{children}</ChatContext>;

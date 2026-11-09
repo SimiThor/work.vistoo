@@ -54,6 +54,7 @@ struct ProjectsScreen: View {
         .navigationTitle("Projekte")
         .refreshable { await work.reload() }
         .toolbar {
+            ToolbarItem(placement: .leading) { AccountButton(session: session) }
             ToolbarItem(placement: .trailing) {
                 Button { editing = .create } label: { Label("Neues Projekt", systemImage: "plus") }
             }
@@ -112,37 +113,29 @@ struct ProjectDetailScreen: View {
     let session: SessionModel
     let projectId: String
     @State private var editing: ProjectEditorTarget?
-    @State private var showGroups = false
     @State private var failure: ActionFailure?
 
     var body: some View {
         if let project = session.work.project(projectId) {
-            WorkScreen(session: session, scope: .project(projectId), title: project.name)
-                .toolbar {
-                    ToolbarItem(placement: .secondaryAction) {
-                        Menu {
-                            if !project.archived {
-                                Button { editing = .edit(project) } label: { Label("Projekt bearbeiten", systemImage: "pencil") }
-                                Button { showGroups = true } label: { Label("Gruppen verwalten", systemImage: "rectangle.3.group") }
-                            }
-                            Button {
-                                Task {
-                                    do { try await session.work.setArchived(project.id, !project.archived) } catch {
-                                        failure = ActionFailure("Aktion fehlgeschlagen", error)
-                                    }
-                                }
-                            } label: {
-                                project.archived
-                                    ? Label("Wiederherstellen", systemImage: "arrow.uturn.backward")
-                                    : Label("Archivieren", systemImage: "archivebox")
-                            }
-                        } label: {
-                            Label("Projektaktionen", systemImage: "ellipsis.circle")
-                        }
+            WorkScreen(session: session, scope: .project(projectId), title: project.name) {
+                AnyView(Group {
+                    if !project.archived {
+                        Button { editing = .edit(project) } label: { Label("Projekt bearbeiten", systemImage: "pencil") }
                     }
-                }
+                    Button {
+                        Task {
+                            do { try await session.work.setArchived(project.id, !project.archived) } catch {
+                                failure = ActionFailure("Aktion fehlgeschlagen", error)
+                            }
+                        }
+                    } label: {
+                        project.archived
+                            ? Label("Wiederherstellen", systemImage: "arrow.uturn.backward")
+                            : Label("Projekt archivieren", systemImage: "archivebox")
+                    }
+                })
+            }
                 .sheet(item: $editing) { ProjectEditor(session: session, target: $0) }
-                .sheet(isPresented: $showGroups) { GroupsEditor(session: session, projectId: projectId) }
                 .failureAlert($failure)
         } else {
             ContentUnavailableView("Projekt nicht gefunden", systemImage: "folder.badge.questionmark")
@@ -235,75 +228,6 @@ struct ProjectEditor: View {
             dismiss()
         } catch {
             failure = error
-        }
-    }
-}
-
-struct GroupsEditor: View {
-    let session: SessionModel
-    let projectId: String
-    @Environment(\.dismiss) private var dismiss
-    @State private var newName = ""
-    @State private var renaming: ProjectGroup?
-    @State private var renameText = ""
-    @State private var deleting: ProjectGroup?
-    @State private var failure: ActionFailure?
-
-    private var groups: [ProjectGroup] { session.work.project(projectId)?.groups ?? [] }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    HStack {
-                        TextField("Neue Gruppe", text: $newName).onSubmit { add() }
-                        Button("Hinzufügen", action: add).disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
-                }
-                Section {
-                    ForEach(groups) { g in
-                        Text(g.name)
-                            .swipeActions {
-                                Button(role: .destructive) { deleting = g } label: { Label("Löschen", systemImage: "trash") }
-                                Button { renameText = g.name; renaming = g } label: { Label("Umbenennen", systemImage: "pencil") }
-                            }
-                            .contextMenu {
-                                Button { renameText = g.name; renaming = g } label: { Label("Umbenennen", systemImage: "pencil") }
-                                Button(role: .destructive) { deleting = g } label: { Label("Löschen …", systemImage: "trash") }
-                            }
-                    }
-                } footer: {
-                    Text("Beim Löschen einer Gruppe bleiben ihre Aufgaben erhalten, nur ohne Gruppe.")
-                }
-            }
-            .groupedListStyle()
-            .navigationTitle("Gruppen")
-            .inlineNavigationTitle()
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
-            .alert("Gruppe umbenennen", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }), presenting: renaming) { g in
-                TextField("Name", text: $renameText)
-                Button("Sichern") { run("Umbenennen fehlgeschlagen") { try await session.work.renameGroup(g, name: renameText.trimmingCharacters(in: .whitespaces)) } }
-                Button("Abbrechen", role: .cancel) {}
-            }
-            .confirmationDialog("Gruppe löschen?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), presenting: deleting) { g in
-                Button("Löschen", role: .destructive) { run("Löschen fehlgeschlagen") { try await session.work.deleteGroup(g) } }
-            } message: { g in
-                Text("„\(g.name)“ wird gelöscht. Die Aufgaben bleiben erhalten.")
-            }
-            .failureAlert($failure)
-        }
-    }
-
-    private func add() {
-        let name = newName.trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty else { return }
-        newName = ""
-        run("Gruppe nicht angelegt") { try await session.work.createGroup(projectId: projectId, name: name) }
-    }
-
-    private func run(_ title: String, _ action: @escaping () async throws -> Void) {
-        Task {
-            do { try await action() } catch let error as APIError { failure = ActionFailure(title, error) } catch {}
         }
     }
 }

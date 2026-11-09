@@ -12,7 +12,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { INVITATION_TTL_DAYS, MEMBER_ROLES, PROJECT_COLORS, ROLE_LABEL, STATUS_LABEL, TASK_STATUSES } from "@vistoo/domain";
 import { ALLOWED_FILE_TYPES, CHAT_LIMITS } from "@vistoo/domain/chat-config";
-import { NO_GROUP, UNASSIGNED } from "@vistoo/domain/filters";
+import { UNASSIGNED } from "@vistoo/domain/filters";
 import { buildOpenApiDocument } from "../src/openapi";
 import { generateSwiftEndpoints, generateSwiftModels } from "./swift";
 
@@ -79,8 +79,7 @@ function domainConstants(): string {
     `    public static let maxFilesPerMessage = ${CHAT_LIMITS.maxFilesPerMessage}`,
     `    public static let storageWarnRatio = ${CHAT_LIMITS.warnRatio}`,
     `    public static let invitationTtlDays = ${INVITATION_TTL_DAYS}`,
-    "    /// Filter value for \"no group\" / \"unassigned\" (shared filter semantics).",
-    `    public static let noGroup = ${str(NO_GROUP)}`,
+    "    /// Filter value for \"unassigned\" (shared filter semantics).",
     `    public static let unassigned = ${str(UNASSIGNED)}`,
     "    public static let allowedFileTypes: [Limits.AllowedFileType] = [",
     ...ALLOWED_FILE_TYPES.map(

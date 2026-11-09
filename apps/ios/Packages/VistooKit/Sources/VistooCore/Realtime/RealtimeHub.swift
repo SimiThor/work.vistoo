@@ -4,7 +4,7 @@ import Supabase
 /// Supabase Realtime for one signed-in member — the same subscriptions as the web:
 ///
 /// - workspace channel: tasks (row payloads, merged by version), projects,
-///   groups, members (→ reload), conversations (list/unread signal) and the
+///   members (→ reload), conversations (list/unread signal) and the
 ///   caller's own new conversation memberships,
 /// - conversation channel: messages of the conversation that is on screen.
 ///
@@ -51,7 +51,6 @@ public final class RealtimeHub {
         // DELETE events cannot be filtered server-side; they only carry the id.
         let taskDeletes = channel.postgresChange(DeleteAction.self, schema: "public", table: "tasks")
         let projectChanges = channel.postgresChange(AnyAction.self, schema: "public", table: "projects", filter: ws)
-        let groupChanges = channel.postgresChange(AnyAction.self, schema: "public", table: "project_groups", filter: ws)
         let memberChanges = channel.postgresChange(AnyAction.self, schema: "public", table: "workspace_members", filter: ws)
         let conversationChanges = channel.postgresChange(UpdateAction.self, schema: "public", table: "conversations", filter: ws)
         let newMemberships = channel.postgresChange(
@@ -67,11 +66,9 @@ public final class RealtimeHub {
                 if let id = action.oldRecord["id"]?.stringValue { self?.onEvent(.taskDeleted(id: id.lowercased())) }
             }
         })
-        for stream in [projectChanges, groupChanges] {
-            tasks.append(Task { [weak self] in
-                for await _ in stream { self?.onEvent(.projectsChanged) }
-            })
-        }
+        tasks.append(Task { [weak self] in
+            for await _ in projectChanges { self?.onEvent(.projectsChanged) }
+        })
         tasks.append(Task { [weak self] in
             for await _ in memberChanges { self?.onEvent(.membersChanged) }
         })
@@ -194,12 +191,14 @@ enum TaskRow {
               let status = string("status"), let position = number("position"), let createdBy = string("created_by"),
               let createdAtRaw = string("created_at"), let createdAt = ISO8601.parse(createdAtRaw),
               let updatedAtRaw = string("updated_at"), let updatedAt = ISO8601.parse(updatedAtRaw),
-              let version = number("version")
+              let version = number("version"), let issueNumber = number("number")
         else { return nil }
         return TaskItem(
             id: id.lowercased(),
             projectId: projectId.lowercased(),
-            groupId: string("group_id")?.lowercased(),
+            groupId: nil, // groups were removed
+            milestoneId: string("milestone_id")?.lowercased(),
+            number: Int(issueNumber),
             title: title,
             description: string("description") ?? "",
             status: TaskStatus(rawValue: status),

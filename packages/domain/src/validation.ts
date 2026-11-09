@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CHAT_LIMITS } from "./chat-config";
 import { isIsoDate } from "./dates";
+import { isWebUrl, LINK_LIMITS, normalizeWebUrl } from "./links";
 import { MEMBER_ROLES, PROJECT_COLOR_KEYS, TASK_STATUSES } from "./domain";
 
 /** Input schemas shared by forms (inline validation) and Server Actions. */
@@ -19,6 +20,12 @@ const trimmed = (max: number, label: string) =>
     .string()
     .trim()
     .max(max, { error: `${label} darf höchstens ${max} Zeichen lang sein.` });
+
+/** Trimmed text with a German length message (shared by feature modules). */
+export const boundedText = trimmed;
+
+/** Optional calendar day "YYYY-MM-DD" (null = none). */
+export const optionalCalendarDay = calendarDate;
 
 export const taskTitle = trimmed(300, "Der Titel").min(1, { error: "Bitte gib einen Titel ein." });
 export const taskDescription = z.string().max(20000, { error: "Die Beschreibung ist zu lang." });
@@ -49,7 +56,7 @@ export const createTaskSchema = z
     title: taskTitle,
     description: taskDescription.default(""),
     status: z.enum(TASK_STATUSES).default("open"),
-    groupId: uuid.nullable().default(null),
+    milestoneId: uuid.nullable().default(null),
     assigneeId: uuid.nullable().default(null),
     startDate: calendarDate.default(null),
     endDate: calendarDate.default(null),
@@ -63,7 +70,7 @@ export const taskPatchSchema = z
     title: taskTitle,
     description: taskDescription,
     status: z.enum(TASK_STATUSES),
-    groupId: uuid.nullable(),
+    milestoneId: uuid.nullable(),
     assigneeId: uuid.nullable(),
     startDate: calendarDate,
     endDate: calendarDate,
@@ -89,6 +96,17 @@ export const moveTaskSchema = z.object({
 export type MoveTaskInput = z.input<typeof moveTaskSchema>;
 
 export const setStatusSchema = z.object({ id: uuid, status: z.enum(TASK_STATUSES) });
+/** Tick or untick one checklist item (`- [ ]`) in a task description. `text` identifies the item as the user saw it. */
+export const setChecklistItemSchema = z.object({
+  id: uuid,
+  index: z.number().int().min(0).max(10000),
+  checked: z.boolean(),
+  text: z.string().max(20000),
+});
+/** `#` picker: text typed after `#` (number and/or title words). */
+export const searchIssuesSchema = z.object({ q: z.string().max(100).default("") });
+/** Resolve `<#task-id>` tokens (e.g. from a restored draft) to number/title/status. */
+export const resolveIssueRefsSchema = z.object({ ids: z.array(uuid).max(50) });
 export const setAssigneeSchema = z.object({ id: uuid, assigneeId: uuid.nullable() });
 export const idSchema = z.object({ id: uuid });
 
@@ -101,15 +119,53 @@ export const createProjectSchema = projectSchema.extend({ id: clientId });
 export const updateProjectSchema = projectSchema.extend({ id: uuid });
 export const archiveProjectSchema = z.object({ id: uuid, archived: z.boolean() });
 
-export const groupNameSchema = trimmed(80, "Der Name").min(1, { error: "Bitte gib einen Namen ein." });
-export const createGroupSchema = z.object({ id: clientId, projectId: uuid, name: groupNameSchema });
-export const renameGroupSchema = z.object({ id: uuid, name: groupNameSchema });
+export const milestoneSchema = z.object({
+  name: trimmed(120, "Der Name").min(1, { error: "Bitte gib einen Namen ein." }),
+  description: trimmed(500, "Die Beschreibung").default(""),
+  dueDate: calendarDate.default(null),
+});
+export const createMilestoneSchema = milestoneSchema.extend({ id: clientId });
+export const updateMilestoneSchema = milestoneSchema.extend({ id: uuid });
+export const completeMilestoneSchema = z.object({ id: uuid, completed: z.boolean() });
+
 
 export const emailSchema = z
   .string()
   .trim()
   .toLowerCase()
   .pipe(z.email({ error: "Bitte gib eine gültige E-Mail-Adresse ein." }));
+
+// ---------------------------------------------------------------------------
+// External links (task attachments, meeting link)
+// ---------------------------------------------------------------------------
+
+/** http(s) URL; scheme-less input gets `https://`. Stored in canonical form. */
+export const webUrlSchema = z
+  .string()
+  .overwrite(normalizeWebUrl)
+  .min(1, { error: "Bitte gib einen Link ein." })
+  .max(LINK_LIMITS.urlMax, { error: "Der Link ist zu lang." })
+  .refine(isWebUrl, { error: "Bitte gib einen gültigen Web-Link ein (https://…)." })
+  .meta({ format: "uri" });
+
+/** Optional display name; empty input means "no title". */
+const linkTitle = trimmed(LINK_LIMITS.titleMax, "Der Name").nullable().default(null);
+
+export const createTaskLinkSchema = z.object({
+  id: clientId,
+  taskId: uuid,
+  url: webUrlSchema,
+  title: linkTitle,
+});
+export type CreateTaskLinkInput = z.input<typeof createTaskLinkSchema>;
+
+export const updateTaskLinkSchema = z.object({ id: uuid, url: webUrlSchema, title: linkTitle });
+export type UpdateTaskLinkInput = z.input<typeof updateTaskLinkSchema>;
+
+export const taskIdSchema = z.object({ taskId: uuid });
+
+/** Workspace meeting link (e.g. a Discord voice channel); null removes it. */
+export const meetingUrlSchema = z.object({ meetingUrl: webUrlSchema.nullable() });
 
 export const inviteSchema = z.object({ email: emailSchema, role: z.enum(MEMBER_ROLES).default("member") });
 export const changeRoleSchema = z.object({ userId: uuid, role: z.enum(MEMBER_ROLES) });
@@ -211,4 +267,9 @@ export const notificationSettingsPatchSchema = z.object({
   directMessages: z.boolean().optional(),
   channelMessages: z.boolean().optional(),
   taskAssignments: z.boolean().optional(),
+});
+
+/** Marks in-app notifications as read: the given ids, or all of mine when `ids` is omitted. */
+export const markNotificationsReadSchema = z.object({
+  ids: z.array(uuid).min(1).max(200).optional(),
 });

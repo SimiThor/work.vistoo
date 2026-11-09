@@ -76,22 +76,8 @@ struct TimelineView: View {
                 out.append(.header(id: pid, label: p?.name ?? "Projekt", color: p?.color))
                 out += byProject[pid]!.map(Row.task)
             }
-        case .project(let id):
-            let groups = work.project(id)?.groups ?? []
-            let known = Set(groups.map(\.id))
-            for g in groups {
-                let list = planned.filter { $0.groupId == g.id }
-                guard !list.isEmpty else { continue }
-                out.append(.header(id: g.id, label: g.name, color: nil))
-                out += list.map(Row.task)
-            }
-            let ungrouped = planned.filter { $0.groupId == nil || !known.contains($0.groupId!) }
-            if !ungrouped.isEmpty {
-                if out.contains(where: { if case .header = $0 { true } else { false } }) {
-                    out.append(.header(id: "none", label: "Ohne Gruppe", color: nil))
-                }
-                out += ungrouped.map(Row.task)
-            }
+        case .project:
+            out = planned.map(Row.task)
         }
         return out
     }
@@ -244,6 +230,7 @@ private struct TimelineRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     StatusIcon(status: task.status, size: 13)
+                    Text(verbatim: "#\(task.number)").font(.subheadline.monospacedDigit()).foregroundStyle(Tokens.Palette.mutedForeground)
                     Text(task.title).font(.subheadline).lineLimit(1)
                     Text(Formatting.range(s, e)).font(.caption).foregroundStyle(Tokens.Palette.mutedForeground).lineLimit(1)
                 }
@@ -268,7 +255,7 @@ private struct TimelineRow: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            "\(task.title), \(s == e ? Formatting.long(s) : "\(Formatting.long(s)) bis \(Formatting.long(e))"), "
+            "#\(task.number) \(task.title), \(s == e ? Formatting.long(s) : "\(Formatting.long(s)) bis \(Formatting.long(e))"), "
                 + "\(CalendarDate.durationDays(from: s, to: e) == 1 ? "1 Tag" : "\(CalendarDate.durationDays(from: s, to: e)) Tage"), "
                 + "Status \(task.status.label)"
         )

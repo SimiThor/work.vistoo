@@ -4,7 +4,7 @@ import { resolveMembership } from "../src/auth";
 import { AppError } from "../src/errors";
 import { createTask, getTask, listTasks, updateTask } from "../src/services/tasks";
 import { getProject, listProjects } from "../src/services/projects";
-import { addMember, ctxFor, makeGroup, makeMemberCtx, makeProject, makeUser, makeWorkspace } from "./support/fixtures";
+import { addMember, ctxFor, makeMemberCtx, makeProject, makeUser, makeWorkspace } from "./support/fixtures";
 import { testDatabaseUrl } from "./support/db-url";
 
 describe("membership resolution", () => {
@@ -39,13 +39,12 @@ describe("workspace isolation (foreign IDs)", () => {
     const { ctx: b, user: userB } = await makeMemberCtx(wsB.id);
 
     const projectB = await makeProject(wsB.id, "Geheim");
-    const groupB = await makeGroup(wsB.id, projectB.id);
     const taskB = await createTask(b, {
       projectId: projectB.id,
       title: "Interne Aufgabe",
       description: "",
       status: "open",
-      groupId: null,
+      milestoneId: null,
       assigneeId: null,
       startDate: null,
       endDate: null,
@@ -59,21 +58,18 @@ describe("workspace isolation (foreign IDs)", () => {
     expect((await listTasks(a)).map((t) => t.id)).not.toContain(taskB.id);
     expect((await listProjects(a)).map((p) => p.id)).not.toContain(projectB.id);
 
-    // Creating a task in a foreign project or with foreign group/assignee fails.
+    // Creating a task in a foreign project or with a foreign assignee fails.
     const projectA = await makeProject(wsA.id);
     const base = {
       title: "x",
       description: "",
       status: "open" as const,
-      groupId: null,
+      milestoneId: null,
       assigneeId: null,
       startDate: null,
       endDate: null,
     };
     await expect(createTask(a, { ...base, projectId: projectB.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(createTask(a, { ...base, projectId: projectA.id, groupId: groupB.id })).rejects.toMatchObject({
-      code: "VALIDATION",
-    });
     await expect(createTask(a, { ...base, projectId: projectA.id, assigneeId: userB.id })).rejects.toMatchObject({
       code: "VALIDATION",
     });
@@ -102,7 +98,7 @@ describe("row level security for the Supabase Data API / Realtime", () => {
       title: "Sichtbar nur für Mitglieder",
       description: "",
       status: "open",
-      groupId: null,
+      milestoneId: null,
       assigneeId: null,
       startDate: null,
       endDate: null,

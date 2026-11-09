@@ -54,11 +54,11 @@ public enum API {
         )
     }
 
-    /// Add a group to a project.
-    public static func createGroup(id: String, body: CreateGroupRequest) -> Endpoint<ProjectGroup> {
+    /// Create a milestone.
+    public static func createMilestone(body: CreateMilestoneRequest) -> Endpoint<Milestone> {
         Endpoint(
             method: .post,
-            path: "/projects/\(id.pathEncoded)/groups",
+            path: "/milestones",
             query: [],
             body: body,
             auth: .member,
@@ -90,15 +90,15 @@ public enum API {
         )
     }
 
-    /// Delete a group; its tasks are kept without group.
-    public static func deleteGroup(id: String) -> Endpoint<DeleteGroupResponse> {
+    /// Attach an external http(s) link to a task, with an optional display name.
+    public static func createTaskLink(id: String, body: CreateTaskLinkRequest) -> Endpoint<TaskLink> {
         Endpoint(
-            method: .delete,
-            path: "/groups/\(id.pathEncoded)",
+            method: .post,
+            path: "/tasks/\(id.pathEncoded)/links",
             query: [],
-            body: nil,
+            body: body,
             auth: .member,
-            retry: .notFoundMeansDone
+            retry: .idempotentWithClientId
         )
     }
 
@@ -114,11 +114,35 @@ public enum API {
         )
     }
 
+    /// Delete a milestone; its tasks are kept without milestone.
+    public static func deleteMilestone(id: String) -> Endpoint<DeleteMilestoneResponse> {
+        Endpoint(
+            method: .delete,
+            path: "/milestones/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .notFoundMeansDone
+        )
+    }
+
     /// Delete a task permanently.
     public static func deleteTask(id: String) -> Endpoint<NoContent> {
         Endpoint(
             method: .delete,
             path: "/tasks/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .notFoundMeansDone
+        )
+    }
+
+    /// Remove a link from its task.
+    public static func deleteTaskLink(id: String) -> Endpoint<NoContent> {
+        Endpoint(
+            method: .delete,
+            path: "/task-links/\(id.pathEncoded)",
             query: [],
             body: nil,
             auth: .member,
@@ -246,6 +270,18 @@ public enum API {
         )
     }
 
+    /// One milestone with task counts.
+    public static func getMilestone(id: String) -> Endpoint<Milestone> {
+        Endpoint(
+            method: .get,
+            path: "/milestones/\(id.pathEncoded)",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
     /// Which events send a push to me.
     public static func getNotificationSettings() -> Endpoint<NotificationSettings> {
         Endpoint(
@@ -258,7 +294,7 @@ public enum API {
         )
     }
 
-    /// One project with its groups.
+    /// One project.
     public static func getProject(id: String) -> Endpoint<Project> {
         Endpoint(
             method: .get,
@@ -333,7 +369,31 @@ public enum API {
         )
     }
 
-    /// All projects (incl. archived, flagged) with groups and task statistics.
+    /// All milestones (open first, by due date; then completed) with task counts.
+    public static func listMilestones() -> Endpoint<MilestoneList> {
+        Endpoint(
+            method: .get,
+            path: "/milestones",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// My latest in-app notifications (chat mentions) and the unread count.
+    public static func listNotifications() -> Endpoint<NotificationPage> {
+        Endpoint(
+            method: .get,
+            path: "/me/notifications",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// All projects (incl. archived, flagged) with task statistics.
     public static func listProjects() -> Endpoint<ProjectList> {
         Endpoint(
             method: .get,
@@ -345,15 +405,40 @@ public enum API {
         )
     }
 
-    /// Tasks of all active projects, or of one project (archived allowed, read-only).
-    public static func listTasks(projectId: String? = nil) -> Endpoint<TaskList> {
+    /// External links attached to a task (oldest first). Also for tasks of archived projects.
+    public static func listTaskLinks(id: String) -> Endpoint<TaskLinkList> {
+        Endpoint(
+            method: .get,
+            path: "/tasks/\(id.pathEncoded)/links",
+            query: [],
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Tasks of all active projects, or of one project (archived allowed, read-only), or of one milestone.
+    public static func listTasks(projectId: String? = nil, milestoneId: String? = nil) -> Endpoint<TaskList> {
         Endpoint(
             method: .get,
             path: "/tasks",
             query: [
-                URLQueryItem.optional("projectId", projectId)
+                URLQueryItem.optional("projectId", projectId),
+                URLQueryItem.optional("milestoneId", milestoneId)
             ].compactMap { $0 },
             body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Mark my notifications as read (the given ids, or all when `ids` is omitted).
+    public static func markNotificationsRead(body: MarkNotificationsReadRequest) -> Endpoint<NotificationUnreadCount> {
+        Endpoint(
+            method: .post,
+            path: "/me/notifications/read",
+            query: [],
+            body: body,
             auth: .member,
             retry: .safe
         )
@@ -431,18 +516,6 @@ public enum API {
         )
     }
 
-    /// Rename a group.
-    public static func renameGroup(id: String, body: RenameGroupRequest) -> Endpoint<ProjectGroup> {
-        Endpoint(
-            method: .patch,
-            path: "/groups/\(id.pathEncoded)",
-            query: [],
-            body: body,
-            auth: .member,
-            retry: .safe
-        )
-    }
-
     /// Send a one-time code and magic link to an e-mail address.
     public static func requestLoginCode(body: LoginCodeRequest) -> Endpoint<LoginCodeResponse> {
         Endpoint(
@@ -491,6 +564,20 @@ public enum API {
         )
     }
 
+    /// Tasks for the `#` picker in chat, matched by issue number and title.
+    public static func searchIssues(q: String? = nil) -> Endpoint<IssueRefList> {
+        Endpoint(
+            method: .get,
+            path: "/issue-refs",
+            query: [
+                URLQueryItem.optional("q", q)
+            ].compactMap { $0 },
+            body: nil,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
     /// Send a message with a client-generated id (idempotent).
     public static func sendMessage(id: String, messageId: String, body: SendMessageRequest) -> Endpoint<Message> {
         Endpoint(
@@ -515,6 +602,18 @@ public enum API {
         )
     }
 
+    /// Complete or reopen a milestone (its tasks stay attached).
+    public static func setMilestoneCompleted(id: String, body: SetCompletedRequest) -> Endpoint<Milestone> {
+        Endpoint(
+            method: .put,
+            path: "/milestones/\(id.pathEncoded)/completed",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
     /// Archive or restore a project.
     public static func setProjectArchived(id: String, body: SetArchivedRequest) -> Endpoint<Project> {
         Endpoint(
@@ -532,6 +631,18 @@ public enum API {
         Endpoint(
             method: .put,
             path: "/tasks/\(id.pathEncoded)/assignee",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Quick action: tick or untick the n-th Markdown checklist item (`- [ ]`) in the description. Applied to the current description; `text` (the item's first line) identifies the item if lines moved. CONFLICT with `current` if the item is gone or ambiguous. Does not change the status.
+    public static func setTaskChecklistItem(id: String, body: SetTaskChecklistItemRequest) -> Endpoint<TaskItem> {
+        Endpoint(
+            method: .put,
+            path: "/tasks/\(id.pathEncoded)/checklist",
             query: [],
             body: body,
             auth: .member,
@@ -568,6 +679,30 @@ public enum API {
         Endpoint(
             method: .patch,
             path: "/conversations/\(id.pathEncoded)",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Admin: set or clear the workspace meeting link (e.g. a Discord voice channel).
+    public static func updateMeetingUrl(body: UpdateMeetingUrlRequest) -> Endpoint<MeetingUrl> {
+        Endpoint(
+            method: .put,
+            path: "/workspace/meeting-url",
+            query: [],
+            body: body,
+            auth: .admin,
+            retry: .safe
+        )
+    }
+
+    /// Edit name, description and due date.
+    public static func updateMilestone(id: String, body: UpdateMilestoneRequest) -> Endpoint<Milestone> {
+        Endpoint(
+            method: .patch,
+            path: "/milestones/\(id.pathEncoded)",
             query: [],
             body: body,
             auth: .member,
@@ -620,6 +755,18 @@ public enum API {
             body: body,
             auth: .member,
             retry: .checkConflict
+        )
+    }
+
+    /// Change URL and display name of a task link (last write wins).
+    public static func updateTaskLink(id: String, body: UpdateTaskLinkRequest) -> Endpoint<TaskLink> {
+        Endpoint(
+            method: .patch,
+            path: "/task-links/\(id.pathEncoded)",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
         )
     }
 }

@@ -5,7 +5,7 @@ import { applyFilters, EMPTY_FILTERS, type Filters } from "../src/filters";
 import type { TaskStatus } from "../src/constants";
 
 type Fixture = {
-  tasks: { id: string; title: string; projectId: string; groupId: string | null; assigneeId: string | null; status: string }[];
+  tasks: { id: string; number?: number; title: string; projectId: string; assigneeId: string | null; status: string }[];
   cases: { name: string; filters: Partial<Filters>; expected: string[] }[];
 };
 

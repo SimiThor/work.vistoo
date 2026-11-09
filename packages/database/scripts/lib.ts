@@ -6,6 +6,7 @@ import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "../src/schema";
+import { databaseTlsOptions } from "../src/tls";
 
 // Run via `npm run … -w @vistoo/database` (cwd = packages/database). Same env files as the web app.
 config({ path: "../../apps/web/.env.local", quiet: true });
@@ -22,7 +23,7 @@ export function requireEnv(name: string): string {
 
 export function connect() {
   const url = process.env.DIRECT_DATABASE_URL ?? requireEnv("DATABASE_URL");
-  const client = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
+  const client = postgres(url, { ...databaseTlsOptions(url), max: 1, prepare: false, onnotice: () => {} });
   return { db: drizzle(client, { schema }), client, url };
 }
 

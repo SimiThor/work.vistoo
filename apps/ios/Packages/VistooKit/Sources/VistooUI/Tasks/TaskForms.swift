@@ -7,7 +7,6 @@ struct TaskFields: Equatable {
     var description = ""
     var status: TaskStatus = .open
     var projectId = ""
-    var groupId: String?
     var assigneeId: String?
     var startDate: CalendarDate?
     var endDate: CalendarDate?
@@ -17,7 +16,6 @@ struct TaskFields: Equatable {
         description = task.description
         status = task.status
         projectId = task.projectId
-        groupId = task.groupId
         assigneeId = task.assigneeId
         startDate = task.startDate
         endDate = task.endDate
@@ -27,7 +25,6 @@ struct TaskFields: Equatable {
         title = draft.title
         status = draft.status
         projectId = draft.projectId
-        groupId = draft.groupId
         assigneeId = draft.assigneeId
     }
 
@@ -53,6 +50,11 @@ struct TaskFieldsForm: View {
     var readOnly = false
     var serverErrors: [String: String] = [:]
     @FocusState.Binding var datesFocused: Bool
+    /// Signed-in user, for "Mir zuweisen" and the "(ich)" marker.
+    var viewerId: String?
+    /// New tasks: keyboard opens on the title right away.
+    var autofocusTitle = false
+    @FocusState private var titleFocused: Bool
 
     private var projects: [Project] {
         work.activeProjects + (work.project(fields.projectId).map { $0.archived ? [$0] : [] } ?? [])
@@ -63,6 +65,15 @@ struct TaskFieldsForm: View {
             TextField("Titel", text: $fields.title, axis: .vertical)
                 .font(.headline)
                 .lineLimit(1...4)
+                .focused($titleFocused)
+                .onAppear {
+                    guard autofocusTitle else { return }
+                    // Sheets need a moment before the keyboard can appear.
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(450))
+                        titleFocused = true
+                    }
+                }
             if let problem = serverErrors["title"] ?? (fields.title.isEmpty ? nil : fields.titleProblem) {
                 Text(problem).font(.footnote).foregroundStyle(Tokens.Palette.destructive)
             }
@@ -72,32 +83,21 @@ struct TaskFieldsForm: View {
                 }
                 if case .unknown = fields.status { Text(fields.status.label).tag(fields.status) }
             }
-        }
-        .disabled(readOnly)
-
-        Section {
-            Picker("Projekt", selection: $fields.projectId) {
-                ForEach(projects) { p in
-                    Label { Text(p.name) } icon: { ProjectDot(colorKey: p.color) }.tag(p.id)
-                }
-            }
-            .onChange(of: fields.projectId) { old, new in
-                // A group of the previous project is not valid any more (server rule).
-                if old != new { fields.groupId = nil }
-            }
-            Picker("Gruppe", selection: $fields.groupId) {
-                Text("Ohne Gruppe").tag(String?.none)
-                ForEach(work.project(fields.projectId)?.groups ?? []) { g in
-                    Text(g.name).tag(String?.some(g.id))
-                }
-            }
+            if autofocusTitle { projectPicker }
             Picker("Verantwortlich", selection: $fields.assigneeId) {
                 Text("Nicht zugewiesen").tag(String?.none)
                 ForEach(work.members) { m in
-                    Text(m.displayName).tag(String?.some(m.userId))
+                    Text(m.userId == viewerId ? "\(m.displayName) (ich)" : m.displayName).tag(String?.some(m.userId))
                 }
                 if let id = fields.assigneeId, !work.members.contains(where: { $0.userId == id }) {
                     Text(work.person(id)?.displayName ?? "Ehemaliges Mitglied").tag(String?.some(id))
+                }
+            }
+            if let viewerId, fields.assigneeId != viewerId, !readOnly {
+                Button {
+                    fields.assigneeId = viewerId
+                } label: {
+                    Label("Mir zuweisen", systemImage: "person.crop.circle.badge.checkmark")
                 }
             }
         }
@@ -124,6 +124,20 @@ struct TaskFieldsForm: View {
                 .lineLimit(4...)
         }
         .disabled(readOnly)
+
+        // Rarely changed after creation, so below the everyday fields when editing.
+        if !autofocusTitle {
+            Section { projectPicker }
+                .disabled(readOnly)
+        }
+    }
+
+    private var projectPicker: some View {
+        Picker("Projekt", selection: $fields.projectId) {
+            ForEach(projects) { p in
+                Label { Text(p.name) } icon: { ProjectDot(colorKey: p.color) }.tag(p.id)
+            }
+        }
     }
 
     @ViewBuilder
@@ -162,6 +176,7 @@ struct TaskCreateView: View {
     @State private var failure: APIError?
     @State private var created = 0
     @FocusState private var datesFocused: Bool
+    @AppStorage("vistoo.work.lastProject") private var lastProjectId = ""
 
     init(session: SessionModel, draft: WorkStore.TaskDraft) {
         self.session = session
@@ -172,7 +187,14 @@ struct TaskCreateView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TaskFieldsForm(work: session.work, fields: $fields, serverErrors: failure?.fieldErrors ?? [:], datesFocused: $datesFocused)
+                TaskFieldsForm(
+                    work: session.work,
+                    fields: $fields,
+                    serverErrors: failure?.fieldErrors ?? [:],
+                    datesFocused: $datesFocused,
+                    viewerId: session.userId,
+                    autofocusTitle: true
+                )
                 if let failure {
                     Section {
                         Label(failure.message, systemImage: failure.isConnectivityProblem ? "wifi.slash" : "exclamationmark.triangle")
@@ -206,12 +228,12 @@ struct TaskCreateView: View {
         d.description = fields.description
         d.status = fields.status
         d.projectId = fields.projectId
-        d.groupId = fields.groupId
         d.assigneeId = fields.assigneeId
         d.startDate = fields.startDate
         d.endDate = fields.endDate
         do {
             _ = try await session.work.createTask(d)
+            lastProjectId = d.projectId
             created += 1
             dismiss()
         } catch {
@@ -240,6 +262,12 @@ struct TaskDetailView: View {
 
     private var work: WorkStore { session.work }
     private var task: TaskItem? { work.task(taskId) }
+
+    /// "Aufgabe #24" (the number is the human-readable reference, e.g. for chat).
+    private var navigationTitle: String {
+        let base = readOnly ? "Aufgabe (archiviert)" : "Aufgabe"
+        return task.map { "\(base) #\($0.number)" } ?? base
+    }
     private var readOnly: Bool { task.map(work.isReadOnly) ?? true }
     private var isDirty: Bool { task.map { fields != TaskFields(task: $0) } ?? false }
 
@@ -253,7 +281,7 @@ struct TaskDetailView: View {
                 LoadingView()
             }
         }
-        .navigationTitle(readOnly ? "Aufgabe (archiviert)" : "Aufgabe")
+        .navigationTitle(navigationTitle)
         .inlineNavigationTitle()
         .onAppear {
             if fields == nil, let task {
@@ -296,7 +324,8 @@ struct TaskDetailView: View {
                 fields: Binding(get: { fields ?? TaskFields(task: task) }, set: { fields = $0 }),
                 readOnly: readOnly,
                 serverErrors: failure?.fieldErrors ?? [:],
-                datesFocused: $datesFocused
+                datesFocused: $datesFocused,
+                viewerId: session.userId
             )
             if let failure, failure.code != .conflict {
                 Section {
@@ -341,7 +370,6 @@ struct TaskDetailView: View {
         if fields.description != original.description { patch.description = fields.description }
         if fields.status != original.status { patch.status = fields.status }
         if fields.projectId != original.projectId { patch.projectId = fields.projectId }
-        if fields.groupId != original.groupId || fields.projectId != original.projectId { patch.groupId = Patchable(fields.groupId) }
         if fields.assigneeId != original.assigneeId { patch.assigneeId = Patchable(fields.assigneeId) }
         if fields.startDate != original.startDate { patch.startDate = Patchable(fields.startDate) }
         if fields.endDate != original.endDate { patch.endDate = Patchable(fields.endDate) }
@@ -390,14 +418,6 @@ struct FilterSheet: View {
     @Binding var filters: TaskFilters
     @Environment(\.dismiss) private var dismiss
 
-    /// Groups: in the global view, of the selected projects (or all) — like the web.
-    private var groupSources: [Project] {
-        switch scope {
-        case .project(let id): work.project(id).map { [$0] } ?? []
-        case .all: work.activeProjects.filter { filters.projects.isEmpty || filters.projects.contains($0.id) }
-        }
-    }
-
     var body: some View {
         NavigationStack {
             List {
@@ -406,16 +426,6 @@ struct FilterSheet: View {
                         ForEach(work.activeProjects) { p in
                             toggle(p.name, isOn: filters.projects.contains(p.id)) { flip(&filters.projects, p.id) } icon: {
                                 ProjectDot(colorKey: p.color)
-                            }
-                        }
-                    }
-                }
-                Section("Gruppe") {
-                    toggle("Ohne Gruppe", isOn: filters.groups.contains(DomainDefaults.noGroup)) { flip(&filters.groups, DomainDefaults.noGroup) }
-                    ForEach(groupSources) { p in
-                        ForEach(p.groups) { g in
-                            toggle(groupSources.count > 1 ? "\(g.name) · \(p.name)" : g.name, isOn: filters.groups.contains(g.id)) {
-                                flip(&filters.groups, g.id)
                             }
                         }
                     }

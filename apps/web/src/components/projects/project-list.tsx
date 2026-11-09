@@ -32,7 +32,7 @@ export function ProjectList({ projects, stats }: { projects: ProjectDTO[]; stats
       {active.length === 0 ? (
         <div className="mt-6 rounded-xl border border-dashed px-6 py-12 text-center">
           <h2 className="font-semibold">Noch keine aktiven Projekte</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Projekte bündeln Aufgaben, Gruppen und Termine.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Projekte bündeln Aufgaben und Termine.</p>
           <Button className="mt-5" onClick={() => setCreating(true)}>
             Erstes Projekt erstellen
           </Button>
@@ -88,7 +88,7 @@ function ProjectRow({ project, stats }: { project: ProjectDTO; stats?: { total: 
           {project.name}
         </Link>
         <p className="truncate text-sm text-muted-foreground">
-          {project.description || (project.groups.length ? project.groups.map((g) => g.name).join(" · ") : "Keine Beschreibung")}
+          {project.description || "Keine Beschreibung"}
         </p>
       </div>
       <span className="hidden shrink-0 text-sm text-muted-foreground tabular-nums sm:block">

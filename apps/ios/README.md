@@ -49,6 +49,10 @@ E-Mail eingeben, dann den Code aus der Mail eingeben (6–10 Ziffern, je nach Su
 | Zusammenspiel mit dem Web | `npm run test:e2e` (`cross-platform.spec.ts` spricht das App-Protokoll) |
 | Manuell | Checkliste in [docs/features/verification.md](../../docs/features/verification.md) |
 
+## TestFlight
+
+Jeder Merge auf `main`, der die App betrifft, landet automatisch in TestFlight (interne Tester). Einrichtung, Build-Nummern und Fehlersuche: [docs/setup/ios-testflight.md](../../docs/setup/ios-testflight.md). Hand-Upload vom Mac: `npm run ios:testflight`.
+
 ## App-Icon
 
 `VistooWork/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` wird aus der Logo-Geometrie des Webs erzeugt: `swift scripts/render-app-icon.swift <ziel.png>`.

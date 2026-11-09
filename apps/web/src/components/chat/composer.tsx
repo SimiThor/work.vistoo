@@ -5,16 +5,21 @@ import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } f
 import { Button } from "@/components/ui/button";
 import { ACCEPT_ATTRIBUTE, CHAT_LIMITS } from "@vistoo/domain/chat-config";
 import type { AttachmentDTO } from "@vistoo/domain/chat-types";
+import { editorToMarkup, markupToEditor } from "@vistoo/domain/mentions";
+import { issueRefNumber } from "./issue-refs";
 import { UploadChip } from "./attachment-card";
+import { MentionTextarea, type MentionPerson, type MentionTextareaHandle, type MentionValue } from "./mention-textarea";
 import { discardUpload, precheckFile, uploadFile, type PendingUpload } from "./uploads";
 
-export type ComposerHandle = { focus: () => void; setText: (text: string) => void };
+/** `setText` takes markup (mention tokens are restored as mentions). */
+export type ComposerHandle = { focus: () => void; setText: (markup: string) => void };
 
 const isCoarsePointer = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 
 /**
- * Plain-text composer. Desktop: Enter sends, Shift+Enter = newline (IME-safe).
- * Touch: Enter inserts a newline; the send button sends.
+ * Plain-text composer with @mentions and #issue references. Desktop: Enter sends, Shift+Enter =
+ * newline (IME-safe). Touch: Enter inserts a newline; the send button sends.
+ * Drafts and sent bodies are markup (mentions as `<@user-id>`).
  */
 export const Composer = forwardRef<
   ComposerHandle,
@@ -22,14 +27,20 @@ export const Composer = forwardRef<
     conversationId: string;
     label: string;
     initialDraft: string;
-    onDraftChange: (text: string) => void;
-    onSend: (body: string, attachments: AttachmentDTO[]) => void;
+    onDraftChange: (markup: string) => void;
+    onSend: (markup: string, attachments: AttachmentDTO[]) => void;
+    /** People who may be mentioned in this conversation. */
+    mentionCandidates: readonly MentionPerson[];
+    /** Display name for a user id (also for people no longer mentionable). */
+    nameOf: (userId: string) => string | null;
   }
->(function Composer({ conversationId, label, initialDraft, onDraftChange, onSend }, ref) {
-  const [text, setText] = useState(initialDraft);
+>(function Composer({ conversationId, label, initialDraft, onDraftChange, onSend, mentionCandidates, nameOf }, ref) {
+  const [value, setValue] = useState<MentionValue>(() => markupToEditor(initialDraft, nameOf, issueRefNumber));
+  const text = value.text;
+  const markup = editorToMarkup(value.text, value.mentions);
   const [uploads, setUploads] = useState<PendingUpload[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<MentionTextareaHandle>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const controllers = useRef(new Map<string, AbortController>());
   const uploadsRef = useRef(uploads);
@@ -40,9 +51,10 @@ export const Composer = forwardRef<
 
   useImperativeHandle(ref, () => ({
     focus: () => textareaRef.current?.focus(),
-    setText: (t: string) => {
-      setText(t);
-      onDraftChange(t);
+    setText: (m: string) => {
+      const next = markupToEditor(m, nameOf, issueRefNumber);
+      setValue(next);
+      onDraftChange(m);
       textareaRef.current?.focus();
     },
   }));
@@ -109,7 +121,7 @@ export const Composer = forwardRef<
 
   const uploading = uploads.some((u) => u.status === "uploading");
   const failed = uploads.some((u) => u.status === "error");
-  const tooLong = text.length > CHAT_LIMITS.maxMessageLength;
+  const tooLong = markup.length > CHAT_LIMITS.maxMessageLength;
   const ready = uploads.filter((u) => u.status === "ready");
   const canSend = !uploading && !failed && !tooLong && (text.trim().length > 0 || ready.length > 0);
 
@@ -120,10 +132,10 @@ export const Composer = forwardRef<
       return;
     }
     onSend(
-      text,
+      markup,
       ready.map((u) => ({ id: u.attachmentId!, fileName: u.fileName, mimeType: u.mimeType, sizeBytes: u.sizeBytes })),
     );
-    setText("");
+    setValue({ text: "", mentions: [] });
     onDraftChange("");
     setUploads([]);
     setNotice(null);
@@ -151,7 +163,7 @@ export const Composer = forwardRef<
       {(notice || tooLong) && (
         <p className="mb-1.5 text-xs text-destructive" role="alert">
           {tooLong
-            ? `Die Nachricht ist zu lang (${text.length.toLocaleString("de-DE")} von ${CHAT_LIMITS.maxMessageLength.toLocaleString("de-DE")} Zeichen).`
+            ? `Die Nachricht ist zu lang (${markup.length.toLocaleString("de-DE")} von ${CHAT_LIMITS.maxMessageLength.toLocaleString("de-DE")} Zeichen).`
             : notice}
         </p>
       )}
@@ -181,15 +193,17 @@ export const Composer = forwardRef<
         <label htmlFor={id} className="sr-only">
           {label}
         </label>
-        <textarea
+        <MentionTextarea
           id={id}
           ref={textareaRef}
           rows={1}
-          value={text}
+          value={value}
+          candidates={mentionCandidates}
+          wrapperClassName="flex-1"
           placeholder={label}
-          onChange={(e) => {
-            setText(e.target.value);
-            onDraftChange(e.target.value);
+          onValueChange={(v) => {
+            setValue(v);
+            onDraftChange(editorToMarkup(v.text, v.mentions));
           }}
           onKeyDown={(e) => {
             if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing || e.keyCode === 229) return;
@@ -199,7 +213,7 @@ export const Composer = forwardRef<
           }}
           aria-invalid={tooLong || undefined}
           aria-describedby={`${id}-hint`}
-          className="field-sizing-content block max-h-48 min-h-9 flex-1 resize-none bg-transparent px-1.5 py-2 text-[14px] leading-5 outline-none placeholder:text-muted-foreground"
+          className="field-sizing-content block max-h-48 min-h-9 w-full resize-none bg-transparent px-1.5 py-2 text-[14px] leading-5 outline-none placeholder:text-muted-foreground"
         />
         <Button
           type="button"
@@ -214,7 +228,7 @@ export const Composer = forwardRef<
         </Button>
       </div>
       <p id={`${id}-hint`} className="mt-1 hidden px-1 text-[11px] text-muted-foreground [@media(pointer:fine)]:block">
-        Enter sendet · Umschalt+Enter für neue Zeile
+        Enter sendet · Umschalt+Enter für neue Zeile · @ erwähnt jemanden · # verlinkt eine Aufgabe
       </p>
     </div>
   );

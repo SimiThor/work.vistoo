@@ -2,18 +2,19 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { AuthContext } from "../src/auth";
 import { getDb } from "../src/db";
 import { tasks } from "@vistoo/database/schema";
-import { createGroup, deleteGroup, setProjectArchived } from "../src/services/projects";
+import { getProject, setProjectArchived } from "../src/services/projects";
 import {
   createTask,
   deleteTask,
   listTasks,
   moveTask,
   setTaskAssignee,
+  setTaskChecklistItem,
   setTaskStatus,
   updateTask,
 } from "../src/services/tasks";
 import { createTaskSchema, updateTaskSchema } from "@vistoo/domain/validation";
-import { makeGroup, makeMemberCtx, makeProject, makeUser, makeWorkspace, addMember } from "./support/fixtures";
+import { makeMemberCtx, makeProject, makeUser, makeWorkspace, addMember } from "./support/fixtures";
 
 let ctx: AuthContext;
 let wsId: string;
@@ -25,7 +26,7 @@ const newTask = (over: Partial<Parameters<typeof createTask>[1]> = {}) =>
     title: "Aufgabe",
     description: "",
     status: "open",
-    groupId: null,
+    milestoneId: null,
     assigneeId: null,
     startDate: null,
     endDate: null,
@@ -39,48 +40,24 @@ beforeEach(async () => {
   projectId = (await makeProject(ws.id)).id;
 });
 
-describe("groups", () => {
-  it("rejects a group of another project", async () => {
-    const other = await makeProject(wsId, "Anderes Projekt");
-    const foreignGroup = await makeGroup(wsId, other.id, "Launch");
-    await expect(newTask({ groupId: foreignGroup.id })).rejects.toMatchObject({ code: "VALIDATION" });
-
+describe("removed groups (API v1 compatibility)", () => {
+  it("older clients may still send groupId; it is ignored and always returned as null", async () => {
+    const legacy = createTaskSchema.parse({ projectId, title: "Alt", groupId: "11111111-1111-4111-8111-111111111111" });
+    expect("groupId" in legacy).toBe(false);
     const t = await newTask();
-    await expect(
-      updateTask(ctx, { id: t.id, expectedVersion: t.version, patch: { groupId: foreignGroup.id } }),
-    ).rejects.toMatchObject({ code: "VALIDATION" });
+    expect(t.groupId).toBeNull();
+    const patch = updateTaskSchema.parse({
+      id: t.id,
+      expectedVersion: t.version,
+      patch: { title: "Neu", groupId: "11111111-1111-4111-8111-111111111111" },
+    });
+    const updated = await updateTask(ctx, patch);
+    expect(updated.groupId).toBeNull();
+    expect(updated.title).toBe("Neu");
   });
 
-  it("database rejects a mismatched group even when bypassing the service", async () => {
-    const other = await makeProject(wsId, "Anderes Projekt");
-    const foreignGroup = await makeGroup(wsId, other.id, "Launch");
-    const t = await newTask();
-    await expect(
-      getDb().update(tasks).set({ groupId: foreignGroup.id }).where(eqId(t.id)),
-    ).rejects.toThrow();
-  });
-
-  it("resets the group when the project changes", async () => {
-    const group = await makeGroup(wsId, projectId, "Design");
-    const t = await newTask({ groupId: group.id });
-    const other = await makeProject(wsId, "Zielprojekt");
-    const moved = await updateTask(ctx, { id: t.id, expectedVersion: t.version, patch: { projectId: other.id } });
-    expect(moved.projectId).toBe(other.id);
-    expect(moved.groupId).toBeNull();
-  });
-
-  it("deleting a group keeps its tasks and detaches them", async () => {
-    const group = await createGroup(ctx, { projectId, name: "Engineering" });
-    const t = await newTask({ groupId: group.id });
-    const result = await deleteGroup(ctx, group.id);
-    expect(result.detachedTasks).toBe(1);
-    const after = (await listTasks(ctx)).find((x) => x.id === t.id);
-    expect(after?.groupId).toBeNull();
-  });
-
-  it("group names are unique per project (case-insensitive)", async () => {
-    await createGroup(ctx, { projectId, name: "Produkt" });
-    await expect(createGroup(ctx, { projectId, name: "produkt" })).rejects.toThrow();
+  it("projects report no groups", async () => {
+    expect((await getProject(ctx, projectId)).groups).toEqual([]);
   });
 });
 
@@ -204,6 +181,63 @@ describe("assignees", () => {
     await addMember(wsId, removed, "member", "removed");
     const t = await newTask();
     await expect(getDb().update(tasks).set({ assigneeId: removed.id }).where(eqId(t.id))).rejects.toThrow();
+  });
+});
+
+describe("markdown checklist", () => {
+  const md = "## Aufgaben\n\n- [x] Datenbank\n- [ ] API\n  - [ ] Endpunkte\n\n```\n- [ ] Code\n```\n";
+
+  it("ticks one item, changes nothing else and leaves the status alone", async () => {
+    const t = await newTask({ description: md });
+    const next = await setTaskChecklistItem(ctx, { id: t.id, index: 2, checked: true, text: "Endpunkte" });
+    expect(next.description).toBe(md.replace("  - [ ] Endpunkte", "  - [x] Endpunkte"));
+    expect(next.version).toBe(t.version + 1);
+    expect(next.status).toBe("open");
+    const back = await setTaskChecklistItem(ctx, { id: t.id, index: 0, checked: false, text: "Datenbank" });
+    expect(back.description.startsWith("## Aufgaben\n\n- [ ] Datenbank")).toBe(true);
+    expect((await listTasks(ctx)).find((x) => x.id === t.id)?.description).toBe(back.description);
+  });
+
+  it("does not overwrite concurrent edits", async () => {
+    const t = await newTask({ description: md });
+    // Someone else edits the title and inserts a line above while the view is open.
+    const other = await updateTask(ctx, {
+      id: t.id,
+      expectedVersion: t.version,
+      patch: { title: "Neu", description: md.replace("- [x] Datenbank", "- [ ] Neu\n- [x] Datenbank") },
+    });
+    // Stale index 1 ("API" in the old text) is resolved by text.
+    const next = await setTaskChecklistItem(ctx, { id: t.id, index: 1, checked: true, text: "API" });
+    expect(next.title).toBe("Neu");
+    expect(next.description).toBe(other.description.replace("- [ ] API", "- [x] API"));
+  });
+
+  it("parallel toggles of different items both survive", async () => {
+    const t = await newTask({ description: md });
+    await Promise.all([
+      setTaskChecklistItem(ctx, { id: t.id, index: 1, checked: true, text: "API" }),
+      setTaskChecklistItem(ctx, { id: t.id, index: 2, checked: true, text: "Endpunkte" }),
+    ]);
+    const [row] = await getDb().select().from(tasks).where(eqId(t.id));
+    expect(row.description).toContain("- [x] API\n  - [x] Endpunkte");
+    expect(row.version).toBe(t.version + 2);
+  });
+
+  it("reports a conflict when the item is gone, and is a no-op when unchanged", async () => {
+    const t = await newTask({ description: md });
+    await expect(
+      setTaskChecklistItem(ctx, { id: t.id, index: 1, checked: true, text: "Gelöscht" }),
+    ).rejects.toMatchObject({ code: "CONFLICT", extra: { current: { id: t.id } } });
+    const same = await setTaskChecklistItem(ctx, { id: t.id, index: 0, checked: true, text: "Datenbank" });
+    expect(same.version).toBe(t.version);
+  });
+
+  it("is blocked in archived projects", async () => {
+    const t = await newTask({ description: md });
+    await setProjectArchived(ctx, { id: projectId, archived: true });
+    await expect(
+      setTaskChecklistItem(ctx, { id: t.id, index: 1, checked: true, text: "API" }),
+    ).rejects.toMatchObject({ code: "ARCHIVED" });
   });
 });
 

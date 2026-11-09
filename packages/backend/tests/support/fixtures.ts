@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { resolveMembership, type AuthContext } from "../../src/auth";
 import { getDb } from "../../src/db";
-import { profiles, projectGroups, projects, workspaceMembers, workspaces } from "@vistoo/database/schema";
+import { profiles, projects, workspaceMembers, workspaces } from "@vistoo/database/schema";
 
 export async function makeWorkspace(name = "Vistoo") {
   const [ws] = await getDb()
@@ -48,7 +48,3 @@ export async function makeProject(workspaceId: string, name = "Website Relaunch"
   return p;
 }
 
-export async function makeGroup(workspaceId: string, projectId: string, name = "Design") {
-  const [g] = await getDb().insert(projectGroups).values({ workspaceId, projectId, name }).returning();
-  return g;
-}

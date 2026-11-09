@@ -104,7 +104,7 @@ describe("message pushes", () => {
 
 describe("assignment pushes", () => {
   const base = (projectId: string) => ({
-    projectId, description: "", status: "open" as const, groupId: null, startDate: null, endDate: null,
+    projectId, description: "", status: "open" as const, milestoneId: null, startDate: null, endDate: null,
   });
 
   it("assigning someone else notifies them; self-assignment does not", async () => {

@@ -57,8 +57,7 @@ public enum DomainDefaults {
     public static let maxFilesPerMessage = 3
     public static let storageWarnRatio = 0.8
     public static let invitationTtlDays = 7
-    /// Filter value for "no group" / "unassigned" (shared filter semantics).
-    public static let noGroup = "none"
+    /// Filter value for "unassigned" (shared filter semantics).
     public static let unassigned = "none"
     public static let allowedFileTypes: [Limits.AllowedFileType] = [
         Limits.AllowedFileType(label: "JPEG", extensions: ["jpg", "jpeg"], mimeType: "image/jpeg"),

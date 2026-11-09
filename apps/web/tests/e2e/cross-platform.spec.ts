@@ -105,7 +105,7 @@ test("1. the same account signs in on web and iOS", async () => {
   expect(me.body.access).toBe("member");
   expect(me.body.viewer.userId).toBe(ids.anna);
   // The web session belongs to the same user.
-  await web.goto("/team");
+  await web.goto("/settings");
   await expect(web.getByText(users.anna.email).first()).toBeVisible();
 });
 
@@ -250,7 +250,7 @@ test("6. closed channels and foreign workspaces stay closed to the native client
 
 test("7. removing a member on the web revokes the native session's access immediately", async () => {
   expect((await ios("carla", "GET", "/tasks")).status).toBe(200);
-  await web.goto("/team");
+  await web.goto("/settings");
   await web.getByRole("button", { name: "Aktionen für Carla Cramer" }).click();
   await web.getByRole("menuitem", { name: /Aus dem Team entfernen/ }).click();
   await web.getByRole("button", { name: "Entfernen" }).click();
@@ -291,4 +291,45 @@ test("9. repeated mutations after network errors never duplicate", async () => {
   ]);
   expect((await sql`select count(*)::int as n from messages where id = ${messageId}`)[0].n).toBe(1);
   await expect(web.getByText("Einmal", { exact: true })).toHaveCount(1, { timeout: 15_000 });
+});
+
+test("10. @mentions: iOS markup shows on the web, web mentions notify the iOS user", async () => {
+  // iOS sends the stored format (<@id>); old builds still get a readable body.
+  const sent = await ios("ben", "PUT", `/conversations/${generalId}/messages/${randomUUID()}`, {
+    body: `Hallo <@${ids.anna}>, vom iPhone`,
+  });
+  expect(sent.status).toBe(200);
+  expect(sent.body.body).toBe("Hallo @Anna Admin, vom iPhone");
+  expect(sent.body.markup).toBe(`Hallo <@${ids.anna}>, vom iPhone`);
+  expect(sent.body.mentionIds).toEqual([ids.anna]);
+
+  await web.goto(`/chat/${generalId}`);
+  const fromIos = messageList(web).getByRole("listitem").filter({ hasText: "vom iPhone" }).last();
+  await expect(fromIos.locator("[data-mention]")).toHaveText("@Anna Admin");
+
+  // Web mention → in-app notification for the iOS user via /me/notifications.
+  await composer(web).pressSequentially("Danke @be");
+  await web.getByRole("option", { name: /Ben Bauer/ }).click();
+  await composer(web).press("Enter");
+  await expect(web.getByText("Wird gesendet …")).toHaveCount(0);
+  const inbox = await ios("ben", "GET", "/me/notifications");
+  expect(inbox.status).toBe(200);
+  expect(inbox.body.unreadCount).toBe(1);
+  expect(inbox.body.notifications[0]).toMatchObject({
+    kind: "mention",
+    conversationId: generalId,
+    conversationTitle: "Allgemein",
+    actor: { userId: ids.anna },
+    preview: "Danke @Ben Bauer",
+    readAt: null,
+  });
+  const read = await ios("ben", "POST", "/me/notifications/read", {});
+  expect(read.body).toEqual({ unreadCount: 0 });
+
+  // A forged mention of someone from another workspace is rejected for both clients.
+  const forged = await ios("ben", "PUT", `/conversations/${generalId}/messages/${randomUUID()}`, {
+    body: `<@${ids.dora}>`,
+  });
+  expect(forged.status).toBe(422);
+  expect(forged.body.error.code).toBe("VALIDATION");
 });

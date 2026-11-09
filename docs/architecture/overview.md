@@ -28,7 +28,7 @@
 - **Lesen und Schreiben:** immer über die Services. Web nutzt Server Actions, iOS `/api/v1`. Beide Adapter bauen den `AuthContext` gleich: Sie verifizieren das JWT (Cookie bzw. Bearer) und schlagen bei **jeder** Anfrage die aktive Mitgliedschaft frisch nach. IDs aus Requests sind kein Berechtigungsnachweis; fremde IDs verhalten sich wie nicht vorhandene.
 - **Realtime:** Clients abonnieren `postgres_changes` mit dem Benutzer-JWT. Was ankommt, entscheiden die RLS-SELECT-Policies (entfernte Mitglieder bekommen nichts). Realtime ist ein Änderungssignal: Nach Reconnect, Vordergrund oder `online` lädt der Client über die API nach.
 - **Dateien:** `reserveUpload` (Typ, Größe, Budget unter Workspace-Sperre) → Upload direkt in Supabase Storage per signierter URL → `finalizeUpload` (Größe + Dateisignatur) → `sendMessage`. Downloads über 60-s-Links nach erneuter Prüfung.
-- **Idempotenz:** Erstellungen akzeptieren eine Client-ID (`tasks`, `projects`, Gruppen, Kanäle). Nachrichten werden mit Client-ID per `PUT` gesendet. Updates nutzen Versionsprüfung, Löschungen werten 404 bei einer Wiederholung als „erledigt“.
+- **Idempotenz:** Erstellungen akzeptieren eine Client-ID (`tasks`, `projects`, Kanäle). Nachrichten werden mit Client-ID per `PUT` gesendet. Updates nutzen Versionsprüfung, Löschungen werten 404 bei einer Wiederholung als „erledigt“.
 
 ## Wo Regeln leben
 

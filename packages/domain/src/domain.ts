@@ -4,7 +4,7 @@ import type { MemberRole, TaskStatus } from "./constants";
 
 export { CONVERSATION_KINDS, MEMBER_ROLES, TASK_STATUSES } from "./constants";
 export type { ConversationKind, MemberRole, TaskStatus } from "./constants";
-export type { GroupDTO, InvitationDTO, MemberDTO, ProjectDTO, TaskDTO } from "./dto";
+export type { GroupDTO, InvitationDTO, IssueRefDTO, MemberDTO, MilestoneDTO, ProjectDTO, TaskDTO } from "./dto";
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
   open: "Offen",

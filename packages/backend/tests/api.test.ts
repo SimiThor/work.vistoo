@@ -244,11 +244,70 @@ describe("tasks", () => {
     expect((await call("DELETE", `/tasks/${a.id}`, { token: anna.token })).status).toBe(404);
   });
 
+  it("ticks a markdown checklist item; unknown items conflict with current", async () => {
+    const t = (
+      await call("POST", "/tasks", {
+        token: anna.token,
+        body: { projectId, title: "Liste", description: "- [ ] Eins\n- [ ] Zwei" },
+      })
+    ).body;
+    const res = await call("PUT", `/tasks/${t.id}/checklist`, {
+      token: anna.token,
+      body: { index: 1, checked: true, text: "Zwei" },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.description).toBe("- [ ] Eins\n- [x] Zwei");
+    expect(res.body.status).toBe("open");
+    const gone = await call("PUT", `/tasks/${t.id}/checklist`, {
+      token: anna.token,
+      body: { index: 5, checked: true, text: "Drei" },
+    });
+    expect(gone.status).toBe(409);
+    expect(gone.body.error.code).toBe("CONFLICT");
+    expect(gone.body.error.current.description).toBe("- [ ] Eins\n- [x] Zwei");
+  });
+
   it("archived projects are read-only", async () => {
     await call("PUT", `/projects/${projectId}/archived`, { token: anna.token, body: { archived: true } });
     const res = await call("POST", "/tasks", { token: anna.token, body: { projectId, title: "Zu spät" } });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("ARCHIVED");
+  });
+});
+
+describe("task links", () => {
+  it("attach, list, edit and remove links; idempotent create; only http(s)", async () => {
+    const task = (await call("POST", "/tasks", { token: anna.token, body: { projectId, title: "Pitch" } })).body;
+    const id = randomUUID();
+    const created = await call("POST", `/tasks/${task.id}/links`, {
+      token: anna.token,
+      body: { id, url: "drive.google.com/file/d/1", title: "Deck" },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ id, taskId: task.id, url: "https://drive.google.com/file/d/1", title: "Deck" });
+    const retry = await call("POST", `/tasks/${task.id}/links`, { token: anna.token, body: { id, url: "drive.google.com/file/d/1" } });
+    expect(retry.body.id).toBe(id);
+
+    const bad = await call("POST", `/tasks/${task.id}/links`, { token: anna.token, body: { url: "javascript:alert(1)" } });
+    expect(bad.status).toBe(422);
+
+    const list = await call("GET", `/tasks/${task.id}/links`, { token: admin.token });
+    expect(list.body.links.map((l: { id: string }) => l.id)).toEqual([id]);
+
+    const edited = await call("PATCH", `/task-links/${id}`, { token: admin.token, body: { url: "https://figma.com/x", title: null } });
+    expect(edited.body).toMatchObject({ url: "https://figma.com/x", title: null });
+
+    expect((await call("DELETE", `/task-links/${id}`, { token: anna.token })).status).toBe(204);
+    expect((await call("DELETE", `/task-links/${id}`, { token: anna.token })).status).toBe(404);
+  });
+
+  it("meeting link: admins set it, everyone sees it in the bootstrap", async () => {
+    const body = { meetingUrl: "https://discord.com/channels/1/2" };
+    expect((await call("PUT", "/workspace/meeting-url", { token: anna.token, body })).status).toBe(403);
+    const set = await call("PUT", "/workspace/meeting-url", { token: admin.token, body });
+    expect(set.body).toEqual(body);
+    const boot = await call("GET", "/bootstrap", { token: anna.token });
+    expect(boot.body.viewer.meetingUrl).toBe(body.meetingUrl);
   });
 });
 

@@ -16,11 +16,13 @@ Packages/VistooKit/                 Swift-Paket (iOS 18, Swift 6, strikte Concur
     Support/                        CalendarDate, ISO8601, Dateien, Netzwerkstatus, Konfiguration
   Sources/VistooUI/
     Generated/DesignTokens.swift    ← npm run generate. NICHT editieren.
-    App/ Auth/ Tasks/ Projects/ Chat/ Team/ Settings/ Components/
+    App/ Home/ Auth/ Tasks/ Projects/ Chat/ Team/ Settings/ Components/
+                                    Home = Start-Tab „Für mich“; Tasks/TaskActions = Swipe/Kontextmenü für alle Aufgabenlisten
   Tests/VistooCoreTests/            Unit-Tests (u. a. gemeinsame Fixtures aus packages/contracts/fixtures)
 VistooWork/                         App-Target: @main + AppDelegate (nur APNs-Token), Info.plist, Entitlements (Push, Associated Domains), Assets, Privacy Manifest
 VistooWorkUITests/                  UI-Smoke-Tests
 project.yml                         XcodeGen-Spezifikation (das .xcodeproj wird erzeugt, nicht eingecheckt)
+scripts/ci/                         TestFlight-Pipeline (Signing, Archiv, Upload, Testgruppen), siehe docs/setup/ios-testflight.md
 Config/*.xcconfig                   Server-URL je Build-Konfiguration; *.local.xcconfig sind git-ignoriert
 ```
 
@@ -28,7 +30,7 @@ Config/*.xcconfig                   Server-URL je Build-Konfiguration; *.local.x
 
 - **Keine Fachregeln in Swift.** Berechtigungen, Invarianten und Datenregeln setzt der Server durch. Lokal sind nur schnelle Vorprüfungen erlaubt; die Werte kommen aus generierten Konstanten bzw. `Bootstrap.limits`. UI-Sichtbarkeit (z. B. Admin-Aktionen ausblenden) ist eine Darstellungsfrage, keine Sicherheitsmaßnahme.
 - **Nur über `/api/v1` und Supabase Auth/Realtime.** Kein PostgREST-Schreibzugriff, keine Service-Role-Schlüssel, keine direkte Datenbankverbindung, keine Migrationen.
-- **Modelle nicht von Hand schreiben.** Fehlt ein Feld, wird es in `packages/domain`/`packages/contracts` ergänzt und mit `npm run generate` erzeugt. Swift-Namen: `Task` → `TaskItem`, `Group` → `ProjectGroup` (Kollision mit `Swift.Task`/`SwiftUI.Group`).
+- **Modelle nicht von Hand schreiben.** Fehlt ein Feld, wird es in `packages/domain`/`packages/contracts` ergänzt und mit `npm run generate` erzeugt. Swift-Namen: `Task` → `TaskItem`, `Group` → `ProjectGroup` (Kollision mit `Swift.Task`/`SwiftUI.Group`; `ProjectGroup` gibt es nur noch für das stets leere, veraltete Feld `Project.groups`).
 - **Offene Enums:** Immer `.unknown` behandeln (neuere Server).
 - **Mutationen:** Erstellungen mit Client-ID (`newClientId()`), damit Wiederholungen keine Dubletten erzeugen. Nie Erfolg anzeigen, bevor der Server bestätigt hat. Entwürfe bei Fehlern behalten.
 - **Sicherheit:** Tokens nur im Keychain (supabase-swift `KeychainLocalStorage`), nie in UserDefaults oder Logs. Beim Abmelden bzw. Accountwechsel räumt `AppModel.tearDownSession` Session-Modelle, Realtime-Kanäle und heruntergeladene Dateien ab.

@@ -6,14 +6,16 @@ import type {
   createTaskSchema,
   moveTaskSchema,
   setAssigneeSchema,
+  setChecklistItemSchema,
   setStatusSchema,
   updateTaskSchema,
 } from "@vistoo/domain/validation";
+import { setChecklistItem } from "@vistoo/domain/markdown";
 import type { AuthContext } from "../auth";
 import { getDb, type DbOrTx, type Tx } from "../db";
 import { projects, tasks, type Task } from "@vistoo/database/schema";
 import { AppError, invalid, notFound } from "../errors";
-import { assertActiveMember, assertGroupInProject, getWritableProject } from "./guards";
+import { assertActiveMember, assertMilestoneInWorkspace, getWritableProject } from "./guards";
 import { notifyAssignment } from "./notifications";
 
 const POSITION_STEP = 1024;
@@ -23,7 +25,9 @@ export function toTaskDTO(t: Task): TaskDTO {
   return {
     id: t.id,
     projectId: t.projectId,
-    groupId: t.groupId,
+    groupId: null, // groups were removed; kept in API v1 for older app builds
+    milestoneId: t.milestoneId,
+    number: t.number,
     title: t.title,
     description: t.description,
     status: t.status,
@@ -40,8 +44,14 @@ export function toTaskDTO(t: Task): TaskDTO {
 
 const columnOrder = [asc(tasks.position), asc(tasks.createdAt), asc(tasks.id)];
 
-/** Tasks of all non-archived projects, or of one project (archived allowed, read-only). */
-export async function listTasks(ctx: AuthContext, opts: { projectId?: string } = {}): Promise<TaskDTO[]> {
+/**
+ * Tasks of all non-archived projects, or of one project (archived allowed,
+ * read-only), or of one milestone (non-archived projects only).
+ */
+export async function listTasks(
+  ctx: AuthContext,
+  opts: { projectId?: string; milestoneId?: string } = {},
+): Promise<TaskDTO[]> {
   const db = getDb();
   const rows = await db
     .select({ task: tasks })
@@ -51,6 +61,7 @@ export async function listTasks(ctx: AuthContext, opts: { projectId?: string } =
       and(
         eq(tasks.workspaceId, ctx.workspaceId),
         opts.projectId ? eq(tasks.projectId, opts.projectId) : isNull(projects.archivedAt),
+        opts.milestoneId ? eq(tasks.milestoneId, opts.milestoneId) : undefined,
       ),
     )
     .orderBy(...columnOrder);
@@ -100,33 +111,43 @@ export async function createTask(ctx: AuthContext, input: z.output<typeof create
   const task = await getDb().transaction(async (tx) => {
     const existing = await existingOwnTask(tx, ctx, input.id);
     if (existing) return toTaskDTO(existing);
-    await getWritableProject(tx, ctx, input.projectId);
-    if (input.groupId) await assertGroupInProject(tx, ctx, input.groupId, input.projectId);
-    if (input.assigneeId) await assertActiveMember(tx, ctx, input.assigneeId);
-    const position = await endOfColumn(tx, ctx, input.status);
-    const [row] = await tx
-      .insert(tasks)
-      .values({
-        ...(input.id ? { id: input.id } : {}),
-        workspaceId: ctx.workspaceId,
-        projectId: input.projectId,
-        groupId: input.groupId,
-        title: input.title,
-        description: input.description,
-        status: input.status,
-        assigneeId: input.assigneeId,
-        startDate: input.startDate,
-        endDate: input.endDate,
-        position,
-        createdBy: ctx.userId,
-        updatedBy: ctx.userId,
-      })
-      .returning();
+    const row = await insertTask(tx, ctx, input);
     created = true;
     return toTaskDTO(row);
   });
   if (created && task.assigneeId) notifyAssignment(ctx, task);
   return task;
+}
+
+/**
+ * The one way to insert a task (checks project, milestone, assignee; appends to
+ * the status column). Runs inside the caller's transaction, e.g. when an
+ * idea becomes an issue.
+ */
+export async function insertTask(tx: Tx, ctx: AuthContext, input: z.output<typeof createTaskSchema>): Promise<Task> {
+  await getWritableProject(tx, ctx, input.projectId);
+  if (input.milestoneId) await assertMilestoneInWorkspace(tx, ctx, input.milestoneId);
+  if (input.assigneeId) await assertActiveMember(tx, ctx, input.assigneeId);
+  const position = await endOfColumn(tx, ctx, input.status);
+  const [row] = await tx
+    .insert(tasks)
+    .values({
+      ...(input.id ? { id: input.id } : {}),
+      workspaceId: ctx.workspaceId,
+      projectId: input.projectId,
+      milestoneId: input.milestoneId,
+      title: input.title,
+      description: input.description,
+      status: input.status,
+      assigneeId: input.assigneeId,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      position,
+      createdBy: ctx.userId,
+      updatedBy: ctx.userId,
+    })
+    .returning();
+  return row;
 }
 
 /**
@@ -150,7 +171,7 @@ export async function updateTask(ctx: AuthContext, input: z.output<typeof update
 
     const next = {
       projectId: patch.projectId ?? current.projectId,
-      groupId: patch.groupId !== undefined ? patch.groupId : current.groupId,
+      milestoneId: patch.milestoneId !== undefined ? patch.milestoneId : current.milestoneId,
       assigneeId: patch.assigneeId !== undefined ? patch.assigneeId : current.assigneeId,
       startDate: patch.startDate !== undefined ? patch.startDate : current.startDate,
       endDate: patch.endDate !== undefined ? patch.endDate : current.endDate,
@@ -159,11 +180,9 @@ export async function updateTask(ctx: AuthContext, input: z.output<typeof update
 
     if (next.projectId !== current.projectId) {
       await getWritableProject(tx, ctx, next.projectId);
-      // A group inherited from the old project is no longer valid: reset it.
-      if (patch.groupId === undefined) next.groupId = null;
     }
-    if (next.groupId && (next.groupId !== current.groupId || next.projectId !== current.projectId)) {
-      await assertGroupInProject(tx, ctx, next.groupId, next.projectId);
+    if (next.milestoneId && next.milestoneId !== current.milestoneId) {
+      await assertMilestoneInWorkspace(tx, ctx, next.milestoneId);
     }
     if (next.assigneeId && next.assigneeId !== current.assigneeId) {
       await assertActiveMember(tx, ctx, next.assigneeId);
@@ -208,6 +227,43 @@ export async function setTaskStatus(ctx: AuthContext, input: z.output<typeof set
       .set({
         status: input.status,
         position,
+        version: sql`${tasks.version} + 1`,
+        updatedAt: new Date(),
+        updatedBy: ctx.userId,
+      })
+      .where(eq(tasks.id, current.id))
+      .returning();
+    return toTaskDTO(row);
+  });
+}
+
+/**
+ * Quick action: tick or untick one checklist item (`- [ ]` ↔ `- [x]`) in the
+ * description, straight from the rendered view. Applied to the *current*
+ * description under a row lock, so concurrent edits elsewhere in the task or
+ * the text are never overwritten; no `expectedVersion` needed. Only the one
+ * character in the brackets changes. If the item can no longer be identified
+ * (removed or reworded meanwhile), the caller gets CONFLICT with `current`.
+ * Independent of the task status.
+ */
+export async function setTaskChecklistItem(
+  ctx: AuthContext,
+  input: z.output<typeof setChecklistItemSchema>,
+): Promise<TaskDTO> {
+  return getDb().transaction(async (tx) => {
+    const current = await lockTask(tx, ctx, input.id);
+    await getWritableProject(tx, ctx, current.projectId);
+    const description = setChecklistItem(current.description, input.index, input.checked, input.text);
+    if (description === null) {
+      throw new AppError("CONFLICT", "Dieser Punkt der Checkliste wurde inzwischen geändert.", {
+        current: toTaskDTO(current),
+      });
+    }
+    if (description === current.description) return toTaskDTO(current);
+    const [row] = await tx
+      .update(tasks)
+      .set({
+        description,
         version: sql`${tasks.version} + 1`,
         updatedAt: new Date(),
         updatedBy: ctx.userId,

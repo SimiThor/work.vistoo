@@ -3,7 +3,15 @@
 import { refresh } from "next/cache";
 import { runAction } from "@/server/action";
 import * as team from "@vistoo/backend/services/team";
-import { changeRoleSchema, idSchema, inviteSchema, profileNameSchema, userIdSchema } from "@vistoo/domain/validation";
+import { updateMeetingUrl } from "@vistoo/backend/services/workspace";
+import {
+  changeRoleSchema,
+  idSchema,
+  inviteSchema,
+  meetingUrlSchema,
+  profileNameSchema,
+  userIdSchema,
+} from "@vistoo/domain/validation";
 
 async function withRefresh<T extends { ok: boolean }>(p: Promise<T>): Promise<T> {
   const result = await p;
@@ -41,4 +49,9 @@ export async function removeMemberAction(input: unknown) {
 
 export async function updateOwnNameAction(input: unknown) {
   return withRefresh(runAction(profileNameSchema, input, (ctx, data) => team.updateOwnName(ctx, data)));
+}
+
+/** Admin: Discord voice channel behind "Besprechung beitreten" (null removes it). */
+export async function updateMeetingUrlAction(input: unknown) {
+  return withRefresh(runAction(meetingUrlSchema, input, (ctx, data) => updateMeetingUrl(ctx, data), { admin: true }));
 }

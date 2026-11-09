@@ -13,6 +13,8 @@ export const CHAT_LIMITS = {
   warnRatio: 0.8,
   channelNameMax: 80,
   channelDescriptionMax: 500,
+  /** Distinct people mentioned in one message. */
+  maxMentionsPerMessage: 20,
 } as const;
 
 export type AllowedFileType = {

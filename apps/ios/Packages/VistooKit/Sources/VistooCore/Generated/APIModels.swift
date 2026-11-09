@@ -311,26 +311,35 @@ public struct CreateChannelRequest: Encodable, Sendable {
     }
 }
 
-public struct CreateGroupRequest: Encodable, Sendable {
-    public var id: String?
+public struct CreateMilestoneRequest: Encodable, Sendable {
     public var name: String
-    public static let nameMaxLength = 80
+    public var description: String?
+    public var dueDate: Patchable<CalendarDate>
+    public var id: String?
+    public static let nameMaxLength = 120
     public static let nameMinLength = 1
+    public static let descriptionMaxLength = 500
 
-    public init(id: String? = nil, name: String) {
-        self.id = id
+    public init(name: String, description: String? = nil, dueDate: Patchable<CalendarDate> = .unset, id: String? = nil) {
         self.name = name
+        self.description = description
+        self.dueDate = dueDate
+        self.id = id
     }
 
     enum CodingKeys: String, CodingKey {
-        case id
         case name
+        case description
+        case dueDate
+        case id
     }
 
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encodeIfPresent(id, forKey: .id)
         try c.encode(name, forKey: .name)
+        try c.encodeIfPresent(description, forKey: .description)
+        try dueDate.encode(into: &c, forKey: .dueDate)
+        try c.encodeIfPresent(id, forKey: .id)
     }
 }
 
@@ -366,13 +375,41 @@ public struct CreateProjectRequest: Encodable, Sendable {
     }
 }
 
+public struct CreateTaskLinkRequest: Encodable, Sendable {
+    public var id: String?
+    public var url: String
+    public var title: Patchable<String>
+    public static let urlMaxLength = 2048
+    public static let urlMinLength = 1
+    public static let titleMaxLength = 200
+
+    public init(id: String? = nil, url: String, title: Patchable<String> = .unset) {
+        self.id = id
+        self.url = url
+        self.title = title
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case url
+        case title
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(id, forKey: .id)
+        try c.encode(url, forKey: .url)
+        try title.encode(into: &c, forKey: .title)
+    }
+}
+
 public struct CreateTaskRequest: Encodable, Sendable {
     public var id: String?
     public var projectId: String
     public var title: String
     public var description: String?
     public var status: TaskStatus?
-    public var groupId: Patchable<String>
+    public var milestoneId: Patchable<String>
     public var assigneeId: Patchable<String>
     public var startDate: Patchable<CalendarDate>
     public var endDate: Patchable<CalendarDate>
@@ -380,13 +417,13 @@ public struct CreateTaskRequest: Encodable, Sendable {
     public static let titleMinLength = 1
     public static let descriptionMaxLength = 20000
 
-    public init(id: String? = nil, projectId: String, title: String, description: String? = nil, status: TaskStatus? = nil, groupId: Patchable<String> = .unset, assigneeId: Patchable<String> = .unset, startDate: Patchable<CalendarDate> = .unset, endDate: Patchable<CalendarDate> = .unset) {
+    public init(id: String? = nil, projectId: String, title: String, description: String? = nil, status: TaskStatus? = nil, milestoneId: Patchable<String> = .unset, assigneeId: Patchable<String> = .unset, startDate: Patchable<CalendarDate> = .unset, endDate: Patchable<CalendarDate> = .unset) {
         self.id = id
         self.projectId = projectId
         self.title = title
         self.description = description
         self.status = status
-        self.groupId = groupId
+        self.milestoneId = milestoneId
         self.assigneeId = assigneeId
         self.startDate = startDate
         self.endDate = endDate
@@ -398,7 +435,7 @@ public struct CreateTaskRequest: Encodable, Sendable {
         case title
         case description
         case status
-        case groupId
+        case milestoneId
         case assigneeId
         case startDate
         case endDate
@@ -411,14 +448,14 @@ public struct CreateTaskRequest: Encodable, Sendable {
         try c.encode(title, forKey: .title)
         try c.encodeIfPresent(description, forKey: .description)
         try c.encodeIfPresent(status, forKey: .status)
-        try groupId.encode(into: &c, forKey: .groupId)
+        try milestoneId.encode(into: &c, forKey: .milestoneId)
         try assigneeId.encode(into: &c, forKey: .assigneeId)
         try startDate.encode(into: &c, forKey: .startDate)
         try endDate.encode(into: &c, forKey: .endDate)
     }
 }
 
-public struct DeleteGroupResponse: Codable, Hashable, Sendable {
+public struct DeleteMilestoneResponse: Codable, Hashable, Sendable {
     public var id: String
     public var detachedTasks: Int
 
@@ -601,6 +638,30 @@ public struct InviteRequest: Encodable, Sendable {
     }
 }
 
+public struct IssueRef: Codable, Hashable, Sendable {
+    public var id: String
+    public var number: Int
+    public var title: String
+    public var status: TaskStatus
+    public var projectId: String
+
+    public init(id: String, number: Int, title: String, status: TaskStatus, projectId: String) {
+        self.id = id
+        self.number = number
+        self.title = title
+        self.status = status
+        self.projectId = projectId
+    }
+}
+
+public struct IssueRefList: Codable, Hashable, Sendable {
+    public var issues: [IssueRef]
+
+    public init(issues: [IssueRef]) {
+        self.issues = issues
+    }
+}
+
 public struct Limits: Codable, Hashable, Sendable {
     public var maxMessageLength: Int
     public var messagePageSize: Int
@@ -653,6 +714,23 @@ public struct LoginCodeResponse: Codable, Hashable, Sendable {
 
     public init(email: String) {
         self.email = email
+    }
+}
+
+public struct MarkNotificationsReadRequest: Encodable, Sendable {
+    public var ids: [String]?
+
+    public init(ids: [String]? = nil) {
+        self.ids = ids
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case ids
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(ids, forKey: .ids)
     }
 }
 
@@ -745,6 +823,14 @@ public struct Me: Codable, Hashable, Sendable {
     }
 }
 
+public struct MeetingUrl: Codable, Hashable, Sendable {
+    public var meetingUrl: String?
+
+    public init(meetingUrl: String? = nil) {
+        self.meetingUrl = meetingUrl
+    }
+}
+
 public struct Member: Codable, Hashable, Sendable {
     public var userId: String
     public var email: String
@@ -805,8 +891,11 @@ public struct Message: Codable, Hashable, Sendable {
     public var editedAt: Date?
     public var deleted: Bool
     public var attachments: [Attachment]
+    public var markup: String
+    public var mentionIds: [String]
+    public var issueRefs: [IssueRef]
 
-    public init(id: String, seq: Int, conversationId: String, authorId: String, body: String, createdAt: Date, editedAt: Date? = nil, deleted: Bool, attachments: [Attachment]) {
+    public init(id: String, seq: Int, conversationId: String, authorId: String, body: String, createdAt: Date, editedAt: Date? = nil, deleted: Bool, attachments: [Attachment], markup: String, mentionIds: [String], issueRefs: [IssueRef]) {
         self.id = id
         self.seq = seq
         self.conversationId = conversationId
@@ -816,6 +905,9 @@ public struct Message: Codable, Hashable, Sendable {
         self.editedAt = editedAt
         self.deleted = deleted
         self.attachments = attachments
+        self.markup = markup
+        self.mentionIds = mentionIds
+        self.issueRefs = issueRefs
     }
 }
 
@@ -860,6 +952,36 @@ public struct Meta: Codable, Hashable, Sendable {
     }
 }
 
+public struct Milestone: Codable, Hashable, Sendable {
+    public var id: String
+    public var name: String
+    public var description: String
+    public var dueDate: CalendarDate?
+    public var completed: Bool
+    public var total: Int
+    public var done: Int
+    public var createdAt: Date
+
+    public init(id: String, name: String, description: String, dueDate: CalendarDate? = nil, completed: Bool, total: Int, done: Int, createdAt: Date) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.dueDate = dueDate
+        self.completed = completed
+        self.total = total
+        self.done = done
+        self.createdAt = createdAt
+    }
+}
+
+public struct MilestoneList: Codable, Hashable, Sendable {
+    public var milestones: [Milestone]
+
+    public init(milestones: [Milestone]) {
+        self.milestones = milestones
+    }
+}
+
 public struct MoveTaskRequest: Encodable, Sendable {
     public var status: TaskStatus
     public var afterId: String?
@@ -885,6 +1007,73 @@ public struct MoveTaskRequest: Encodable, Sendable {
     }
 }
 
+public struct Notification: Codable, Hashable, Sendable {
+    public var id: String
+    public var kind: NotificationKind
+    public var actor: ChatPerson?
+    public var conversationId: String
+    public var conversationTitle: String
+    public var conversationKind: ConversationKind
+    public var messageId: String
+    public var preview: String
+    public var createdAt: Date
+    public var readAt: Date?
+
+    public init(id: String, kind: NotificationKind, actor: ChatPerson? = nil, conversationId: String, conversationTitle: String, conversationKind: ConversationKind, messageId: String, preview: String, createdAt: Date, readAt: Date? = nil) {
+        self.id = id
+        self.kind = kind
+        self.actor = actor
+        self.conversationId = conversationId
+        self.conversationTitle = conversationTitle
+        self.conversationKind = conversationKind
+        self.messageId = messageId
+        self.preview = preview
+        self.createdAt = createdAt
+        self.readAt = readAt
+    }
+}
+
+/// Open enum: values added by a newer server decode to `.unknown`.
+public enum NotificationKind: Codable, Hashable, Sendable {
+    case mention
+    case unknown(String)
+
+    public static let knownCases: [NotificationKind] = [.mention]
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "mention": self = .mention
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .mention: return "mention"
+        case .unknown(let raw): return raw
+        }
+    }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
+public struct NotificationPage: Codable, Hashable, Sendable {
+    public var notifications: [Notification]
+    public var unreadCount: Int
+
+    public init(notifications: [Notification], unreadCount: Int) {
+        self.notifications = notifications
+        self.unreadCount = unreadCount
+    }
+}
+
 public struct NotificationSettings: Codable, Hashable, Sendable {
     public var directMessages: Bool
     public var channelMessages: Bool
@@ -894,6 +1083,14 @@ public struct NotificationSettings: Codable, Hashable, Sendable {
         self.directMessages = directMessages
         self.channelMessages = channelMessages
         self.taskAssignments = taskAssignments
+    }
+}
+
+public struct NotificationUnreadCount: Codable, Hashable, Sendable {
+    public var unreadCount: Int
+
+    public init(unreadCount: Int) {
+        self.unreadCount = unreadCount
     }
 }
 
@@ -1141,25 +1338,6 @@ public struct RemoveMemberResponse: Codable, Hashable, Sendable {
     }
 }
 
-public struct RenameGroupRequest: Encodable, Sendable {
-    public var name: String
-    public static let nameMaxLength = 80
-    public static let nameMinLength = 1
-
-    public init(name: String) {
-        self.name = name
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case name
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(name, forKey: .name)
-    }
-}
-
 public struct ReserveUploadRequest: Encodable, Sendable {
     public var fileName: String
     public var sizeBytes: Int
@@ -1222,6 +1400,23 @@ public struct SetArchivedRequest: Encodable, Sendable {
     }
 }
 
+public struct SetCompletedRequest: Encodable, Sendable {
+    public var completed: Bool
+
+    public init(completed: Bool) {
+        self.completed = completed
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case completed
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(completed, forKey: .completed)
+    }
+}
+
 public struct SetTaskAssigneeRequest: Encodable, Sendable {
     public var assigneeId: String?
 
@@ -1236,6 +1431,32 @@ public struct SetTaskAssigneeRequest: Encodable, Sendable {
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(assigneeId, forKey: .assigneeId)
+    }
+}
+
+public struct SetTaskChecklistItemRequest: Encodable, Sendable {
+    public var index: Int
+    public var checked: Bool
+    public var text: String
+    public static let textMaxLength = 20000
+
+    public init(index: Int, checked: Bool, text: String) {
+        self.index = index
+        self.checked = checked
+        self.text = text
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case index
+        case checked
+        case text
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(index, forKey: .index)
+        try c.encode(checked, forKey: .checked)
+        try c.encode(text, forKey: .text)
     }
 }
 
@@ -1261,6 +1482,8 @@ public struct TaskItem: Codable, Hashable, Sendable {
     public var id: String
     public var projectId: String
     public var groupId: String?
+    public var milestoneId: String?
+    public var number: Int
     public var title: String
     public var description: String
     public var status: TaskStatus
@@ -1273,10 +1496,12 @@ public struct TaskItem: Codable, Hashable, Sendable {
     public var updatedAt: Date
     public var version: Int
 
-    public init(id: String, projectId: String, groupId: String? = nil, title: String, description: String, status: TaskStatus, assigneeId: String? = nil, startDate: CalendarDate? = nil, endDate: CalendarDate? = nil, position: Double, createdBy: String, createdAt: Date, updatedAt: Date, version: Int) {
+    public init(id: String, projectId: String, groupId: String? = nil, milestoneId: String? = nil, number: Int, title: String, description: String, status: TaskStatus, assigneeId: String? = nil, startDate: CalendarDate? = nil, endDate: CalendarDate? = nil, position: Double, createdBy: String, createdAt: Date, updatedAt: Date, version: Int) {
         self.id = id
         self.projectId = projectId
         self.groupId = groupId
+        self.milestoneId = milestoneId
+        self.number = number
         self.title = title
         self.description = description
         self.status = status
@@ -1288,6 +1513,34 @@ public struct TaskItem: Codable, Hashable, Sendable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.version = version
+    }
+}
+
+public struct TaskLink: Codable, Hashable, Sendable {
+    public var id: String
+    public var taskId: String
+    public var url: String
+    public var title: String?
+    public var createdBy: String
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(id: String, taskId: String, url: String, title: String? = nil, createdBy: String, createdAt: Date, updatedAt: Date) {
+        self.id = id
+        self.taskId = taskId
+        self.url = url
+        self.title = title
+        self.createdBy = createdBy
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct TaskLinkList: Codable, Hashable, Sendable {
+    public var links: [TaskLink]
+
+    public init(links: [TaskLink]) {
+        self.links = links
     }
 }
 
@@ -1373,6 +1626,53 @@ public struct UpdateChannelRequest: Encodable, Sendable {
     }
 }
 
+public struct UpdateMeetingUrlRequest: Encodable, Sendable {
+    public var meetingUrl: String?
+    public static let meetingUrlMaxLength = 2048
+    public static let meetingUrlMinLength = 1
+
+    public init(meetingUrl: String? = nil) {
+        self.meetingUrl = meetingUrl
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case meetingUrl
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(meetingUrl, forKey: .meetingUrl)
+    }
+}
+
+public struct UpdateMilestoneRequest: Encodable, Sendable {
+    public var name: String
+    public var description: String?
+    public var dueDate: Patchable<CalendarDate>
+    public static let nameMaxLength = 120
+    public static let nameMinLength = 1
+    public static let descriptionMaxLength = 500
+
+    public init(name: String, description: String? = nil, dueDate: Patchable<CalendarDate> = .unset) {
+        self.name = name
+        self.description = description
+        self.dueDate = dueDate
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case description
+        case dueDate
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encodeIfPresent(description, forKey: .description)
+        try dueDate.encode(into: &c, forKey: .dueDate)
+    }
+}
+
 public struct UpdateNotificationSettingsRequest: Encodable, Sendable {
     public var directMessages: Bool?
     public var channelMessages: Bool?
@@ -1445,6 +1745,30 @@ public struct UpdateProjectRequest: Encodable, Sendable {
     }
 }
 
+public struct UpdateTaskLinkRequest: Encodable, Sendable {
+    public var url: String
+    public var title: Patchable<String>
+    public static let urlMaxLength = 2048
+    public static let urlMinLength = 1
+    public static let titleMaxLength = 200
+
+    public init(url: String, title: Patchable<String> = .unset) {
+        self.url = url
+        self.title = title
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case url
+        case title
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(url, forKey: .url)
+        try title.encode(into: &c, forKey: .title)
+    }
+}
+
 public struct UpdateTaskRequest: Encodable, Sendable {
     public var expectedVersion: Int
     public var patch: Patch
@@ -1470,7 +1794,7 @@ public struct UpdateTaskRequest: Encodable, Sendable {
         public var title: String?
         public var description: String?
         public var status: TaskStatus?
-        public var groupId: Patchable<String>
+        public var milestoneId: Patchable<String>
         public var assigneeId: Patchable<String>
         public var startDate: Patchable<CalendarDate>
         public var endDate: Patchable<CalendarDate>
@@ -1478,12 +1802,12 @@ public struct UpdateTaskRequest: Encodable, Sendable {
         public static let titleMinLength = 1
         public static let descriptionMaxLength = 20000
 
-        public init(projectId: String? = nil, title: String? = nil, description: String? = nil, status: TaskStatus? = nil, groupId: Patchable<String> = .unset, assigneeId: Patchable<String> = .unset, startDate: Patchable<CalendarDate> = .unset, endDate: Patchable<CalendarDate> = .unset) {
+        public init(projectId: String? = nil, title: String? = nil, description: String? = nil, status: TaskStatus? = nil, milestoneId: Patchable<String> = .unset, assigneeId: Patchable<String> = .unset, startDate: Patchable<CalendarDate> = .unset, endDate: Patchable<CalendarDate> = .unset) {
             self.projectId = projectId
             self.title = title
             self.description = description
             self.status = status
-            self.groupId = groupId
+            self.milestoneId = milestoneId
             self.assigneeId = assigneeId
             self.startDate = startDate
             self.endDate = endDate
@@ -1494,7 +1818,7 @@ public struct UpdateTaskRequest: Encodable, Sendable {
             case title
             case description
             case status
-            case groupId
+            case milestoneId
             case assigneeId
             case startDate
             case endDate
@@ -1506,7 +1830,7 @@ public struct UpdateTaskRequest: Encodable, Sendable {
             try c.encodeIfPresent(title, forKey: .title)
             try c.encodeIfPresent(description, forKey: .description)
             try c.encodeIfPresent(status, forKey: .status)
-            try groupId.encode(into: &c, forKey: .groupId)
+            try milestoneId.encode(into: &c, forKey: .milestoneId)
             try assigneeId.encode(into: &c, forKey: .assigneeId)
             try startDate.encode(into: &c, forKey: .startDate)
             try endDate.encode(into: &c, forKey: .endDate)
@@ -1533,13 +1857,16 @@ public struct Viewer: Codable, Hashable, Sendable {
     public var role: MemberRole
     public var workspaceId: String
     public var workspaceName: String
+    /// Join link for team meetings (Discord voice channel). Null until an admin sets it.
+    public var meetingUrl: String?
 
-    public init(userId: String, email: String, fullName: String? = nil, role: MemberRole, workspaceId: String, workspaceName: String) {
+    public init(userId: String, email: String, fullName: String? = nil, role: MemberRole, workspaceId: String, workspaceName: String, meetingUrl: String? = nil) {
         self.userId = userId
         self.email = email
         self.fullName = fullName
         self.role = role
         self.workspaceId = workspaceId
         self.workspaceName = workspaceName
+        self.meetingUrl = meetingUrl
     }
 }

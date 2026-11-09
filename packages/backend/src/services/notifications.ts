@@ -12,8 +12,11 @@ import {
   projects,
   pushDevices,
   workspaceMembers,
+  tasks,
 } from "@vistoo/database/schema";
 import { displayName } from "@vistoo/domain";
+import { extractMentionIds, renderMentionsPlain } from "@vistoo/domain/mentions";
+import { extractIssueRefIds, renderIssueRefsPlain } from "@vistoo/domain/issue-refs";
 import type { AuthContext, AuthUser } from "../auth";
 import { getDb } from "../db";
 import { deliver, type PushMessage } from "../push/apns";
@@ -145,8 +148,22 @@ export async function messagePush(messageId: string): Promise<{ userIds: string[
     );
 
   const author = displayName({ fullName: row.authorName, email: row.authorEmail });
-  const text = row.body.trim()
-    ? preview(row.body)
+  const mentionIds = extractMentionIds(row.body);
+  const mentioned = mentionIds.length
+    ? await db.select({ id: profiles.id, fullName: profiles.fullName, email: profiles.email }).from(profiles).where(inArray(profiles.id, mentionIds))
+    : [];
+  const names = new Map(mentioned.map((p) => [p.id, displayName(p)]));
+  const refIds = extractIssueRefIds(row.body);
+  const refs = refIds.length
+    ? await db
+        .select({ id: tasks.id, number: tasks.number })
+        .from(tasks)
+        .where(and(eq(tasks.workspaceId, row.workspaceId), inArray(tasks.id, refIds)))
+    : [];
+  const numbers = new Map(refs.map((t) => [t.id, t.number]));
+  const plain = renderIssueRefsPlain(renderMentionsPlain(row.body, (id) => names.get(id)), (id) => numbers.get(id));
+  const text = plain.trim()
+    ? preview(plain)
     : row.attachmentCount === 1
       ? "Hat eine Datei gesendet."
       : `Hat ${row.attachmentCount} Dateien gesendet.`;

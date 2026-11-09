@@ -4,6 +4,15 @@
 VISTOO_BUNDLE_ID = de.vistoo.work
 VISTOO_ASSOCIATED_DOMAIN = workvistoo.vercel.app
 
+// Signing defaults (Xcode-managed, development identity). The TestFlight pipeline
+// overrides these in its generated Signing.local.xcconfig (manual App Store signing).
+VISTOO_CODE_SIGN_STYLE = Automatic
+VISTOO_CODE_SIGN_IDENTITY = Apple Development
+VISTOO_PROVISIONING_PROFILE =
+// Push environment in the entitlements. Xcode export switches automatically signed
+// builds to production; manually signed CI builds set "production" explicitly.
+VISTOO_APS_ENVIRONMENT = development
+
 // Signing: DEVELOPMENT_TEAM etc. live in a personal, git-ignored file.
 // Copy Signing.local.xcconfig.example → Signing.local.xcconfig.
 #include? "Signing.local.xcconfig"

@@ -4,7 +4,8 @@
   "private": true,
   "description": "Single source of truth for the Postgres schema (Drizzle) and the migration chain (incl. RLS, triggers, realtime publication, storage bucket).",
   "exports": {
-    "./schema": "./src/schema.ts"
+    "./schema": "./src/schema.ts",
+    "./tls": "./src/tls.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",

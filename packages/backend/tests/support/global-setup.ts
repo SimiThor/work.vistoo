@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import { adminDatabaseUrl, testDatabaseUrl } from "./db-url";
+import { adminDatabaseUrl, testDatabaseName, testDatabaseUrl } from "./db-url";
 
 /**
  * Creates a fresh test database, installs minimal stand-ins for the Supabase
@@ -10,8 +10,9 @@ import { adminDatabaseUrl, testDatabaseUrl } from "./db-url";
  */
 export default async function setup() {
   const admin = postgres(adminDatabaseUrl(), { max: 1, onnotice: () => {} });
-  await admin.unsafe(`DROP DATABASE IF EXISTS vistoo_test WITH (FORCE)`);
-  await admin.unsafe(`CREATE DATABASE vistoo_test`);
+  const name = testDatabaseName();
+  await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+  await admin.unsafe(`CREATE DATABASE ${name}`);
   await admin.unsafe(`
     DO $$ BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF;
@@ -29,6 +30,12 @@ export default async function setup() {
     GRANT USAGE ON SCHEMA auth TO anon, authenticated;
     GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated;
     GRANT USAGE ON SCHEMA public TO anon, authenticated;
+    -- Like Supabase: every NEW table, function and sequence in public is granted
+    -- to the Data API roles. A migration that forgets to revoke is caught by
+    -- tests/security.test.ts instead of silently passing here.
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated;
     CREATE PUBLICATION supabase_realtime;
   `);
   await migrate(drizzle(sql), { migrationsFolder: new URL("../../../database/migrations", import.meta.url).pathname });

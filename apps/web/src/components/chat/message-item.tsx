@@ -13,8 +13,12 @@ import {
 import { CHAT_LIMITS } from "@vistoo/domain/chat-config";
 import type { ChatPerson, MessageDTO } from "@vistoo/domain/chat-types";
 import { displayName } from "@vistoo/domain";
+import { editorToMarkup, markupToEditor, mentionsAll } from "@vistoo/domain/mentions";
+import type { IssueRefDTO } from "@vistoo/domain";
+import { issueRefNumber } from "./issue-refs";
 import { cn } from "@/lib/utils";
 import { AttachmentCard } from "./attachment-card";
+import { MentionTextarea, type MentionPerson, type MentionTextareaHandle, type MentionValue } from "./mention-textarea";
 import { MessageText } from "./message-text";
 
 export type MessageVM = MessageDTO & {
@@ -35,6 +39,10 @@ export function MessageItem({
   onDelete,
   onRetry,
   onDiscard,
+  me,
+  nameOf,
+  mentionCandidates,
+  highlighted = false,
 }: {
   message: MessageVM;
   author: ChatPerson | undefined;
@@ -47,18 +55,28 @@ export function MessageItem({
   onDelete: () => void;
   onRetry: () => void;
   onDiscard: () => void;
+  me: string | null;
+  nameOf: (userId: string) => string | null;
+  mentionCandidates: readonly MentionPerson[];
+  /** Briefly emphasised (opened from a notification). */
+  highlighted?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const created = new Date(message.createdAt);
   const name = author ? displayName(author) : "Ehemaliges Mitglied";
   const showActions = own && canAct && message.status === "sent" && !message.deleted;
+  const mentionsMe =
+    me !== null && !own && !message.deleted && (message.mentionIds.includes(me) || mentionsAll(message.markup));
 
   return (
     <li
+      id={`message-${message.id}`}
       className={cn(
-        "group/msg relative grid grid-cols-[2rem_1fr] gap-x-3 px-4 hover:bg-surface-subtle/60 sm:px-5",
+        "group/msg relative grid scroll-mt-16 grid-cols-[2rem_1fr] gap-x-3 px-4 transition-colors duration-700 hover:bg-surface-subtle/60 sm:px-5",
         compact ? "py-0.5" : "pt-2 pb-0.5",
         message.status === "failed" && "bg-destructive/5",
+        mentionsMe && "bg-accent-blue-soft/35 shadow-[inset_2px_0_0_var(--accent-blue)]",
+        highlighted && "bg-accent-blue-soft/80",
       )}
     >
       <div className="pt-0.5">
@@ -89,7 +107,10 @@ export function MessageItem({
           <p className="text-sm text-muted-foreground italic">Nachricht gelöscht</p>
         ) : editing ? (
           <EditForm
-            initial={message.body}
+            initial={message.markup}
+            issueRefs={message.issueRefs}
+            nameOf={nameOf}
+            mentionCandidates={mentionCandidates}
             allowEmpty={message.attachments.length > 0}
             onCancel={() => setEditing(false)}
             onSave={async (body) => {
@@ -98,7 +119,7 @@ export function MessageItem({
           />
         ) : (
           <>
-            {message.body && <MessageText text={message.body} />}
+            {message.markup && <MessageText text={message.markup} nameOf={nameOf} me={me} issueRefs={message.issueRefs} />}
             {message.editedAt && <span className="text-xs text-muted-foreground"> (bearbeitet)</span>}
             {message.attachments.length > 0 && (
               <ul className="mt-1.5 flex flex-col gap-1.5" aria-label="Anhänge">
@@ -161,32 +182,41 @@ export function MessageItem({
 
 function EditForm({
   initial,
+  issueRefs,
   allowEmpty,
   onCancel,
   onSave,
+  nameOf,
+  mentionCandidates,
 }: {
+  /** Markup of the message. */
   initial: string;
+  /** Server-resolved `#` references of the message (labels in the editor). */
+  issueRefs: readonly IssueRefDTO[];
   allowEmpty: boolean;
   onCancel: () => void;
-  onSave: (body: string) => Promise<void>;
+  onSave: (markup: string) => Promise<void>;
+  nameOf: (userId: string) => string | null;
+  mentionCandidates: readonly MentionPerson[];
 }) {
-  const [value, setValue] = useState(initial);
+  const [value, setValue] = useState<MentionValue>(() =>
+    markupToEditor(initial, nameOf, (id) => issueRefs.find((r) => r.id === id)?.number ?? issueRefNumber(id)),
+  );
   const [busy, setBusy] = useState(false);
-  const ref = useRef<HTMLTextAreaElement>(null);
+  const ref = useRef<MentionTextareaHandle>(null);
   const id = useId();
+  const initialLength = useRef(value.text.length);
   useEffect(() => {
-    const el = ref.current;
-    if (el) {
-      el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
-    }
+    ref.current?.focus();
+    ref.current?.setCaret(initialLength.current);
   }, []);
-  const tooLong = value.length > CHAT_LIMITS.maxMessageLength;
-  const empty = !value.trim() && !allowEmpty;
+  const markup = editorToMarkup(value.text, value.mentions);
+  const tooLong = markup.length > CHAT_LIMITS.maxMessageLength;
+  const empty = !value.text.trim() && !allowEmpty;
   const save = async () => {
     if (busy || tooLong || empty) return;
     setBusy(true);
-    await onSave(value);
+    await onSave(markup);
     setBusy(false);
   };
   return (
@@ -194,11 +224,12 @@ function EditForm({
       <label htmlFor={id} className="sr-only">
         Nachricht bearbeiten
       </label>
-      <textarea
+      <MentionTextarea
         id={id}
         ref={ref}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onValueChange={setValue}
+        candidates={mentionCandidates}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
