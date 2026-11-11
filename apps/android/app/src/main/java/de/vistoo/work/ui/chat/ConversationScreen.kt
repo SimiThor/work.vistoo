@@ -33,7 +33,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
@@ -63,7 +62,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -140,7 +139,7 @@ import kotlinx.coroutines.withContext
 fun ConversationScreen(session: SessionModel, conversationId: String, onBack: () -> Unit) {
     val model = remember(conversationId) { session.chat.model(conversationId) }
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     var showDetails by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Message?>(null) }
     var deleting by remember { mutableStateOf<Message?>(null) }
@@ -152,17 +151,18 @@ fun ConversationScreen(session: SessionModel, conversationId: String, onBack: ()
 
     // Visible only while on screen and in the foreground (read state, realtime subscription).
     DisposableEffect(conversationId) {
-        model.isVisible = true
+        model.screenAppeared()
         session.watchConversation(conversationId)
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) model.isVisible = true
-            if (event == Lifecycle.Event.ON_STOP) model.isVisible = false
+            if (event == Lifecycle.Event.ON_START) model.foregroundChanged(true)
+            if (event == Lifecycle.Event.ON_STOP) model.foregroundChanged(false)
         }
         lifecycle.addObserver(observer)
         onDispose {
             lifecycle.removeObserver(observer)
-            model.isVisible = false
-            session.watchConversation(null)
+            model.screenDisappeared()
+            // Only if no newer screen subscribed to another (or the same) conversation meanwhile.
+            if (!model.isVisible) session.unwatchConversation(conversationId)
         }
     }
     LaunchedEffect(conversationId) { if (model.state == LoadState.Loaded) model.catchUp() else model.load() }
@@ -328,7 +328,7 @@ private fun messageMenu(
 private fun EditMessageSheet(model: ConversationModel, message: Message, limits: Limits, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(message.body) }
     var failure by remember { mutableStateOf<ActionFailure?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val tooLong = text.length > limits.maxMessageLength
     FormSheet(
         "Nachricht bearbeiten", onDismiss, confirmLabel = "Sichern",
@@ -357,7 +357,7 @@ private fun EditMessageSheet(model: ConversationModel, message: Message, limits:
 
 @Composable
 private fun Composer(model: ConversationModel, limits: Limits, onPhotos: () -> Unit, onFiles: () -> Unit, onSend: () -> Unit) {
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     var attachMenu by remember { mutableStateOf(false) }
     val tooLong = model.draft.length > limits.maxMessageLength
     val canSend = model.canSend && !tooLong
@@ -455,7 +455,8 @@ private fun MessageRow(
                 Text("Nachricht gelöscht", style = VType.body.copy(fontStyle = FontStyle.Italic), color = Tokens.Palette.mutedForeground)
             } else {
                 if (message.body.isNotEmpty()) {
-                    SelectionContainer { Text(linkified(message.body, edited = message.editedAt != null), style = VType.body) }
+                    // No SelectionContainer: it would capture the long press that opens the message menu ("Kopieren" copies).
+                    Text(linkified(message.body, edited = message.editedAt != null), style = VType.body)
                 }
                 for (a in message.attachments) AttachmentCard(a, downloading == a.id, { onOpen(a) }, { onShare(a) })
             }
@@ -515,7 +516,7 @@ private fun AttachmentCard(attachment: Attachment, loading: Boolean, open: () ->
                 MenuEntry.Item("Öffnen", Icons.Outlined.Download, onClick = open),
                 MenuEntry.Item("Teilen", Icons.Filled.Share, onClick = share),
             )
-        }, onClick = open) {
+        }, onClick = open, onClickLabel = "Lädt die Datei und öffnet sie") {
             Row(
                 Modifier.cardSurface().padding(12.dp).semantics(mergeDescendants = true) {
                     contentDescription = "Datei ${attachment.fileName}, ${ByteFormatting.string(attachment.sizeBytes)}"
@@ -557,8 +558,25 @@ private fun ConversationIntro(detail: ConversationDetail) {
 
 // MARK: - Files
 
-/** System picker MIME types from the server allowlist. */
-private fun allowedMimeTypes(limits: Limits): Array<String> = limits.allowedFileTypes.map { it.mimeType }.distinct().toTypedArray().ifEmpty { arrayOf("*/*") }
+/**
+ * System picker filter from the server allowlist. Providers report MIME types differently
+ * (e.g. CSV as `text/comma-separated-values`), so the filter is derived from the allowed
+ * extensions too — like iOS (UTType from extension). The extension check before the upload
+ * and the server check stay authoritative.
+ */
+internal fun allowedMimeTypes(limits: Limits): Array<String> {
+    val aliases = mapOf(
+        "csv" to listOf("text/comma-separated-values", "application/csv", "text/x-csv", "application/vnd.ms-excel"),
+        "txt" to listOf("text/x-log"),
+        "jpg" to listOf("image/pjpeg"),
+    )
+    val types = limits.allowedFileTypes.flatMap { t ->
+        listOf(t.mimeType) + t.extensions.flatMap { ext ->
+            listOfNotNull(android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)) + aliases[ext].orEmpty()
+        }
+    }
+    return types.distinct().toTypedArray().ifEmpty { arrayOf("*/*") }
+}
 
 /** Photos are converted to JPEG (on the allowlist); re-encoding drops all metadata incl. GPS. */
 private suspend fun addPhotos(context: Context, model: ConversationModel, uris: List<Uri>, limits: Limits, fail: (ActionFailure) -> Unit) {
@@ -617,5 +635,8 @@ private fun openFile(context: Context, file: File, mimeType: String, share: Bool
         Intent(Intent.ACTION_VIEW).setDataAndType(uri, mimeType)
     }
     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    // No app can display this type (iOS would show Quick Look): offer sharing/saving instead.
+    val canView = share || context.packageManager.queryIntentActivities(intent, 0).isNotEmpty()
+    if (!canView) return openFile(context, file, mimeType, share = true)
     context.startActivity(if (share) Intent.createChooser(intent, file.name) else Intent.createChooser(intent, "Öffnen mit"))
 }

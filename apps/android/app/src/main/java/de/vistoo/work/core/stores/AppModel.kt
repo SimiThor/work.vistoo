@@ -306,6 +306,9 @@ class AppModel(
         val s = session
         if (s != null) {
             s.resume()
+        } else if (phase == Phase.SignedOut && auth?.currentUserId != null) {
+            // Offline start with a stored session ended on the sign-in screen: continue now.
+            refreshAccess()
         } else if (phase is Phase.Misconfigured) {
             phase = Phase.Launching
             start()

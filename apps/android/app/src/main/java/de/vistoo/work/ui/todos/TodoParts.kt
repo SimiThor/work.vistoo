@@ -24,7 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -127,7 +127,7 @@ fun TodoQuickAddRow(store: TodoStore, focusRequester: FocusRequester, onFailure:
     /** Kept until the server confirmed: a retry after a network error never duplicates. */
     var clientId by remember { mutableStateOf(newClientId()) }
     var saving by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
 
     fun save() {
         val text = title.trim()
@@ -173,7 +173,7 @@ fun TodoEditView(store: TodoStore, todo: Todo, onDismiss: () -> Unit) {
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val isDirty = title != todo.title || description != todo.description || dueDate != todo.dueDate || completed != todo.completed
     val isValid = title.isNotBlank() && title.length <= UpdateTodoRequest.titleMaxLength
 

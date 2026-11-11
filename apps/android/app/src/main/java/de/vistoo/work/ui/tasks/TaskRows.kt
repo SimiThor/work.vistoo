@@ -144,6 +144,7 @@ fun TaskListItem(
     SwipeRow(start = startAction, end = endAction) {
         MenuTarget(
             onClick = onOpen,
+            onClickLabel = "Öffnet die Details",
             entries = {
                 buildList {
                     add(MenuEntry.Item("Öffnen", Icons.AutoMirrored.Filled.OpenInNew, onClick = onOpen))

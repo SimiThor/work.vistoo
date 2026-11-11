@@ -15,8 +15,12 @@ npm run generate          # nach Vertrags-/Token-Änderungen (erzeugt core/gener
 npm run android:build     # Debug-APK
 npm run android:install   # adb reverse für 3100 (Web/API) und 54321 (Supabase), dann installieren
 npm run android:test      # Unit-Tests + Lint
-cd apps/android && ./gradlew :app:connectedDebugAndroidTest   # Start-Test auf Emulator/Gerät
+npm run android:e2e       # Start-Test + End-to-End-Suite auf Emulator/Gerät (lokaler Stack nötig)
 ```
+
+**End-to-End-Suite** (`app/src/androidTest/.../e2e/WorkspaceE2eTest.kt`): läuft gegen den lokalen Stack (`npm run supabase:start`, `npm run dev`), meldet sich mit echten Codes aus Mailpit an (`adb reverse` auch für 54324) und geht jede Oberfläche durch – To-dos, Aufgaben (Board, Suche, Detail mit Versionsprüfung, Swipe, Langdruck, Zeitachse, Filter, Löschen), Projekte (anlegen, bearbeiten, archivieren, wiederherstellen), Chat (Kanal, Senden, Bearbeiten, Löschen, Archivieren, Direktnachricht), Meilensteine, Ideen (inkl. Issue), Entscheidungen (Abschluss-Pflichtfelder, Link), CRM (Status, Aktivität), Einstellungen/Team, Ungelesen/Gelesen über zwei Konten, Einladen/Erneut senden/Widerrufen und Onboarding eines eingeladenen Kontos. Ohne erreichbares Mailpit wird sie übersprungen. Konten per Instrumentation-Argument (`member`, `peer`, `admin`), Standard: Seed-Konten `jonas@` / `lena@vistoo.test`.
+
+**Links im Debug-Build:** `src/debug/AndroidManifest.xml` öffnet `http://localhost:3100/…` (Login-Link, `/tasks?task=…`, `/projects/<id>`, `/chat/<id>`) in der App, z. B. `adb shell am start -a android.intent.action.VIEW -d "'http://localhost:3100/chat/<id>'" de.vistoo.work`.
 
 **Server je Build-Typ** (wie `apps/ios/Config/*.xcconfig`): Debug → `http://localhost:3100` (Emulator über `adb reverse`, damit auch die von `/meta` gemeldete Supabase-URL `127.0.0.1:54321` erreichbar ist), Release → `https://workvistoo.vercel.app`. Abweichend: `vistoo.serverUrl=http://<Mac-IP>:3100` in `local.properties` oder `-Pvistoo.serverUrl=…`. Klartext-HTTP ist nur für `localhost`, `127.0.0.1` und `10.0.2.2` erlaubt.
 
@@ -47,8 +51,14 @@ Wie iOS: Anmeldung (Code + Link), Einladung annehmen / kein Zugang, „Für mich
 | --- | --- | --- |
 | Mehrere Swipe-Buttons je Seite | eine Swipe-Aktion je Richtung, alle weiteren im Langdruck-Menü | Android-Muster (`SwipeToDismissBox`) |
 | Ziehen zum Sortieren | Modus „Reihenfolge ändern“/„Sortieren“ mit Auf/Ab-Schaltflächen + Langdruck „An den Anfang/Ans Ende“ | gleicher Effekt, barrierearm |
-| Quick Look | Systemansicht „Öffnen mit“ bzw. Teilen über `FileProvider` | Android-Äquivalent |
+| Quick Look | Systemansicht „Öffnen mit“ über `FileProvider`; gibt es keine passende App, öffnet sich Teilen (Drive, Mail …) | Android-Äquivalent |
 | HEIC→JPEG mit ImageIO | Neukodierung über `ImageDecoder` (Ausrichtung angewendet, alle Metadaten inkl. GPS entfernt) | gleiche Wirkung |
+
+### Über iOS hinaus robuster (reine Client-Logik, keine Fachregeln)
+
+- Nach dem Ändern des eigenen Namens werden Konto und Personennamen sofort neu geladen (iOS lädt nur die Teamliste neu; der Name erscheint dort erst nach dem nächsten Resync).
+- Bestätigt Supabase Realtime ein Abo erst Sekunden nach dem Beitritt, holt die offene Unterhaltung die Lücke nach (Nachrichten zwischen Laden und Abo gingen sonst bis zum nächsten Resync verloren).
+- Offline-Kaltstart mit gespeicherter Sitzung: Kommt die Verbindung zurück, geht es automatisch in den Workspace (statt auf dem Anmeldebildschirm zu bleiben).
 
 ### Einschränkungen
 

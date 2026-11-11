@@ -126,14 +126,16 @@ Die Android-App (`apps/android`) setzt den Funktionsumfang der iOS-Spalte vollst
 
 | Bereich | Android | Status |
 | --- | --- | --- |
-| Anmeldung (Code), Session, Abmelden | `SignInScreen`, `AuthService`, `SecureSessionStore` | ✅ Emulator gegen lokalen Stack (Code aus Mailpit, Kaltstart mit gespeicherter Session) |
-| Für mich, To-dos | `HomeScreen`, `TodosScreen` | ✅ Emulator (To-do angelegt, serverseitig gespeichert) |
-| Aufgaben: Board, Detail, Bearbeiten mit Version | `WorkScreen`, `BoardView`, `TaskDetailView` | ✅ Emulator (Beschreibung gespeichert, Version erhöht) |
-| Zeitachse | `TimelineView` | ✅ Emulator (Darstellung) |
+| Anmeldung (Code, Login-Link), Session, Abmelden, Einladung annehmen | `SignInScreen`, `OnboardingScreen`, `AuthService`, `SecureSessionStore` | ✅ E2E `t01`, `t12` · Login-Link manuell |
+| Für mich, To-dos | `HomeScreen`, `TodosScreen` | ✅ E2E `t02` |
+| Aufgaben: Board, Suche, Filter, Detail, Swipe/Langdruck, Löschen | `WorkScreen`, `BoardView`, `TaskDetailView` | ✅ E2E `t03` · Versionskonflikt-Dialog manuell |
+| Zeitachse, Projekte | `TimelineView`, `ProjectsScreens` | ✅ E2E `t03`, `t04` |
 | Realtime (Tasks) | `RealtimeHub` | ✅ Emulator (DB-Änderung erscheint ohne Neuladen) |
-| Chat: Senden, Links | `ConversationScreen` | ✅ Emulator · Anhänge 🟡 (kompiliert, nicht manuell geprüft) |
-| Ideen, Entscheidungen, CRM (anlegen, Follow-up) | `ideas/`, `decisions/`, `crm/` | ✅ Emulator |
-| Einstellungen, Team | `SettingsSheet`, `TeamScreen` | ✅ Emulator (Darstellung) |
+| Chat: Kanal, Senden, Bearbeiten, Löschen, Archivieren, DM, Links | `ConversationScreen`, `ConversationDetailsView` | ✅ E2E `t05` |
+| Chat: Anhänge (Fotos, Dateien, Öffnen/Teilen), Live-Nachrichten, Gelesen-Status | `ConversationScreen`, `RealtimeHub` | ✅ Emulator manuell (Foto-/Dateiauswahl des Systems), E2E `t11` |
+| Meilensteine, Ideen, Entscheidungen, CRM | `milestones/`, `ideas/`, `decisions/`, `crm/` | ✅ E2E `t06`–`t09` |
+| Einstellungen, Team, Einladungen (Admin) | `SettingsSheet`, `TeamScreen` | ✅ E2E `t10`, `t12` |
+| Links (Aufgabe, Projekt, Chat), Resync nach Hintergrund, Offline-Start | `AppModel`, `Navigator` | ✅ Emulator manuell |
 | Offline-Hinweis, Rotation | `OfflineBanner`, `AppViewModel` | ✅ Emulator |
 | Filtersemantik | `TaskFilters` | ✅ `TaskFilterConformanceTest` (gemeinsame Fixtures) |
 | Push-Mitteilungen | – | offen: Backend sendet nur APNs (FCM nötig) |

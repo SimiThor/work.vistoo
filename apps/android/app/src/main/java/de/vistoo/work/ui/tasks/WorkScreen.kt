@@ -33,7 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -64,6 +64,20 @@ import kotlinx.coroutines.launch
 
 enum class WorkMode(val label: String) { Board("Board"), Timeline("Zeitachse") }
 
+/** Bundle-friendly form of [TaskFilters]. */
+val TaskFiltersSaver = androidx.compose.runtime.saveable.listSaver<TaskFilters, Any>(
+    save = { listOf(it.query, ArrayList(it.projects), ArrayList(it.assignees), ArrayList(it.statuses.map { s -> s.rawValue })) },
+    restore = {
+        @Suppress("UNCHECKED_CAST")
+        TaskFilters(
+            query = it[0] as String,
+            projects = (it[1] as List<String>).toSet(),
+            assignees = (it[2] as List<String>).toSet(),
+            statuses = (it[3] as List<String>).map { raw -> TaskStatus.from(raw) }.toSet(),
+        )
+    },
+)
+
 /**
  * Board + timeline over the same tasks, for "Alle Aufgaben" or one project.
  * Search and filters behave exactly like the web (shared semantics).
@@ -82,14 +96,15 @@ fun WorkScreen(
     val work = session.work
     var modeRaw by rememberPreference("vistoo.work.mode", WorkMode.Board.name)
     var lastProjectId by rememberPreference("vistoo.work.lastProject", "")
-    var filters by remember { mutableStateOf(TaskFilters()) }
+    // Saveable: search and filters survive tab switches and rotation (iOS keeps each tab alive).
+    var filters by rememberSaveable(stateSaver = TaskFiltersSaver) { mutableStateOf(TaskFilters()) }
     var showFilters by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf<WorkStore.TaskDraft?>(null) }
     var openTask by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
     var boardStatusRaw by rememberSaveable { mutableStateOf(TaskStatus.Open.rawValue) }
     var sorting by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
-    val coroutines = rememberCoroutineScope()
+    val coroutines = rememberMainScope()
     val nav = navigator()
 
     val mode = runCatching { WorkMode.valueOf(modeRaw) }.getOrDefault(WorkMode.Board)

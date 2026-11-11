@@ -20,7 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -77,7 +77,7 @@ fun ChatListScreen(session: SessionModel, nav: NavHostController) {
     var showNewDM by remember { mutableStateOf(false) }
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
 
     val unread = chat.conversations.filter { it.unread && !it.archived }.sortedByDescending { it.lastMessageAt }
     val channels = chat.conversations.filter { it.kind != ConversationKind.Dm && !it.archived && !it.unread }
@@ -164,7 +164,7 @@ fun NewChannelSheet(session: SessionModel, onDismiss: () -> Unit, onCreated: (St
     var members by remember { mutableStateOf(setOf<String>()) }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     FormSheet("Neuer Kanal", onDismiss, confirmLabel = "Erstellen", confirmEnabled = !saving && name.isNotBlank(), onConfirm = {
         saving = true
         scope.launch {
@@ -214,7 +214,7 @@ fun de.vistoo.work.ui.components.SectionScope.memberMultiPicker(people: List<Mem
 fun NewDirectMessageSheet(session: SessionModel, onDismiss: () -> Unit, onOpened: (String) -> Unit) {
     var query by remember { mutableStateOf("") }
     var failure by remember { mutableStateOf<ActionFailure?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val people = session.work.members.filter {
         it.userId != session.userId && (query.isEmpty() || it.displayName.contains(query, ignoreCase = true) || it.email.contains(query, ignoreCase = true))
     }

@@ -18,7 +18,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -79,7 +78,7 @@ fun EmptyState(
 
 @Composable
 fun FailureView(message: String, retry: suspend () -> Unit) {
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         EmptyState("Nicht geladen", Icons.Outlined.WarningAmber, message) {
             Button(onClick = { scope.launch { retry() } }) { Text("Erneut versuchen") }

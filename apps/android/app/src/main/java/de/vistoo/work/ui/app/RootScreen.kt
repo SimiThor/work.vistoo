@@ -21,7 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -92,7 +92,7 @@ private fun StatusScreen(
     actionTitle: String?,
     action: suspend () -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     Box(Modifier.fillMaxSize().background(Tokens.Palette.surfaceSubtle).safeDrawingPadding(), contentAlignment = Alignment.Center) {
         EmptyState(title, icon, message) {
             if (actionTitle != null) Button(onClick = { scope.launch { action() } }) { Text(actionTitle) }

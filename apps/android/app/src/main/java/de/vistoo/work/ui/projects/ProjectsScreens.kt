@@ -30,7 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,7 +84,7 @@ fun ProjectsScreen(session: SessionModel, nav: NavHostController) {
     var editing by remember { mutableStateOf<ProjectEditorTarget?>(null) }
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
 
     fun archive(p: Project, archived: Boolean) =
         runner.run(if (archived) "Archivieren fehlgeschlagen" else "Wiederherstellen fehlgeschlagen") { work.setArchived(p.id, archived) }
@@ -217,7 +217,7 @@ fun ProjectEditor(session: SessionModel, target: ProjectEditorTarget, onDismiss:
     val clientId = remember { newClientId() }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
 
     FormSheet(
         title = if (edit == null) "Neues Projekt" else "Projekt bearbeiten",

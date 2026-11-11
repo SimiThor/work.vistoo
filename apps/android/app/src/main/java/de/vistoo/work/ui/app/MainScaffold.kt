@@ -131,6 +131,18 @@ fun MainScaffold(app: AppModel, session: SessionModel) {
 
 @Composable
 private fun TabHost(tab: Navigator.Tab, nav: NavHostController, session: SessionModel) {
+    val navigator = navigator()
+    // Runs after the NavHost below has set its graph in this composition.
+    LaunchedEffect(navigator.pending, tab) {
+        val root: Any = when (tab) {
+            Navigator.Tab.Home -> HomeRoute
+            Navigator.Tab.Tasks -> TasksRoute
+            Navigator.Tab.Projects -> ProjectsRoute
+            Navigator.Tab.Chat -> ChatRoute
+            Navigator.Tab.More -> MoreRoute
+        }
+        navigator.consumePending(tab, nav, root)
+    }
     when (tab) {
         Navigator.Tab.Home -> NavHost(nav, startDestination = HomeRoute) {
             composable<HomeRoute> { HomeScreen(session, nav) }

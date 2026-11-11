@@ -39,7 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -125,7 +125,7 @@ fun TimelineView(session: SessionModel, scope: WorkScope, tasks: List<TaskItem>,
 
     val hScroll = rememberScrollState()
     val density = LocalDensity.current
-    val coroutines = rememberCoroutineScope()
+    val coroutines = rememberMainScope()
     fun todayOffsetPx(): Int = with(density) { ((today.dayNumber - start.dayNumber) * scale.dayWidth.toPx() - 80.dp.toPx()).toInt().coerceAtLeast(0) }
     LaunchedEffect(scale, planned.isEmpty()) { hScroll.scrollTo(todayOffsetPx()) }
 

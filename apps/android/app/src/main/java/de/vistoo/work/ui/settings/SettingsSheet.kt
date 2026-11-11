@@ -163,7 +163,11 @@ private fun SettingsScreen(app: AppModel, session: SessionModel, onDone: () -> U
             confirmButton = {
                 TextButton(onClick = {
                     editingName = false
-                    runner.run("Name nicht gespeichert") { session.team.updateOwnName(nameText.trim()) }
+                    runner.run("Name nicht gespeichert") {
+                        session.team.updateOwnName(nameText.trim())
+                        // The own name appears in the account section and in every person picker/row.
+                        session.refreshViewer()
+                    }
                 }) { Text("Sichern") }
             },
             dismissButton = { TextButton(onClick = { editingName = false }) { Text("Abbrechen") } },

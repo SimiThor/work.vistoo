@@ -20,7 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -193,7 +193,7 @@ fun TaskCreateView(session: SessionModel, draft: WorkStore.TaskDraft, onCreated:
     var fields by remember(draft.id) { mutableStateOf(TaskFields.of(draft)) }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val haptics = LocalHapticFeedback.current
     LaunchedEffect(Unit) { if (session.milestones.state == LoadState.Idle) session.milestones.reload() }
 
@@ -253,7 +253,7 @@ fun TaskDetailView(session: SessionModel, taskId: String, focusDates: Boolean = 
     var conflict by remember { mutableStateOf<TaskItem?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val readOnly = task?.let { work.isReadOnly(it) } ?: true

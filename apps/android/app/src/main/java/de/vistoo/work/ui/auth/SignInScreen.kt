@@ -33,7 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -70,7 +70,7 @@ fun SignInScreen(app: AppModel) {
     var busy by remember { mutableStateOf(false) }
     var verified by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val focus = remember { FocusRequester() }
 
     fun requestCode() {

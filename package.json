@@ -29,6 +29,7 @@
     "android:build": "cd apps/android && ./gradlew :app:assembleDebug",
     "android:test": "cd apps/android && ./gradlew :app:testDebugUnitTest :app:lintDebug",
     "android:install": "cd apps/android && adb reverse tcp:3100 tcp:3100 && adb reverse tcp:54321 tcp:54321 && ./gradlew :app:installDebug",
+    "android:e2e": "cd apps/android && adb reverse tcp:3100 tcp:3100 && adb reverse tcp:54321 tcp:54321 && adb reverse tcp:54324 tcp:54324 && ./gradlew :app:connectedDebugAndroidTest",
     "check": "npm run generate:check && npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "devDependencies": {

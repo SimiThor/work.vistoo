@@ -22,7 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import de.vistoo.work.core.api.ApiError
@@ -67,7 +67,7 @@ fun TeamScreen(session: SessionModel, onBack: () -> Unit) {
     var removing by remember { mutableStateOf<Member?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     LaunchedEffect(Unit) { if (team.state == LoadState.Idle) team.reload() }
 
     Scaffold(containerColor = Tokens.Palette.surfaceSubtle, topBar = {
@@ -157,7 +157,7 @@ private fun InviteSheet(team: TeamStore, onDismiss: () -> Unit) {
     var role by remember { mutableStateOf<MemberRole>(MemberRole.Member) }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     FormSheet("Einladen", onDismiss, confirmLabel = "Senden", confirmEnabled = !saving && email.contains("@"), onConfirm = {
         saving = true
         scope.launch {

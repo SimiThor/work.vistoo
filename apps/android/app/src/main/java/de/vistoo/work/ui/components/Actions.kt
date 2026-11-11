@@ -17,6 +17,7 @@ import androidx.core.net.toUri
 import de.vistoo.work.core.support.UiPreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -42,9 +43,21 @@ class ActionRunner internal constructor(private val scope: CoroutineScope, priva
     fun success() = haptics.performHapticFeedback(HapticFeedbackType.Confirm)
 }
 
+/**
+ * Coroutine scope of the composition, pinned to the main thread. Store state (Compose
+ * snapshot state), navigation and lifecycle must only be touched on the main thread; the
+ * plain composition scope does not guarantee that after a suspension in every environment
+ * (e.g. instrumentation tests resume on the test thread).
+ */
+@Composable
+fun rememberMainScope(): CoroutineScope {
+    val scope = rememberCoroutineScope()
+    return remember(scope) { CoroutineScope(scope.coroutineContext + Dispatchers.Main.immediate) }
+}
+
 @Composable
 fun rememberActionRunner(): ActionRunner {
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val haptics = LocalHapticFeedback.current
     return remember { ActionRunner(scope, haptics) }
 }

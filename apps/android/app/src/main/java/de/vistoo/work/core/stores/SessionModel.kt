@@ -92,7 +92,8 @@ class SessionModel(bootstrap: Bootstrap, val backend: Backend, auth: AuthService
         if (milestones.state != LoadState.Idle) milestones.reload()
     }
 
-    private suspend fun refreshViewer() {
+    /** Viewer, limits and people from the server (after own profile changes, member events, resync). */
+    suspend fun refreshViewer() {
         val bootstrap = runCatching { backend.send(API.getBootstrap()) }.getOrNull() ?: return
         viewer = bootstrap.viewer
         limits = bootstrap.limits
@@ -100,6 +101,11 @@ class SessionModel(bootstrap: Bootstrap, val backend: Backend, auth: AuthService
     }
 
     /** The conversation on screen gets its own message subscription. */
+    /** Ends the subscription only if it still belongs to `id` (a newer screen may have taken over). */
+    fun unwatchConversation(id: String) {
+        if (realtime?.watchedConversationId == id) realtime?.watchConversation(null)
+    }
+
     fun watchConversation(id: String?) {
         realtime?.watchConversation(id)
     }
@@ -129,6 +135,10 @@ class SessionModel(bootstrap: Bootstrap, val backend: Backend, auth: AuthService
             is RealtimeHub.Event.MessageChanged -> {
                 scope.launch { chat.messageChanged(event.conversationId, event.messageId) }
                 chat.reloadSoon()
+            }
+            is RealtimeHub.Event.Subscribed -> {
+                val id = event.conversationId
+                if (id != null) scope.launch { chat.catchUp(id) } else chat.reloadSoon()
             }
             RealtimeHub.Event.ResyncNeeded -> {
                 // Avoid storms when the socket flaps.

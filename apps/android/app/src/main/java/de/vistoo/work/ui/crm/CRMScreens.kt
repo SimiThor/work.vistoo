@@ -38,7 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -132,7 +132,7 @@ fun CRMScreen(session: SessionModel, nav: NavHostController) {
     var sort by rememberSaveable { mutableStateOf(CRMSort.Name) }
     var creating by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val status = statusRaw?.let { AttractionStatus.from(it) }
     LaunchedEffect(Unit) { if (store.state == LoadState.Idle) store.reload() }
 
@@ -268,7 +268,7 @@ fun AttractionDetailScreen(session: SessionModel, attractionId: String, nav: Nav
     var notesBase by remember { mutableStateOf("") }
     var savingNotes by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
 
     fun adoptNotes() {
         val x = store.attraction(attractionId) ?: return
@@ -426,7 +426,7 @@ fun AttractionEditor(session: SessionModel, attraction: Attraction?, onDismiss: 
     var nextFollowUp by remember { mutableStateOf<CalendarDate?>(null) }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
 
     fun <T> changed(new: T?, old: T?): Patchable<T> = if (new != old) Patchable.of(new) else Patchable.Unset
 
@@ -505,7 +505,7 @@ fun ActivityEditor(session: SessionModel, attractionId: String, activity: Activi
     var nextFollowUp by remember { mutableStateOf(if (activity == null) session.crm.attraction(attractionId)?.nextFollowUp else null) }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
 
     FormSheet(
         if (activity == null) "Aktivität" else "Aktivität bearbeiten", onDismiss, dismissEnabled = !saving,

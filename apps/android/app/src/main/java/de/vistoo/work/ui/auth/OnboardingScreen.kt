@@ -9,7 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -35,7 +35,7 @@ fun OnboardingScreen(app: AppModel, me: Me) {
     var fullName by rememberSaveable { mutableStateOf(me.fullName ?: "") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     LaunchedEffect(me.userId) { if (fullName.isEmpty()) fullName = me.fullName ?: "" }
 
     Scaffold(containerColor = Tokens.Palette.surfaceSubtle, topBar = { VistooTopBar("Einladung") }) { padding ->

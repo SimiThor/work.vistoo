@@ -112,6 +112,8 @@ fun MenuTarget(
     entries: () -> List<MenuEntry>,
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    /** TalkBack hint for the tap (iOS `accessibilityHint`). */
+    onClickLabel: String? = null,
     content: @Composable () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -121,6 +123,7 @@ fun MenuTarget(
             .fillMaxWidth()
             .combinedClickable(
                 onClick = { onClick?.invoke() },
+                onClickLabel = onClickLabel,
                 onLongClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     open = true

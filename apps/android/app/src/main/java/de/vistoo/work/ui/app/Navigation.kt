@@ -75,15 +75,19 @@ class Navigator(private val tabState: MutableState<String>) {
     /** Account, notifications, team: rarely needed, so a sheet behind the avatar instead of a tab. */
     var showSettings by mutableStateOf(false)
 
+    /**
+     * Route to open in a tab. The tab's NavHost may not be composed yet (its graph is only
+     * set then), so the target tab performs the navigation itself ([consumePending]).
+     */
+    var pending by mutableStateOf<Pair<Tab, Any>?>(null)
+        private set
+
     fun open(link: DeepLink) {
         when (link) {
             is DeepLink.Task -> linkedTask = link.id
             is DeepLink.Project -> {
                 tab = Tab.Projects
-                controllers[Tab.Projects]?.let { nav ->
-                    nav.popBackStack(ProjectsRoute, inclusive = false)
-                    nav.navigate(ProjectRoute(link.id))
-                }
+                pending = Tab.Projects to ProjectRoute(link.id)
             }
             is DeepLink.Conversation -> openConversation(link.id)
         }
@@ -91,10 +95,16 @@ class Navigator(private val tabState: MutableState<String>) {
 
     fun openConversation(id: String) {
         tab = Tab.Chat
-        controllers[Tab.Chat]?.let { nav ->
-            nav.popBackStack(ChatRoute, inclusive = false)
-            nav.navigate(ConversationRoute(id))
-        }
+        pending = Tab.Chat to ConversationRoute(id)
+    }
+
+    /** Called by the composed NavHost of `tab`: shows the pending route on top of the tab root. */
+    fun consumePending(tab: Tab, nav: NavHostController, root: Any) {
+        val (target, route) = pending ?: return
+        if (target != tab) return
+        pending = null
+        nav.popBackStack(root, inclusive = false)
+        nav.navigate(route)
     }
 }
 

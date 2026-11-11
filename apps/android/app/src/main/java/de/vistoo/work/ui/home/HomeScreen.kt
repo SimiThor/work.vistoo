@@ -28,7 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,7 +94,7 @@ fun HomeScreen(session: SessionModel, nav: NavHostController) {
     var editingTodo by remember { mutableStateOf<Todo?>(null) }
     var refreshing by remember { mutableStateOf(false) }
     val todoFocus = remember { FocusRequester() }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     /** The start tab shows the first few; the rest is behind "Alle To-dos". */
     val todoPreviewCount = 6
 

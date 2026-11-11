@@ -128,6 +128,11 @@ class ChatStore(private val backend: Backend, private val viewer: Viewer, privat
         models[conversationId]?.received(messageId)
     }
 
+    /** Fills the gap of one open conversation (its realtime subscription just became active). */
+    suspend fun catchUp(conversationId: String) {
+        models[conversationId]?.takeIf { it.state == LoadState.Loaded }?.catchUp()
+    }
+
     /** After reconnect / foreground: reload list and fill gaps of open conversations. */
     suspend fun resync() {
         reload()
@@ -201,12 +206,29 @@ class ConversationModel internal constructor(
     var attachments by mutableStateOf<List<ComposerAttachment>>(emptyList())
         private set
 
-    /** Set by the screen: read state is only written while visible and at the end. */
-    var isVisible = false
-        set(value) {
-            field = value
-            if (value) scheduleMarkRead()
-        }
+    /** Read state is only written while visible (on screen and in the foreground) and at the end. */
+    val isVisible: Boolean get() = screens > 0 && foreground
+
+    /**
+     * Screens showing this conversation. Counted, because when one screen replaces another
+     * (link/notification to the same conversation) the new one appears before the old one leaves.
+     */
+    private var screens = 0
+    private var foreground = true
+
+    fun screenAppeared() {
+        screens++
+        scheduleMarkRead()
+    }
+
+    fun screenDisappeared() {
+        screens = maxOf(0, screens - 1)
+    }
+
+    fun foregroundChanged(active: Boolean) {
+        foreground = active
+        if (active) scheduleMarkRead()
+    }
     var isAtBottom = false
         set(value) {
             field = value

@@ -29,7 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -77,7 +77,7 @@ fun MilestonesScreen(session: SessionModel, nav: NavHostController) {
     var creating by remember { mutableStateOf(false) }
     var showCompleted by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     LaunchedEffect(Unit) { store.reload() }
 
     Scaffold(
@@ -143,7 +143,7 @@ fun MilestoneDetailScreen(session: SessionModel, milestoneId: String, nav: NavHo
     var editing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val m = store.milestone(milestoneId)
     val tasks = session.work.tasks(WorkScope.All).filter { it.milestoneId == milestoneId }
         .sortedWith(compareBy({ if (it.status == TaskStatus.Done) 1 else 0 }, { it.number }))
@@ -214,7 +214,7 @@ fun MilestoneEditor(session: SessionModel, milestone: Milestone?, onDismiss: () 
     var dueDate by remember { mutableStateOf<CalendarDate?>(milestone?.dueDate) }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     FormSheet(
         title = if (milestone == null) "Neuer Meilenstein" else "Meilenstein bearbeiten",
         onDismiss = onDismiss,

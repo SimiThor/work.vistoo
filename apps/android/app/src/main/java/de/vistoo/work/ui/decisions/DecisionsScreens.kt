@@ -33,7 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -161,7 +161,7 @@ fun DecisionsScreen(session: SessionModel, nav: NavHostController) {
     val store = session.decisions
     var creating by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val q = store.query
     LaunchedEffect(q) {
         // Server-side full-text search: wait until typing pauses.
@@ -255,7 +255,7 @@ fun DecisionCreateView(session: SessionModel, onDismiss: () -> Unit, onCreated: 
     var title by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     FormSheet("Neu festhalten", onDismiss, dismissEnabled = !saving, confirmLabel = "Erstellen", confirmEnabled = !saving && title.isNotBlank(), onConfirm = {
         saving = true
         scope.launch {
@@ -341,7 +341,7 @@ fun DecisionDetailScreen(session: SessionModel, decisionId: String, nav: NavHost
     var addingLink by remember { mutableStateOf(false) }
     var addingRelation by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val isDirty = fields != null && fields != base
 
     fun adopt(d: Decision) {
@@ -630,7 +630,7 @@ private fun SupersedeView(session: SessionModel, decisionId: String, onDismiss: 
     var selected by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     LaunchedEffect(Unit) { candidates = runCatching { session.decisions.supersedeCandidates(decisionId) }.getOrDefault(emptyList()) }
     FormSheet(
         "Entscheidung ersetzen", onDismiss, dismissEnabled = !saving, confirmLabel = "Ersetzen",
@@ -678,7 +678,7 @@ private fun DecisionLinkEditor(session: SessionModel, decisionId: String, onDism
     var title by remember { mutableStateOf("") }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     FormSheet("Link hinzufügen", onDismiss, confirmLabel = "Hinzufügen", confirmEnabled = !saving && url.isNotBlank(), onConfirm = {
         saving = true
         scope.launch {

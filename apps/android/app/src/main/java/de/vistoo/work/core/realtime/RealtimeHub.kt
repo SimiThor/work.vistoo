@@ -62,6 +62,12 @@ class RealtimeHub(
 
         /** The connection was interrupted: events may have been missed. */
         data object ResyncNeeded : Event
+
+        /**
+         * The server confirmed the Postgres subscription (can take seconds after the join):
+         * changes between the initial load and now were not delivered — fetch them.
+         */
+        data class Subscribed(val conversationId: String?) : Event
     }
 
     private data class Channel(val topic: String, val config: JsonArray, val kind: Kind, val conversationId: String? = null) {
@@ -106,6 +112,8 @@ class RealtimeHub(
         )
         if (socket == null) connect() else if (connected) workspace?.let { join(it) }
     }
+
+    val watchedConversationId: String? get() = conversation?.conversationId
 
     /** Subscribes to the messages of the conversation on screen (null = none). */
     fun watchConversation(conversationId: String?) {
@@ -248,6 +256,7 @@ class RealtimeHub(
                 if (token != null) put("access_token", token)
             }
             val r = nextRef()
+            if (de.vistoo.work.BuildConfig.DEBUG) Log.d(TAG, "→ join ${channel.topic} (connected=$connected, token=${token != null})")
             send(channel.topic, "phx_join", payload, r, joinRef = r)
         }
     }
@@ -274,6 +283,10 @@ class RealtimeHub(
         val topic = message["topic"]?.str() ?: return
         val event = message["event"]?.str() ?: return
         val payload = message["payload"] as? JsonObject ?: return
+        if (de.vistoo.work.BuildConfig.DEBUG && topic != "phoenix") {
+            // No payload: rows contain user data.
+            Log.d(TAG, "← $event $topic ${(payload["data"] as? JsonObject)?.get("table") ?: payload["status"] ?: ""}")
+        }
         when (event) {
             "phx_reply" -> {
                 if (topic == "phoenix" && message["ref"]?.str() == pendingHeartbeat) pendingHeartbeat = null
@@ -281,6 +294,12 @@ class RealtimeHub(
                 if (status == "error") Log.w(TAG, "join refused on $topic: ${payload["response"]}")
             }
             "phx_error", "phx_close" -> rejoinLater(topic)
+            "system" -> {
+                val channel = listOfNotNull(workspace, conversation).firstOrNull { it.topic == topic } ?: return
+                if (payload["extension"]?.str() == "postgres_changes" && payload["status"]?.str() == "ok") {
+                    onEvent(Event.Subscribed(channel.conversationId))
+                }
+            }
             "postgres_changes" -> {
                 val channel = listOfNotNull(workspace, conversation).firstOrNull { it.topic == topic } ?: return
                 val data = payload["data"] as? JsonObject ?: return

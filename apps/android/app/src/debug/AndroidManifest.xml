@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: open links of the local web app (http://localhost:3100/...) in the app,
+     so login links and shared task/chat links can be tested against the local stack. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <activity android:name=".MainActivity" android:exported="true" tools:node="merge">
+            <intent-filter tools:ignore="AppLinkUrlError">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:host="localhost" />
+                <data android:port="3100" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

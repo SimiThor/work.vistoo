@@ -16,7 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -45,7 +45,7 @@ fun TodosScreen(session: SessionModel, onBack: () -> Unit) {
     var sorting by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     LaunchedEffect(Unit) { if (store.state == LoadState.Idle) store.reload() }
 
     Scaffold(

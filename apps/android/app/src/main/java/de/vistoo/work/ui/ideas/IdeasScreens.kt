@@ -28,7 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import de.vistoo.work.ui.components.rememberMainScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -105,7 +105,7 @@ fun IdeasScreen(session: SessionModel, nav: NavHostController) {
     var creating by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf<Idea?>(null) }
     var refreshing by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val status = statusRaw?.let { IdeaStatus.from(it) }
     LaunchedEffect(Unit) { if (store.state == LoadState.Idle) store.reload() }
 
@@ -199,7 +199,7 @@ fun IdeaCreateView(session: SessionModel, onDismiss: () -> Unit) {
     var assigneeId by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<ApiError?>(null) }
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     FormSheet("Neue Idee", onDismiss, dismissEnabled = !saving, confirmLabel = "Erstellen", confirmEnabled = !saving && title.isNotBlank(), onConfirm = {
         saving = true
         scope.launch {
@@ -242,7 +242,7 @@ fun IdeaDetailScreen(session: SessionModel, ideaId: String, nav: NavHostControll
     var creatingIssue by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val runner = rememberActionRunner()
-    val scope = rememberCoroutineScope()
+    val scope = rememberMainScope()
     val isDirty = loadedFrom?.let { title != it.title || description != it.description || status != it.status || assigneeId != it.assigneeId } ?: false
 
     fun adopt() {

@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -418,11 +419,15 @@ fun SwipeRow(start: SwipeAction?, end: SwipeAction?, content: @Composable () -> 
         enableDismissFromEndToStart = end != null,
         backgroundContent = {
             val direction = state.dismissDirection
+            // Only while swiping: otherwise the hidden label would be part of every row's
+            // semantics (TalkBack would read it; the actions are reachable via menu/actions).
+            if (direction == SwipeToDismissBoxValue.Settled) return@SwipeToDismissBox
             val action = if (direction == SwipeToDismissBoxValue.StartToEnd) start else end
             val progress by animateFloatAsState(if (state.progress > 0.05f) 1f else 0f, label = "swipe")
             if (action != null) {
                 Row(
-                    Modifier.fillMaxSize().background(action.color).padding(horizontal = 20.dp).alpha(progress),
+                    Modifier.fillMaxSize().background(action.color).padding(horizontal = 20.dp).alpha(progress)
+                        .clearAndSetSemantics {},
                     horizontalArrangement = if (direction == SwipeToDismissBoxValue.StartToEnd) Arrangement.Start else Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
