@@ -179,6 +179,15 @@ public final class RealtimeHub {
 enum TaskRow {
     static func decode(_ record: [String: AnyJSON]) -> TaskItem? {
         func string(_ key: String) -> String? { record[key]?.stringValue }
+        /// uuid[] arrives as a JSON array (or, defensively, as a Postgres array literal `{a,b}`).
+        func ids(_ key: String) -> [String]? {
+            switch record[key] {
+            case .array(let items): return items.compactMap { $0.stringValue?.lowercased() }
+            case .string(let s) where s.hasPrefix("{") && s.hasSuffix("}"):
+                return s.dropFirst().dropLast().split(separator: ",").map { String($0).lowercased() }
+            default: return nil
+            }
+        }
         func number(_ key: String) -> Double? {
             switch record[key] {
             case .double(let d): d
@@ -202,7 +211,8 @@ enum TaskRow {
             title: title,
             description: string("description") ?? "",
             status: TaskStatus(rawValue: status),
-            assigneeId: string("assignee_id")?.lowercased(),
+            assigneeId: (ids("assignee_ids")?.first ?? string("assignee_id"))?.lowercased(),
+            assigneeIds: ids("assignee_ids") ?? string("assignee_id").map { [$0.lowercased()] } ?? [],
             startDate: string("start_date").flatMap(CalendarDate.init),
             endDate: string("end_date").flatMap(CalendarDate.init),
             position: position,

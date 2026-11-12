@@ -13,8 +13,7 @@ public struct RootView: View {
     public var body: some View {
         content
             .tint(Tokens.Palette.accentBlue)
-            // Light appearance only, like the web (tokens define no dark palette yet).
-            .preferredColorScheme(.light)
+            // Light and dark appearance follow the system (token colours adapt, see Color(light:dark:)).
             .task { await model.start() }
             .onOpenURL { url in Task { await model.open(url) } }
             .onChange(of: scenePhase) { _, phase in

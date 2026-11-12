@@ -264,6 +264,7 @@ private struct TimelineRow: View {
 
     private var fill: Color {
         switch task.status {
+        case .backlog: Tokens.Palette.background
         case .open: Tokens.Palette.timelineOpenBg
         case .inProgress: Tokens.Palette.accentBlueSoft
         case .inReview: Tokens.Palette.timelineReviewBg
@@ -271,9 +272,12 @@ private struct TimelineRow: View {
         }
     }
 
+    /// Backlog: outlined only (dashed), like the web.
+    private var isBacklog: Bool { task.status == .backlog }
+
     private var stroke: Color {
         switch task.status {
-        case .open: Tokens.Palette.timelineOpenBorder
+        case .backlog, .open: Tokens.Palette.timelineOpenBorder
         case .inProgress: Tokens.Palette.timelineProgressBorder
         case .inReview: Tokens.Palette.timelineReviewBorder
         default: Tokens.Palette.border

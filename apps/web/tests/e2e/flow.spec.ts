@@ -53,10 +53,13 @@ test("create a project (no groups any more)", async () => {
 test("create a task and assign it", async () => {
   const page = adminPage;
   await page.getByRole("button", { name: "Aufgabe erstellen" }).first().click();
-  const panel = page.getByRole("dialog");
+  const panel = page.getByRole("dialog").first();
   await panel.getByLabel("Titel").fill(TASK);
-  await panel.getByLabel("Verantwortlich").click();
+  // Several people possible: the picker stays open until Escape.
+  await panel.getByLabel(/^Verantwortlich/).click();
   await page.getByRole("option", { name: "Anna Admin" }).click();
+  await page.keyboard.press("Escape");
+  await expect(panel.getByLabel(/^Verantwortlich/)).toContainText("Anna Admin");
   await expect(panel.getByLabel("Gruppe")).toHaveCount(0);
   await panel.getByRole("button", { name: "Erstellen" }).click();
   await expect(panel).toBeHidden();

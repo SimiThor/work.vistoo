@@ -201,8 +201,8 @@ struct TaskRowView: View {
                 .foregroundStyle(Tokens.Palette.mutedForeground)
             }
             Spacer(minLength: 0)
-            if showAssignee, let person = work.person(task.assigneeId) {
-                Avatar(fullName: person.fullName, email: person.email, size: 26)
+            if showAssignee, !task.assigneeIds.isEmpty {
+                AvatarStack(people: task.assigneeIds.compactMap { work.person($0) }, size: 26)
             }
         }
         .padding(.vertical, Tokens.Spacing.xs)
@@ -217,7 +217,8 @@ struct TaskRowView: View {
         if let project = work.project(task.projectId), showProject { parts.append("Projekt \(project.name)") }
         if task.startDate != nil || task.endDate != nil { parts.append(Formatting.range(task.startDate, task.endDate)) }
         if overdue { parts.append("überfällig") }
-        parts.append(work.person(task.assigneeId).map { "Verantwortlich \($0.displayName)" } ?? "Nicht zugewiesen")
+        let names = task.assigneeIds.map { work.person($0)?.displayName ?? "Ehemaliges Mitglied" }
+        parts.append(names.isEmpty ? "Nicht zugewiesen" : "Verantwortlich \(names.joined(separator: ", "))")
         return parts.joined(separator: ", ")
     }
 }

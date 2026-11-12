@@ -4,11 +4,15 @@
 /* Colours, shadows, base radius and type scale: packages/design-tokens (generated). */
 @import "./tokens.generated.css";
 
+/* `dark:` follows the class on <html> (user choice or system, see lib/theme.ts), not only the media query. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
  * Vistoo design tokens
  * Calm, neutral, Apple-inspired. One accent colour (blue) for interaction;
  * status colours are always paired with an icon shape and a text label.
- * Light mode only (MVP).
+ * Light and dark appearance: the generated tokens switch with the class on
+ * <html> (see lib/theme.ts); everything here refers to tokens.
  */
 
 :root {
@@ -17,7 +21,7 @@
   /* shadcn/ui semantic mapping */
   --card: var(--background);
   --card-foreground: var(--foreground);
-  --popover: #ffffff;
+  --popover: var(--elevated);
   --popover-foreground: var(--foreground);
   --primary: var(--accent-blue);
   --primary-foreground: #ffffff;
@@ -35,18 +39,56 @@
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
   --sidebar-ring: var(--accent-blue);
-  --chart-1: #0071e3;
-  --chart-2: #8e8e93;
-  --chart-3: #248a3d;
-  --chart-4: #b86e00;
-  --chart-5: #d70015;
+  --chart-1: var(--status-progress);
+  --chart-2: var(--status-open);
+  --chart-3: var(--status-done);
+  --chart-4: var(--status-review);
+  --chart-5: var(--destructive);
 
   /* Typography: native system font, no web fonts */
   --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, Roboto,
     "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --font-system-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
-  color-scheme: light;
+  /* Syntax highlighting (Markdown code blocks), calm Xcode-like palette. */
+  --hl-comment: #6e7781;
+  --hl-keyword: #ad3da4;
+  --hl-string: #c41a16;
+  --hl-number: #1c00cf;
+  --hl-title: #326d74;
+  --hl-type: #3f6e75;
+  --hl-attr: #0b4f79;
+  --hl-meta: #643820;
+  --hl-deletion: #b31d28;
+  --hl-addition: #22863a;
+}
+
+/* Dark counterparts (Xcode dark); same selectors as the dark tokens. */
+:root.dark {
+  --hl-comment: #7f8c98;
+  --hl-keyword: #ff7ab2;
+  --hl-string: #ff8170;
+  --hl-number: #d9c97c;
+  --hl-title: #67b7a4;
+  --hl-type: #5dd8ff;
+  --hl-attr: #9ecbff;
+  --hl-meta: #fd8f3f;
+  --hl-deletion: #ff7b72;
+  --hl-addition: #7ee787;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --hl-comment: #7f8c98;
+    --hl-keyword: #ff7ab2;
+    --hl-string: #ff8170;
+    --hl-number: #d9c97c;
+    --hl-title: #67b7a4;
+    --hl-type: #5dd8ff;
+    --hl-attr: #9ecbff;
+    --hl-meta: #fd8f3f;
+    --hl-deletion: #ff7b72;
+    --hl-addition: #7ee787;
+  }
 }
 
 @theme inline {
@@ -59,12 +101,14 @@
   --color-accent-blue-hover: var(--accent-blue-hover);
   --color-accent-blue-soft: var(--accent-blue-soft);
   --color-accent-blue-text: var(--accent-blue-text);
+  --color-status-backlog: var(--status-backlog);
   --color-status-open: var(--status-open);
   --color-status-progress: var(--status-progress);
   --color-status-review: var(--status-review);
   --color-status-done: var(--status-done);
   --color-warning-bg: var(--warning-bg);
   --color-warning-fg: var(--warning-fg);
+  --color-elevated: var(--elevated);
 
   --font-sans: var(--font-system);
   --font-mono: var(--font-system-mono);
@@ -329,38 +373,38 @@
   /* Syntax highlighting (highlight.js classes), calm Xcode-like palette. */
   .markdown-body .hljs-comment,
   .markdown-body .hljs-quote {
-    color: #6e7781;
+    color: var(--hl-comment);
     font-style: italic;
   }
   .markdown-body :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-built_in, .hljs-doctag) {
-    color: #ad3da4;
+    color: var(--hl-keyword);
   }
   .markdown-body :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-meta .hljs-string) {
-    color: #c41a16;
+    color: var(--hl-string);
   }
   .markdown-body :is(.hljs-number, .hljs-symbol, .hljs-bullet) {
-    color: #1c00cf;
+    color: var(--hl-number);
   }
   .markdown-body :is(.hljs-title, .hljs-section, .hljs-function .hljs-title, .hljs-title.function_) {
-    color: #326d74;
+    color: var(--hl-title);
   }
   .markdown-body :is(.hljs-type, .hljs-class .hljs-title, .hljs-title.class_) {
-    color: #3f6e75;
+    color: var(--hl-type);
   }
   .markdown-body :is(.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-property) {
-    color: #0b4f79;
+    color: var(--hl-attr);
   }
   .markdown-body :is(.hljs-tag, .hljs-name, .hljs-selector-id, .hljs-selector-class) {
-    color: #0b4f79;
+    color: var(--hl-attr);
   }
   .markdown-body :is(.hljs-meta, .hljs-deletion) {
-    color: #643820;
+    color: var(--hl-meta);
   }
   .markdown-body .hljs-deletion {
-    color: #b31d28;
+    color: var(--hl-deletion);
   }
   .markdown-body .hljs-addition {
-    color: #22863a;
+    color: var(--hl-addition);
   }
   .markdown-body .hljs-emphasis {
     font-style: italic;

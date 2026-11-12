@@ -3,12 +3,14 @@ import type { AuthContext } from "../src/auth";
 import { getDb } from "../src/db";
 import { tasks } from "@vistoo/database/schema";
 import { getProject, setProjectArchived } from "../src/services/projects";
+import { removeMember } from "../src/services/team";
 import {
   createTask,
   deleteTask,
   listTasks,
   moveTask,
   setTaskAssignee,
+  setTaskAssignees,
   setTaskChecklistItem,
   setTaskStatus,
   updateTask,
@@ -181,6 +183,92 @@ describe("assignees", () => {
     await addMember(wsId, removed, "member", "removed");
     const t = await newTask();
     await expect(getDb().update(tasks).set({ assigneeId: removed.id }).where(eqId(t.id))).rejects.toThrow();
+  });
+});
+
+describe("several assignees", () => {
+  it("keeps order, drops duplicates and mirrors the first person in assigneeId", async () => {
+    const { user: b } = await makeMemberCtx(wsId);
+    const { user: c } = await makeMemberCtx(wsId);
+    const t = await newTask({ assigneeIds: [b.id, ctx.userId, b.id] });
+    expect(t.assigneeIds).toEqual([b.id, ctx.userId]);
+    expect(t.assigneeId).toBe(b.id);
+    const next = await setTaskAssignees(ctx, { id: t.id, assigneeIds: [c.id, b.id] });
+    expect(next.assigneeIds).toEqual([c.id, b.id]);
+    expect(next.assigneeId).toBe(c.id);
+    const none = await setTaskAssignees(ctx, { id: t.id, assigneeIds: [] });
+    expect(none.assigneeIds).toEqual([]);
+    expect(none.assigneeId).toBeNull();
+  });
+
+  it("an unchanged list is a no-op (no new version)", async () => {
+    const t = await newTask({ assigneeIds: [ctx.userId] });
+    const same = await setTaskAssignees(ctx, { id: t.id, assigneeIds: [ctx.userId] });
+    expect(same.version).toBe(t.version);
+  });
+
+  it("assigneeIds wins over the legacy assigneeId in creates and edits", async () => {
+    const { user: b } = await makeMemberCtx(wsId);
+    const t = await newTask({ assigneeId: ctx.userId, assigneeIds: [b.id] });
+    expect(t.assigneeIds).toEqual([b.id]);
+    const u = await updateTask(ctx, { id: t.id, expectedVersion: t.version, patch: { assigneeId: ctx.userId, assigneeIds: [ctx.userId, b.id] } });
+    expect(u.assigneeIds).toEqual([ctx.userId, b.id]);
+  });
+
+  it("older clients: the single assignee replaces the whole list; edits without it keep the list", async () => {
+    const { user: b } = await makeMemberCtx(wsId);
+    const t = await newTask({ assigneeIds: [ctx.userId, b.id] });
+    const titled = await updateTask(ctx, { id: t.id, expectedVersion: t.version, patch: { title: "Neu" } });
+    expect(titled.assigneeIds).toEqual([ctx.userId, b.id]);
+    const legacy = await setTaskAssignee(ctx, { id: t.id, assigneeId: b.id });
+    expect(legacy.assigneeIds).toEqual([b.id]);
+    const cleared = await updateTask(ctx, { id: t.id, expectedVersion: legacy.version, patch: { assigneeId: null } });
+    expect(cleared.assigneeIds).toEqual([]);
+  });
+
+  it("every assignee must be an active member", async () => {
+    const removed = await makeUser();
+    await addMember(wsId, removed, "member", "removed");
+    const t = await newTask();
+    await expect(setTaskAssignees(ctx, { id: t.id, assigneeIds: [ctx.userId, removed.id] })).rejects.toMatchObject({
+      code: "VALIDATION",
+    });
+    await expect(newTask({ assigneeIds: [removed.id] })).rejects.toMatchObject({ code: "VALIDATION" });
+    // Bypassing the service: the trigger checks the whole list.
+    await expect(
+      getDb().update(tasks).set({ assigneeIds: [ctx.userId, removed.id] }).where(eqId(t.id)),
+    ).rejects.toThrow();
+  });
+
+  it("legacy SQL writes of assignee_id keep the list in sync (trigger)", async () => {
+    const { user: b } = await makeMemberCtx(wsId);
+    const t = await newTask({ assigneeIds: [ctx.userId, b.id] });
+    await getDb().update(tasks).set({ assigneeId: b.id }).where(eqId(t.id));
+    const [row] = await getDb().select().from(tasks).where(eqId(t.id));
+    expect(row.assigneeIds).toEqual([b.id]);
+  });
+
+  it("removing a member takes them off every list, other assignees stay", async () => {
+    const admin = (await makeMemberCtx(wsId, "admin")).ctx;
+    const { user: b } = await makeMemberCtx(wsId);
+    const t = await newTask({ assigneeIds: [b.id, ctx.userId] });
+    const res = await removeMember(admin, b.id);
+    expect(res.unassignedTasks).toBe(1);
+    const [row] = await getDb().select().from(tasks).where(eqId(t.id));
+    expect(row.assigneeIds).toEqual([ctx.userId]);
+    expect(row.assigneeId).toBe(ctx.userId);
+  });
+});
+
+describe("backlog", () => {
+  it("is a regular column left of open: create, move and quick status work", async () => {
+    const t = await newTask({ status: "backlog" });
+    expect(t.status).toBe("backlog");
+    const open = await setTaskStatus(ctx, { id: t.id, status: "open" });
+    expect(open.status).toBe("open");
+    const back = await moveTask(ctx, { id: t.id, status: "backlog", afterId: null, beforeId: null });
+    expect(back.status).toBe("backlog");
+    expect((await listTasks(ctx)).find((x) => x.id === t.id)?.status).toBe("backlog");
   });
 });
 

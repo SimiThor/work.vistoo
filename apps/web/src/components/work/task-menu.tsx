@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
@@ -27,8 +28,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { displayName, STATUS_LABEL, TASK_STATUSES, type TaskDTO, type TaskStatus } from "@vistoo/domain";
-import { UNASSIGNED } from "./filters";
+import { displayName, MAX_TASK_ASSIGNEES, STATUS_LABEL, TASK_STATUSES, type TaskDTO, type TaskStatus } from "@vistoo/domain";
 import { useWork } from "./work-context";
 
 /** Keyboard-accessible alternative to drag & drop: status, assignee, delete. */
@@ -41,7 +41,10 @@ export function TaskMenu({
   onOpen: () => void;
   className?: string;
 }) {
-  const { members, setStatus, setAssignee, isReadOnly } = useWork();
+  const { members, setStatus, setAssignees, isReadOnly } = useWork();
+  const toggleAssignee = (userId: string, on: boolean) =>
+    setAssignees(task.id, on ? [...task.assigneeIds, userId] : task.assigneeIds.filter((a) => a !== userId));
+  const full = task.assigneeIds.length >= MAX_TASK_ASSIGNEES;
   const readOnly = isReadOnly(task);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -73,21 +76,31 @@ export function TaskMenu({
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>Zuweisen</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
-                  <DropdownMenuRadioGroup
-                    value={task.assigneeId ?? UNASSIGNED}
-                    onValueChange={(v) => setAssignee(task.id, v === UNASSIGNED ? null : v)}
-                  >
-                    <DropdownMenuRadioItem value={UNASSIGNED}>
-                      <MemberAvatar member={null} size="xs" />
-                      Nicht zugewiesen
-                    </DropdownMenuRadioItem>
-                    {members.map((m) => (
-                      <DropdownMenuRadioItem key={m.userId} value={m.userId}>
+                  {/* Several people possible: each entry toggles; the menu stays open. */}
+                  {members.map((m) => {
+                    const checked = task.assigneeIds.includes(m.userId);
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={m.userId}
+                        checked={checked}
+                        disabled={!checked && full}
+                        onCheckedChange={(on) => toggleAssignee(m.userId, on === true)}
+                        onSelect={(e) => e.preventDefault()}
+                      >
                         <MemberAvatar member={m} size="xs" />
                         <span className="truncate">{displayName(m)}</span>
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
+                  {task.assigneeIds.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setAssignees(task.id, [])}>
+                        <MemberAvatar member={null} size="xs" />
+                        Niemand zuweisen
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSeparator />

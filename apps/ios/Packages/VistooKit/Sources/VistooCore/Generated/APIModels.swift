@@ -891,13 +891,14 @@ public struct CreateTaskRequest: Encodable, Sendable {
     public var status: TaskStatus?
     public var milestoneId: Patchable<String>
     public var assigneeId: Patchable<String>
+    public var assigneeIds: [String]?
     public var startDate: Patchable<CalendarDate>
     public var endDate: Patchable<CalendarDate>
     public static let titleMaxLength = 300
     public static let titleMinLength = 1
     public static let descriptionMaxLength = 20000
 
-    public init(id: String? = nil, projectId: String, title: String, description: String? = nil, status: TaskStatus? = nil, milestoneId: Patchable<String> = .unset, assigneeId: Patchable<String> = .unset, startDate: Patchable<CalendarDate> = .unset, endDate: Patchable<CalendarDate> = .unset) {
+    public init(id: String? = nil, projectId: String, title: String, description: String? = nil, status: TaskStatus? = nil, milestoneId: Patchable<String> = .unset, assigneeId: Patchable<String> = .unset, assigneeIds: [String]? = nil, startDate: Patchable<CalendarDate> = .unset, endDate: Patchable<CalendarDate> = .unset) {
         self.id = id
         self.projectId = projectId
         self.title = title
@@ -905,6 +906,7 @@ public struct CreateTaskRequest: Encodable, Sendable {
         self.status = status
         self.milestoneId = milestoneId
         self.assigneeId = assigneeId
+        self.assigneeIds = assigneeIds
         self.startDate = startDate
         self.endDate = endDate
     }
@@ -917,6 +919,7 @@ public struct CreateTaskRequest: Encodable, Sendable {
         case status
         case milestoneId
         case assigneeId
+        case assigneeIds
         case startDate
         case endDate
     }
@@ -930,6 +933,7 @@ public struct CreateTaskRequest: Encodable, Sendable {
         try c.encodeIfPresent(status, forKey: .status)
         try milestoneId.encode(into: &c, forKey: .milestoneId)
         try assigneeId.encode(into: &c, forKey: .assigneeId)
+        try c.encodeIfPresent(assigneeIds, forKey: .assigneeIds)
         try startDate.encode(into: &c, forKey: .startDate)
         try endDate.encode(into: &c, forKey: .endDate)
     }
@@ -2492,6 +2496,23 @@ public struct SetTaskAssigneeRequest: Encodable, Sendable {
     }
 }
 
+public struct SetTaskAssigneesRequest: Encodable, Sendable {
+    public var assigneeIds: [String]
+
+    public init(assigneeIds: [String]) {
+        self.assigneeIds = assigneeIds
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case assigneeIds
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(assigneeIds, forKey: .assigneeIds)
+    }
+}
+
 public struct SetTaskChecklistItemRequest: Encodable, Sendable {
     public var index: Int
     public var checked: Bool
@@ -2583,6 +2604,7 @@ public struct TaskItem: Codable, Hashable, Sendable {
     public var description: String
     public var status: TaskStatus
     public var assigneeId: String?
+    public var assigneeIds: [String]
     public var startDate: CalendarDate?
     public var endDate: CalendarDate?
     public var position: Double
@@ -2591,7 +2613,7 @@ public struct TaskItem: Codable, Hashable, Sendable {
     public var updatedAt: Date
     public var version: Int
 
-    public init(id: String, projectId: String, groupId: String? = nil, milestoneId: String? = nil, number: Int, title: String, description: String, status: TaskStatus, assigneeId: String? = nil, startDate: CalendarDate? = nil, endDate: CalendarDate? = nil, position: Double, createdBy: String, createdAt: Date, updatedAt: Date, version: Int) {
+    public init(id: String, projectId: String, groupId: String? = nil, milestoneId: String? = nil, number: Int, title: String, description: String, status: TaskStatus, assigneeId: String? = nil, assigneeIds: [String], startDate: CalendarDate? = nil, endDate: CalendarDate? = nil, position: Double, createdBy: String, createdAt: Date, updatedAt: Date, version: Int) {
         self.id = id
         self.projectId = projectId
         self.groupId = groupId
@@ -2601,6 +2623,7 @@ public struct TaskItem: Codable, Hashable, Sendable {
         self.description = description
         self.status = status
         self.assigneeId = assigneeId
+        self.assigneeIds = assigneeIds
         self.startDate = startDate
         self.endDate = endDate
         self.position = position
@@ -2649,16 +2672,18 @@ public struct TaskList: Codable, Hashable, Sendable {
 
 /// Open enum: values added by a newer server decode to `.unknown`.
 public enum TaskStatus: Codable, Hashable, Sendable {
+    case backlog
     case open
     case inProgress
     case inReview
     case done
     case unknown(String)
 
-    public static let knownCases: [TaskStatus] = [.open, .inProgress, .inReview, .done]
+    public static let knownCases: [TaskStatus] = [.backlog, .open, .inProgress, .inReview, .done]
 
     public init(rawValue: String) {
         switch rawValue {
+        case "backlog": self = .backlog
         case "open": self = .open
         case "in_progress": self = .inProgress
         case "in_review": self = .inReview
@@ -2669,6 +2694,7 @@ public enum TaskStatus: Codable, Hashable, Sendable {
 
     public var rawValue: String {
         switch self {
+        case .backlog: return "backlog"
         case .open: return "open"
         case .inProgress: return "in_progress"
         case .inReview: return "in_review"
@@ -3175,19 +3201,21 @@ public struct UpdateTaskRequest: Encodable, Sendable {
         public var status: TaskStatus?
         public var milestoneId: Patchable<String>
         public var assigneeId: Patchable<String>
+        public var assigneeIds: [String]?
         public var startDate: Patchable<CalendarDate>
         public var endDate: Patchable<CalendarDate>
         public static let titleMaxLength = 300
         public static let titleMinLength = 1
         public static let descriptionMaxLength = 20000
 
-        public init(projectId: String? = nil, title: String? = nil, description: String? = nil, status: TaskStatus? = nil, milestoneId: Patchable<String> = .unset, assigneeId: Patchable<String> = .unset, startDate: Patchable<CalendarDate> = .unset, endDate: Patchable<CalendarDate> = .unset) {
+        public init(projectId: String? = nil, title: String? = nil, description: String? = nil, status: TaskStatus? = nil, milestoneId: Patchable<String> = .unset, assigneeId: Patchable<String> = .unset, assigneeIds: [String]? = nil, startDate: Patchable<CalendarDate> = .unset, endDate: Patchable<CalendarDate> = .unset) {
             self.projectId = projectId
             self.title = title
             self.description = description
             self.status = status
             self.milestoneId = milestoneId
             self.assigneeId = assigneeId
+            self.assigneeIds = assigneeIds
             self.startDate = startDate
             self.endDate = endDate
         }
@@ -3199,6 +3227,7 @@ public struct UpdateTaskRequest: Encodable, Sendable {
             case status
             case milestoneId
             case assigneeId
+            case assigneeIds
             case startDate
             case endDate
         }
@@ -3211,6 +3240,7 @@ public struct UpdateTaskRequest: Encodable, Sendable {
             try c.encodeIfPresent(status, forKey: .status)
             try milestoneId.encode(into: &c, forKey: .milestoneId)
             try assigneeId.encode(into: &c, forKey: .assigneeId)
+            try c.encodeIfPresent(assigneeIds, forKey: .assigneeIds)
             try startDate.encode(into: &c, forKey: .startDate)
             try endDate.encode(into: &c, forKey: .endDate)
         }

@@ -8,7 +8,7 @@ import { MarkdownEditor } from "@/components/markdown/markdown-editor";
 import { MarkdownView } from "@/components/markdown/markdown-view";
 import { setChecklistItem, type ChecklistItem } from "@vistoo/domain/markdown";
 import { FormAlert } from "@/components/form-feedback";
-import { MemberAvatar } from "@/components/member-avatar";
+import { MemberMultiSelect } from "@/components/member-multi-select";
 import { ProjectDot } from "@/components/project-dot";
 import { StatusIcon } from "@/components/status-icon";
 import {
@@ -42,7 +42,7 @@ type FormValues = {
   status: TaskStatus;
   projectId: string;
   milestoneId: string | null;
-  assigneeId: string | null;
+  assigneeIds: string[];
   startDate: string | null;
   endDate: string | null;
 };
@@ -56,7 +56,7 @@ function valuesFrom(t: TaskDTO): FormValues {
     status: t.status,
     projectId: t.projectId,
     milestoneId: t.milestoneId,
-    assigneeId: t.assigneeId,
+    assigneeIds: t.assigneeIds,
     startDate: t.startDate,
     endDate: t.endDate,
   };
@@ -67,7 +67,8 @@ function diff(base: FormValues, next: FormValues): Partial<FormValues> {
   for (const k of Object.keys(next) as (keyof FormValues)[]) {
     const a = k === "title" ? base[k].trim() : base[k];
     const b = k === "title" ? next[k].trim() : next[k];
-    if (a !== b) (out as Record<string, unknown>)[k] = next[k];
+    const same = Array.isArray(a) && Array.isArray(b) ? a.length === b.length && a.every((x, i) => x === b[i]) : a === b;
+    if (!same) (out as Record<string, unknown>)[k] = next[k];
   }
   return out;
 }
@@ -173,7 +174,7 @@ export function TaskPanel({
               status: target.status,
               projectId: "",
               milestoneId: defaults.milestoneId,
-              assigneeId: defaults.assigneeId,
+              assigneeIds: defaults.assigneeId ? [defaults.assigneeId] : [],
               startDate: null,
               endDate: null,
             }}
@@ -662,32 +663,14 @@ function TaskForm({
           </Field>
 
           <Field label="Verantwortlich" htmlFor={ids.assignee}>
-            <Select
-              value={values.assigneeId ?? NONE}
-              onValueChange={(v) => set("assigneeId", v === NONE ? null : v)}
+            <MemberMultiSelect
+              id={ids.assignee}
+              value={values.assigneeIds}
+              onChange={(v) => set("assigneeIds", v)}
+              members={members}
+              people={people}
               disabled={disabled}
-            >
-              <SelectTrigger id={ids.assignee} className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>
-                  <MemberAvatar member={null} size="xs" />
-                  Nicht zugewiesen
-                </SelectItem>
-                {members.map((m) => (
-                  <SelectItem key={m.userId} value={m.userId}>
-                    <MemberAvatar member={m} size="xs" />
-                    {displayName(m)}
-                  </SelectItem>
-                ))}
-                {values.assigneeId && !members.some((m) => m.userId === values.assigneeId) && (
-                  <SelectItem value={values.assigneeId} disabled>
-                    Ehemaliges Mitglied
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+            />
           </Field>
 
           <Field label="Projekt" htmlFor={ids.project} error={errors.projectId} errorId={`${ids.project}-error`}>

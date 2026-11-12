@@ -29,7 +29,7 @@ struct HomeScreen: View {
     }
 
     private var myOpenTasks: [TaskItem] {
-        work.tasks(in: .all).filter { $0.assigneeId == session.userId && $0.status != .done }
+        work.tasks(in: .all).filter { $0.isAssigned(to: session.userId) && $0.status != .done }
     }
 
     private var buckets: [HomeBucket] { HomeBucket.group(myOpenTasks) }

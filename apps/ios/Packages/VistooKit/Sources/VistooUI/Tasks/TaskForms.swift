@@ -7,7 +7,7 @@ struct TaskFields: Equatable {
     var description = ""
     var status: TaskStatus = .open
     var projectId = ""
-    var assigneeId: String?
+    var assigneeIds: [String] = []
     var milestoneId: String?
     var startDate: CalendarDate?
     var endDate: CalendarDate?
@@ -17,7 +17,7 @@ struct TaskFields: Equatable {
         description = task.description
         status = task.status
         projectId = task.projectId
-        assigneeId = task.assigneeId
+        assigneeIds = task.assigneeIds
         milestoneId = task.milestoneId
         startDate = task.startDate
         endDate = task.endDate
@@ -27,7 +27,7 @@ struct TaskFields: Equatable {
         title = draft.title
         status = draft.status
         projectId = draft.projectId
-        assigneeId = draft.assigneeId
+        assigneeIds = draft.assigneeIds
     }
 
     var titleProblem: String? {
@@ -60,6 +60,17 @@ struct TaskFieldsForm: View {
     var milestones: [Milestone] = []
     @FocusState private var titleFocused: Bool
 
+    private var assigneeSummary: String {
+        let names = fields.assigneeIds.map { id in
+            id == viewerId ? "Ich" : (work.person(id)?.displayName ?? "Ehemaliges Mitglied")
+        }
+        switch names.count {
+        case 0: return "Nicht zugewiesen"
+        case 1, 2: return names.joined(separator: ", ")
+        default: return "\(names[0]) und \(names.count - 1) weitere"
+        }
+    }
+
     private var projects: [Project] {
         work.activeProjects + (work.project(fields.projectId).map { $0.archived ? [$0] : [] } ?? [])
     }
@@ -88,18 +99,16 @@ struct TaskFieldsForm: View {
                 if case .unknown = fields.status { Text(fields.status.label).tag(fields.status) }
             }
             if autofocusTitle { projectPicker }
-            Picker("Verantwortlich", selection: $fields.assigneeId) {
-                Text("Nicht zugewiesen").tag(String?.none)
-                ForEach(work.members) { m in
-                    Text(m.userId == viewerId ? "\(m.displayName) (ich)" : m.displayName).tag(String?.some(m.userId))
-                }
-                if let id = fields.assigneeId, !work.members.contains(where: { $0.userId == id }) {
-                    Text(work.person(id)?.displayName ?? "Ehemaliges Mitglied").tag(String?.some(id))
+            NavigationLink {
+                AssigneesPicker(work: work, selection: $fields.assigneeIds, viewerId: viewerId)
+            } label: {
+                LabeledContent("Verantwortlich") {
+                    Text(assigneeSummary).lineLimit(1)
                 }
             }
-            if let viewerId, fields.assigneeId != viewerId, !readOnly {
+            if let viewerId, !fields.assigneeIds.contains(viewerId), !readOnly {
                 Button {
-                    fields.assigneeId = viewerId
+                    fields.assigneeIds.append(viewerId)
                 } label: {
                     Label("Mir zuweisen", systemImage: "person.crop.circle.badge.checkmark")
                 }
@@ -249,7 +258,7 @@ struct TaskCreateView: View {
         d.description = fields.description
         d.status = fields.status
         d.projectId = fields.projectId
-        d.assigneeId = fields.assigneeId
+        d.assigneeIds = fields.assigneeIds
         d.milestoneId = fields.milestoneId
         d.startDate = fields.startDate
         d.endDate = fields.endDate
@@ -394,7 +403,7 @@ struct TaskDetailView: View {
         if fields.description != original.description { patch.description = fields.description }
         if fields.status != original.status { patch.status = fields.status }
         if fields.projectId != original.projectId { patch.projectId = fields.projectId }
-        if fields.assigneeId != original.assigneeId { patch.assigneeId = Patchable(fields.assigneeId) }
+        if fields.assigneeIds != original.assigneeIds { patch.assigneeIds = fields.assigneeIds }
         if fields.milestoneId != original.milestoneId { patch.milestoneId = Patchable(fields.milestoneId) }
         if fields.startDate != original.startDate { patch.startDate = Patchable(fields.startDate) }
         if fields.endDate != original.endDate { patch.endDate = Patchable(fields.endDate) }
@@ -507,5 +516,53 @@ struct FilterSheet: View {
             .contentShape(Rectangle())
         }
         .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+}
+
+/// Several responsible people: tap toggles; order = order of selection.
+/// Former members that are still assigned stay listed and can be removed.
+struct AssigneesPicker: View {
+    let work: WorkStore
+    @Binding var selection: [String]
+    var viewerId: String?
+
+    private var former: [String] { selection.filter { id in !work.members.contains(where: { $0.userId == id }) } }
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(work.members) { m in
+                    row(id: m.userId, name: m.userId == viewerId ? "\(m.displayName) (ich)" : m.displayName)
+                }
+                ForEach(former, id: \.self) { id in
+                    row(id: id, name: "\(work.person(id)?.displayName ?? "Ehemaliges Mitglied") (ehemalig)")
+                }
+            } footer: {
+                Text("Mehrere Personen können gemeinsam verantwortlich sein.")
+            }
+            if !selection.isEmpty {
+                Section {
+                    Button("Niemand zuweisen", role: .destructive) { selection = [] }
+                }
+            }
+        }
+        .navigationTitle("Verantwortlich")
+        .inlineNavigationTitle()
+    }
+
+    private func row(id: String, name: String) -> some View {
+        let selected = selection.contains(id)
+        let full = selection.count >= DomainDefaults.maxTaskAssignees
+        return Button {
+            if selected { selection.removeAll { $0 == id } } else if !full { selection.append(id) }
+        } label: {
+            HStack {
+                Text(name).foregroundStyle(Tokens.Palette.foreground)
+                Spacer()
+                if selected { Image(systemName: "checkmark").foregroundStyle(Tokens.Palette.accentBlue) }
+            }
+        }
+        .disabled(!selected && full)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

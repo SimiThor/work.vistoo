@@ -187,32 +187,41 @@ export function notifyNewMessage(messageId: string) {
   });
 }
 
-/** Recipient and content of an assignment (exported for tests). */
+type AssignedTask = { id: string; title: string; projectId: string; assigneeIds: string[] };
+
+/**
+ * Recipients and content of an assignment (exported for tests): the newly
+ * added assignees (`added`, default: all), except the actor and people who
+ * turned assignment pushes off.
+ */
 export async function assignmentPush(
   ctx: AuthContext,
-  task: { id: string; title: string; projectId: string; assigneeId: string | null },
+  task: AssignedTask,
+  added: string[] = task.assigneeIds,
 ): Promise<{ userIds: string[]; message: PushMessage } | null> {
-  if (!task.assigneeId || task.assigneeId === ctx.userId) return null;
+  const candidates = [...new Set(added)].filter((u) => u !== ctx.userId && task.assigneeIds.includes(u));
+  if (!candidates.length) return null;
   const db = getDb();
-  const [target] = await db
+  const targets = await db
     .select({ userId: workspaceMembers.userId, enabled: sql<boolean>`coalesce(${notificationPreferences.taskAssignments}, true)` })
     .from(workspaceMembers)
     .leftJoin(notificationPreferences, eq(notificationPreferences.userId, workspaceMembers.userId))
     .where(
       and(
         eq(workspaceMembers.workspaceId, ctx.workspaceId),
-        eq(workspaceMembers.userId, task.assigneeId),
+        inArray(workspaceMembers.userId, candidates),
         eq(workspaceMembers.status, "active"),
       ),
     );
-  if (!target?.enabled) return null;
+  const userIds = candidates.filter((u) => targets.some((t) => t.userId === u && t.enabled));
+  if (!userIds.length) return null;
   const [[actor], [project]] = await Promise.all([
     db.select({ fullName: profiles.fullName, email: profiles.email }).from(profiles).where(eq(profiles.id, ctx.userId)),
     db.select({ name: projects.name }).from(projects).where(eq(projects.id, task.projectId)),
   ]);
   const by = actor ? displayName(actor) : "Jemand";
   return {
-    userIds: [target.userId],
+    userIds,
     message: {
       title: "Neue Aufgabe für dich",
       subtitle: project?.name,
@@ -223,13 +232,11 @@ export async function assignmentPush(
   };
 }
 
-/** Called after a task got a (new) assignee, from any client. */
-export function notifyAssignment(
-  ctx: AuthContext,
-  task: { id: string; title: string; projectId: string; assigneeId: string | null },
-) {
+/** Called after people were added as assignees (`added`, default: all), from any client. */
+export function notifyAssignment(ctx: AuthContext, task: AssignedTask, added: string[] = task.assigneeIds) {
+  if (!added.length) return;
   runInBackground(async () => {
-    const push = await assignmentPush(ctx, task);
+    const push = await assignmentPush(ctx, task, added);
     if (push) await sendToUsers(push.userIds, push.message);
   });
 }

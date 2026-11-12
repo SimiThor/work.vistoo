@@ -236,7 +236,7 @@ npm run test:e2e
 - **Schnellaktionen** (Status, Person, Verschieben) speichern sofort und bewusst ohne Versionsprüfung, weil sie jeweils genau ein Feld setzen. Das Detailformular speichert explizit mit Versionsprüfung.
 - **Neue Aufgaben** übernehmen eindeutige Filterwerte (Projekt, Meilenstein, Person), damit sie sichtbar bleiben.
 - **Archivierte Projekte** sind in „Alle Aufgaben“ ausgeblendet und schreibgeschützt, bleiben aber über die Projektliste erreichbar.
-- **Zurückgestellt:** Task-Abhängigkeiten (optional laut Briefing), Drag zum Verschieben von Timeline-Balken, Dark Mode, Push-Benachrichtigungen. Für zurückgestellte Funktionen gibt es keine Bedienelemente (auch nicht in der iOS-App).
+- **Zurückgestellt:** Task-Abhängigkeiten (optional laut Briefing), Drag zum Verschieben von Timeline-Balken, Push-Benachrichtigungen. (Dark Mode ist seit 2026-11-12 umgesetzt, siehe docs/design-tokens.md.) Für zurückgestellte Funktionen gibt es keine Bedienelemente (auch nicht in der iOS-App).
 - **Nicht Teil des MVP:** Billing, öffentliche Registrierung, Gäste, Kommentare, Anhänge, Zeiterfassung, Automationen, Benachrichtigungen, Custom Fields, Workflows, Unteraufgaben, KI, Reporting.
 
 ---

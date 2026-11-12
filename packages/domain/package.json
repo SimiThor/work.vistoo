@@ -20,7 +20,8 @@
     "./ideas": "./src/ideas.ts",
     "./crm": "./src/crm.ts",
     "./markdown": "./src/markdown.ts",
-    "./decisions": "./src/decisions.ts"
+    "./decisions": "./src/decisions.ts",
+    "./meetings": "./src/meetings.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p .",

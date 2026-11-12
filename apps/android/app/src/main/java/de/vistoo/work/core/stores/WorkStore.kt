@@ -16,7 +16,7 @@ import de.vistoo.work.core.generated.Project
 import de.vistoo.work.core.generated.ProjectColorKey
 import de.vistoo.work.core.generated.ProjectStat
 import de.vistoo.work.core.generated.SetArchivedRequest
-import de.vistoo.work.core.generated.SetTaskAssigneeRequest
+import de.vistoo.work.core.generated.SetTaskAssigneesRequest
 import de.vistoo.work.core.generated.SetTaskStatusRequest
 import de.vistoo.work.core.generated.TaskItem
 import de.vistoo.work.core.generated.TaskStatus
@@ -163,7 +163,8 @@ class WorkStore(private val backend: Backend, bootstrap: Bootstrap) {
     data class TaskDraft(
         val projectId: String,
         val status: TaskStatus = TaskStatus.Open,
-        val assigneeId: String? = null,
+        /** Everyone responsible (order = display order). */
+        val assigneeIds: List<String> = emptyList(),
         val title: String = "",
         val description: String = "",
         val milestoneId: String? = null,
@@ -181,7 +182,7 @@ class WorkStore(private val backend: Backend, bootstrap: Bootstrap) {
             description = draft.description,
             status = draft.status,
             milestoneId = Patchable.of(draft.milestoneId),
-            assigneeId = Patchable.of(draft.assigneeId),
+            assigneeIds = draft.assigneeIds,
             startDate = Patchable.of(draft.startDate),
             endDate = Patchable.of(draft.endDate),
         )
@@ -213,11 +214,12 @@ class WorkStore(private val backend: Backend, bootstrap: Bootstrap) {
         }
     }
 
-    suspend fun setAssignee(task: TaskItem, userId: String?) {
+    /** Quick action: set everyone responsible (empty = unassigned). */
+    suspend fun setAssignees(task: TaskItem, userIds: List<String>) {
         val previous = tasksById[task.id]
-        put(task.id, task.copy(assigneeId = userId))
+        put(task.id, task.copy(assigneeIds = userIds, assigneeId = userIds.firstOrNull()))
         try {
-            merge(backend.send(API.setTaskAssignee(id = task.id, body = SetTaskAssigneeRequest(assigneeId = userId))))
+            merge(backend.send(API.setTaskAssignees(id = task.id, body = SetTaskAssigneesRequest(assigneeIds = userIds))))
         } catch (e: Exception) {
             put(task.id, previous)
             throw e
@@ -299,4 +301,4 @@ fun TaskItem.isOverdue(today: CalendarDate = CalendarDate.today()): Boolean =
 
 /** Own open tasks whose end date has passed (badge of the "Für mich" tab). */
 fun WorkStore.overdueCount(userId: String, today: CalendarDate = CalendarDate.today()): Int =
-    tasks(WorkScope.All).count { it.assigneeId == userId && it.isOverdue(today) }
+    tasks(WorkScope.All).count { it.isAssignedTo(userId) && it.isOverdue(today) }

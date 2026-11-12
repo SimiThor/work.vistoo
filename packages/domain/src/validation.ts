@@ -2,7 +2,7 @@ import { z } from "zod";
 import { CHAT_LIMITS } from "./chat-config";
 import { isIsoDate } from "./dates";
 import { isWebUrl, LINK_LIMITS, normalizeWebUrl } from "./links";
-import { MEMBER_ROLES, PROJECT_COLOR_KEYS, TASK_STATUSES } from "./domain";
+import { MAX_TASK_ASSIGNEES, MEMBER_ROLES, PROJECT_COLOR_KEYS, TASK_STATUSES } from "./domain";
 
 /** Input schemas shared by forms (inline validation) and Server Actions. */
 
@@ -49,6 +49,14 @@ function dateRangeRefinement<T extends { startDate?: string | null; endDate?: st
  */
 const clientId = uuid.optional();
 
+/**
+ * Everyone responsible for a task (order = display order; duplicates are
+ * ignored by the server). Takes precedence over the legacy `assigneeId`.
+ */
+export const taskAssigneeIds = z
+  .array(uuid)
+  .max(MAX_TASK_ASSIGNEES, { error: `Höchstens ${MAX_TASK_ASSIGNEES} Personen können zuständig sein.` });
+
 export const createTaskSchema = z
   .object({
     id: clientId,
@@ -57,7 +65,9 @@ export const createTaskSchema = z
     description: taskDescription.default(""),
     status: z.enum(TASK_STATUSES).default("open"),
     milestoneId: uuid.nullable().default(null),
+    /** Legacy single assignee (older app builds). Ignored when `assigneeIds` is sent. */
     assigneeId: uuid.nullable().default(null),
+    assigneeIds: taskAssigneeIds.optional(),
     startDate: calendarDate.default(null),
     endDate: calendarDate.default(null),
   })
@@ -71,7 +81,9 @@ export const taskPatchSchema = z
     description: taskDescription,
     status: z.enum(TASK_STATUSES),
     milestoneId: uuid.nullable(),
+    /** Legacy: replaces all assignees with this one person (or none). Ignored when `assigneeIds` is sent. */
     assigneeId: uuid.nullable(),
+    assigneeIds: taskAssigneeIds,
     startDate: calendarDate,
     endDate: calendarDate,
   })
@@ -107,7 +119,10 @@ export const setChecklistItemSchema = z.object({
 export const searchIssuesSchema = z.object({ q: z.string().max(100).default("") });
 /** Resolve `<#task-id>` tokens (e.g. from a restored draft) to number/title/status. */
 export const resolveIssueRefsSchema = z.object({ ids: z.array(uuid).max(50) });
+/** Legacy quick action: replaces all assignees with this one person (or none). */
 export const setAssigneeSchema = z.object({ id: uuid, assigneeId: uuid.nullable() });
+/** Quick action: set everyone responsible (empty = unassigned). */
+export const setAssigneesSchema = z.object({ id: uuid, assigneeIds: taskAssigneeIds });
 export const idSchema = z.object({ id: uuid });
 
 export const projectSchema = z.object({

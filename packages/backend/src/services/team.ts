@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, arrayContains, asc, eq, sql } from "drizzle-orm";
 import type { z } from "zod";
 import { INVITATION_TTL_DAYS, type InvitationDTO, type MemberDTO } from "@vistoo/domain";
 import type { changeRoleSchema, inviteSchema, profileNameSchema } from "@vistoo/domain/validation";
@@ -261,8 +261,13 @@ export async function removeMember(ctx: AuthContext, userId: string): Promise<{ 
     const now = new Date();
     const unassigned = await tx
       .update(tasks)
-      .set({ assigneeId: null, version: sql`${tasks.version} + 1`, updatedAt: now, updatedBy: ctx.userId })
-      .where(and(eq(tasks.workspaceId, ctx.workspaceId), eq(tasks.assigneeId, userId)))
+      .set({
+        assigneeIds: sql`array_remove(${tasks.assigneeIds}, ${userId}::uuid)`,
+        version: sql`${tasks.version} + 1`,
+        updatedAt: now,
+        updatedBy: ctx.userId,
+      })
+      .where(and(eq(tasks.workspaceId, ctx.workspaceId), arrayContains(tasks.assigneeIds, [userId])))
       .returning({ id: tasks.id });
     await tx
       .update(workspaceMembers)

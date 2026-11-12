@@ -17,7 +17,7 @@ import {
   deleteTaskAction,
   listTasksAction,
   moveTaskAction,
-  setTaskAssigneeAction,
+  setTaskAssigneesAction,
   setTaskStatusAction,
   updateTaskAction,
 } from "@/app/actions/tasks";
@@ -59,7 +59,8 @@ type WorkContextValue = {
   ) => Promise<ActionResult<TaskDTO>>;
   moveTask: (id: string, status: TaskStatus, afterId: string | null, beforeId: string | null) => void;
   setStatus: (id: string, status: TaskStatus) => void;
-  setAssignee: (id: string, assigneeId: string | null) => void;
+  /** Everyone responsible (empty = unassigned). */
+  setAssignees: (id: string, assigneeIds: string[]) => void;
   deleteTask: (id: string) => Promise<boolean>;
   /** Merge a server snapshot of a task (e.g. after a conflict). */
   acceptServerTask: (task: TaskDTO) => void;
@@ -267,9 +268,13 @@ export function WorkProvider({
     [optimistic],
   );
 
-  const setAssignee = useCallback<WorkContextValue["setAssignee"]>(
-    (id, assigneeId) => {
-      void optimistic(id, (t) => ({ ...t, assigneeId }), () => setTaskAssigneeAction({ id, assigneeId }));
+  const setAssignees = useCallback<WorkContextValue["setAssignees"]>(
+    (id, assigneeIds) => {
+      void optimistic(
+        id,
+        (t) => ({ ...t, assigneeIds, assigneeId: assigneeIds[0] ?? null }),
+        () => setTaskAssigneesAction({ id, assigneeIds }),
+      );
     },
     [optimistic],
   );
@@ -332,7 +337,7 @@ export function WorkProvider({
     updateTask,
     moveTask,
     setStatus,
-    setAssignee,
+    setAssignees,
     deleteTask,
     acceptServerTask: upsert,
   };

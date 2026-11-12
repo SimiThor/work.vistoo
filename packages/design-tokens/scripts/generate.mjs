@@ -16,22 +16,43 @@ export function resolve(platform) {
   const o = tokens.overrides?.[platform] ?? {};
   const merge = (group) =>
     Object.fromEntries(entries(tokens[group]).map(([k, t]) => [k, o[group]?.[k]?.value ?? t.value]));
-  return { color: merge("color"), radius: merge("radius"), spacing: merge("spacing") };
+  // Dark appearance: override's dark value, else the base dark value, else the light value.
+  const dark = Object.fromEntries(
+    entries(tokens.color).map(([k, t]) => [k, o.color?.[k]?.dark ?? t.dark ?? o.color?.[k]?.value ?? t.value]),
+  );
+  return { color: merge("color"), dark, radius: merge("radius"), spacing: merge("spacing") };
 }
 
 export function css() {
   const t = resolve("web");
+  const ordered = (palette) => [
+    ...entries(palette).filter(([k]) => !k.startsWith("timeline-")),
+    ...entries(palette).filter(([k]) => k.startsWith("timeline-")),
+  ];
+  const darkVars = (indent) => [
+    ...ordered(t.dark).map(([k, v]) => `${indent}--${k}: ${v};`),
+    ...entries(tokens.shadow).map(([k, s]) => `${indent}--shadow-${k}: ${s.webDark ?? s.web};`),
+    `${indent}color-scheme: dark;`,
+  ];
   const lines = [
     "/* Generated from packages/design-tokens/tokens.json (npm run generate). Do not edit by hand. */",
+    "/* Light: default. Dark: class `dark` on <html> (user choice or system, set before paint),",
+    "   or the system setting when no class was set (e.g. without JavaScript). Class `light` forces light. */",
     ":root {",
-    ...entries(t.color)
-      .filter(([k]) => !k.startsWith("timeline-"))
-      .map(([k, v]) => `  --${k}: ${v};`),
-    ...entries(t.color)
-      .filter(([k]) => k.startsWith("timeline-"))
-      .map(([k, v]) => `  --${k}: ${v};`),
+    ...ordered(t.color).map(([k, v]) => `  --${k}: ${v};`),
     ...entries(tokens.shadow).map(([k, s]) => `  --shadow-${k}: ${s.web};`),
     `  --radius: ${t.radius.base / 16}rem; /* ${t.radius.base}px; derived sm/md/lg/xl in globals.css */`,
+    "  color-scheme: light;",
+    "}",
+    "",
+    ":root.dark {",
+    ...darkVars("  "),
+    "}",
+    "",
+    "@media (prefers-color-scheme: dark) {",
+    "  :root:not(.light) {",
+    ...darkVars("    "),
+    "  }",
     "}",
     "",
     "@theme inline {",
@@ -50,6 +71,8 @@ const camel = (s) => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 export function swift() {
   const t = resolve("ios");
   const hex = (v) => `0x${v.slice(1).toUpperCase()}`;
+  const color = (k, v) =>
+    t.dark[k] === v ? `Color(hex: ${hex(v)})` : `Color(light: ${hex(v)}, dark: ${hex(t.dark[k])})`;
   const doc = (group, k) => {
     const o = tokens.overrides?.ios?.[group]?.[k];
     const d = tokens[group][k]?.description;
@@ -61,10 +84,11 @@ export function swift() {
     "import SwiftUI",
     "",
     "/// Vistoo design tokens for iOS (base values + explicit iOS overrides).",
+    "/// Colours adapt to the system appearance (light/dark).",
     "public enum Tokens {",
     "  public enum Palette {",
     ...entries(t.color).flatMap(([k, v]) =>
-      [doc("color", k), `    public static let ${camel(k)} = Color(hex: ${hex(v)})`].filter(Boolean).map((l) => l.replace(/^ {4}/, "    ")),
+      [doc("color", k), `    public static let ${camel(k)} = ${color(k, v)}`].filter(Boolean).map((l) => l.replace(/^ {4}/, "    ")),
     ),
     "  }",
     "",
@@ -101,6 +125,8 @@ export function swift() {
 export function kotlin() {
   const t = resolve("android");
   const hex = (v) => `0xFF${v.slice(1).toUpperCase()}`;
+  const color = (k, v) =>
+    t.dark[k] === v ? `    val ${camel(k)} = Color(${hex(v)})` : `    val ${camel(k)}: Color get() = if (isDark) Color(${hex(t.dark[k])}) else Color(${hex(v)})`;
   const doc = (group, k) => {
     const o = tokens.overrides?.android?.[group]?.[k];
     const d = tokens[group][k]?.description;
@@ -113,6 +139,9 @@ export function kotlin() {
     "",
     "package de.vistoo.work.ui.generated",
     "",
+    "import androidx.compose.runtime.getValue",
+    "import androidx.compose.runtime.mutableStateOf",
+    "import androidx.compose.runtime.setValue",
     "import androidx.compose.ui.graphics.Color",
     "import androidx.compose.ui.text.TextStyle",
     "import androidx.compose.ui.text.font.FontWeight",
@@ -121,8 +150,14 @@ export function kotlin() {
     "",
     "/** Vistoo design tokens for Android (base values + explicit Android overrides). */",
     "object Tokens {",
+    "  /**",
+    "   * Dark appearance active. Set by VistooTheme from the system setting. Snapshot state:",
+    "   * composables and draw blocks that read a palette colour update when it changes.",
+    "   */",
+    "  var isDark by mutableStateOf(false)",
+    "",
     "  object Palette {",
-    ...entries(t.color).flatMap(([k, v]) => [doc("color", k), `    val ${camel(k)} = Color(${hex(v)})`].filter(Boolean)),
+    ...entries(t.color).flatMap(([k, v]) => [doc("color", k), color(k, v)].filter(Boolean)),
     "  }",
     "",
     "  object Radius {",

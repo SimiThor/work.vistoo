@@ -7,6 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -22,6 +26,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DatePickerDefaults
@@ -258,6 +264,80 @@ fun PersonPicker(title: String, work: WorkStore, selection: String?, onSelect: (
         }
     }
     PickerRow(title, selection, options, onSelect, enabled)
+}
+
+/**
+ * Several responsible people (task assignees): the row shows a summary, a
+ * dialog with checkboxes edits the list. Order = order of selection; former
+ * members that are still selected stay listed and can be removed.
+ */
+@Composable
+fun MultiPersonPicker(
+    title: String,
+    work: WorkStore,
+    selection: List<String>,
+    onChange: (List<String>) -> Unit,
+    viewerId: String?,
+    noneLabel: String = "Nicht zugewiesen",
+    enabled: Boolean = true,
+) {
+    var open by remember { mutableStateOf(false) }
+    fun name(id: String) = if (id == viewerId) "Ich" else work.person(id)?.displayName ?: "Ehemaliges Mitglied"
+    val names = selection.map(::name)
+    val summary = when (names.size) {
+        0 -> noneLabel
+        1, 2 -> names.joinToString(", ")
+        else -> "${names[0]} und ${names.size - 1} weitere"
+    }
+    ListRow(
+        modifier = Modifier.semantics { stateDescription = summary },
+        onClick = { open = true },
+        enabled = enabled,
+        trailing = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(summary, color = Tokens.Palette.mutedForeground, style = VType.body, maxLines = 1)
+                Icon(Icons.Filled.UnfoldMore, null, tint = Tokens.Palette.mutedForeground, modifier = Modifier.size(16.dp))
+            }
+        },
+    ) { Text(title) }
+    if (open) {
+        var draft by remember(selection) { mutableStateOf(selection) }
+        val former = draft.filter { id -> work.members.none { it.userId == id } }
+        val full = draft.size >= de.vistoo.work.core.generated.DomainDefaults.maxTaskAssignees
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(title) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    val rows = work.members.map { it.userId to (if (it.userId == viewerId) "${it.displayName} (ich)" else it.displayName) } +
+                        former.map { it to "${work.person(it)?.displayName ?: "Ehemaliges Mitglied"} (ehemalig)" }
+                    rows.forEach { (id, label) ->
+                        val checked = id in draft
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(
+                                value = checked,
+                                enabled = checked || !full,
+                                role = Role.Checkbox,
+                                onValueChange = { on -> draft = if (on) draft + id else draft - id },
+                            ),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Checkbox(checked = checked, onCheckedChange = null, enabled = checked || !full)
+                            Text(label, style = VType.body, color = Tokens.Palette.foreground)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { onChange(draft); open = false }) { Text("Fertig") } },
+            dismissButton = {
+                TextButton(onClick = { onChange(emptyList()); open = false }, enabled = selection.isNotEmpty() || draft.isNotEmpty()) {
+                    Text("Niemand")
+                }
+            },
+            containerColor = Tokens.Palette.background,
+        )
+    }
 }
 
 // MARK: Dates

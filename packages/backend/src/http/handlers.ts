@@ -107,6 +107,7 @@ export const handlers: Handlers = {
   moveTask: (ctx, { params, body }) => tasks.moveTask(ctx, { id: params.id, ...body }),
   setTaskStatus: (ctx, { params, body }) => tasks.setTaskStatus(ctx, { id: params.id, ...body }),
   setTaskAssignee: (ctx, { params, body }) => tasks.setTaskAssignee(ctx, { id: params.id, ...body }),
+  setTaskAssignees: (ctx, { params, body }) => tasks.setTaskAssignees(ctx, { id: params.id, ...body }),
   setTaskChecklistItem: (ctx, { params, body }) => tasks.setTaskChecklistItem(ctx, { id: params.id, ...body }),
 
   listTaskLinks: async (ctx, { params }) => ({ links: await taskLinks.listTaskLinks(ctx, params.id) }),

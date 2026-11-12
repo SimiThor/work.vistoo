@@ -34,9 +34,10 @@ import de.vistoo.work.core.generated.TaskStatus
 import de.vistoo.work.core.generated.label
 import de.vistoo.work.core.stores.SessionModel
 import de.vistoo.work.core.stores.WorkStore
+import de.vistoo.work.core.stores.isAssignedTo
 import de.vistoo.work.core.stores.isOverdue
 import de.vistoo.work.ui.components.ActionRunner
-import de.vistoo.work.ui.components.Avatar
+import de.vistoo.work.ui.components.AvatarStack
 import de.vistoo.work.ui.components.ConfirmDialog
 import de.vistoo.work.ui.components.Formatting
 import de.vistoo.work.ui.components.MenuEntry
@@ -57,14 +58,15 @@ import de.vistoo.work.ui.theme.VType
 fun TaskRowView(work: WorkStore, task: TaskItem, showProject: Boolean = true, showAssignee: Boolean = true) {
     val overdue = task.isOverdue()
     val project = work.project(task.projectId)
-    val person = work.person(task.assigneeId)
+    val people = task.assigneeIds.mapNotNull { work.person(it) }
     val description = buildList {
         add("#${task.number} ${task.title}")
         add("Status ${task.status.label}")
         if (project != null && showProject) add("Projekt ${project.name}")
         if (task.startDate != null || task.endDate != null) add(Formatting.range(task.startDate, task.endDate))
         if (overdue) add("überfällig")
-        add(person?.let { "Verantwortlich ${it.displayName}" } ?: "Nicht zugewiesen")
+        val names = task.assigneeIds.map { id -> work.person(id)?.displayName ?: "Ehemaliges Mitglied" }
+        add(if (names.isEmpty()) "Nicht zugewiesen" else "Verantwortlich ${names.joinToString(", ")}")
     }.joinToString(", ")
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).semantics(mergeDescendants = true) { contentDescription = description },
@@ -103,7 +105,7 @@ fun TaskRowView(work: WorkStore, task: TaskItem, showProject: Boolean = true, sh
                 }
             }
         }
-        if (showAssignee && person != null) Avatar(person.fullName, person.email, size = 26.dp)
+        if (showAssignee && people.isNotEmpty()) AvatarStack(people, size = 26.dp)
     }
 }
 
@@ -128,7 +130,9 @@ fun TaskListItem(
     val editable = !work.isReadOnly(task)
     val context = LocalContext.current
     fun setStatus(s: TaskStatus) = runner.run("Status nicht geändert") { work.setStatus(task, s) }
-    fun assign(userId: String?) = runner.run("Zuweisung fehlgeschlagen") { work.setAssignee(task, userId) }
+    fun assign(userIds: List<String>) = runner.run("Zuweisung fehlgeschlagen") { work.setAssignees(task, userIds) }
+    /** Adds `userId` to the assignees, or removes them if already assigned. */
+    fun toggle(userId: String) = assign(if (task.isAssignedTo(userId)) task.assigneeIds - userId else task.assigneeIds + userId)
 
     val endAction = when {
         !editable -> null
@@ -155,9 +159,11 @@ fun TaskListItem(
                         if (task.status != TaskStatus.Done && task.status.next != TaskStatus.Done) {
                             add(MenuEntry.Item(TaskStatus.Done.label, Icons.Filled.CheckCircle) { setStatus(TaskStatus.Done) })
                         }
-                        if (task.assigneeId != session.userId) add(MenuEntry.Item("Mir zuweisen", Icons.Outlined.HowToReg) { assign(session.userId) })
-                        add(MenuEntry.Submenu("Zuweisen", Icons.Outlined.AccountCircle, listOf(MenuEntry.Item("Nicht zugewiesen", checked = task.assigneeId == null) { assign(null) }) +
-                            work.members.map { m -> MenuEntry.Item(m.displayName, checked = m.userId == task.assigneeId) { assign(m.userId) } }))
+                        if (!task.isAssignedTo(session.userId)) add(MenuEntry.Item("Mir zuweisen", Icons.Outlined.HowToReg) { toggle(session.userId) })
+                        // Several people possible: each entry adds or removes one person.
+                        add(MenuEntry.Submenu("Zuweisen", Icons.Outlined.AccountCircle,
+                            work.members.map { m -> MenuEntry.Item(m.displayName, checked = task.isAssignedTo(m.userId)) { toggle(m.userId) } } +
+                                (if (task.assigneeIds.isNotEmpty()) listOf(MenuEntry.Item("Niemand zuweisen") { assign(emptyList()) }) else emptyList())))
                         addAll(extraEntries)
                     }
                     add(MenuEntry.Item("Link teilen", Icons.Filled.Link) { shareLink(context, session.backend.configuration.taskLink(task.id)) })

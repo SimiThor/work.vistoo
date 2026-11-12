@@ -49,8 +49,8 @@ struct TaskRowActions<Extra: View>: ViewModifier {
                     if let next = task.status.next {
                         Button("Status: \(next.label)") { setStatus(next) }
                     }
-                    if task.assigneeId != session.userId {
-                        Button("Mir zuweisen") { assign(session.userId) }
+                    if !task.isAssigned(to: session.userId) {
+                        Button("Mir zuweisen") { toggle(session.userId) }
                     }
                 }
             }
@@ -66,17 +66,21 @@ struct TaskRowActions<Extra: View>: ViewModifier {
                     }
                 }
             } label: { Label("Status ändern", systemImage: "circle.dashed") }
-            if task.assigneeId != session.userId {
-                Button { assign(session.userId) } label: { Label("Mir zuweisen", systemImage: "person.crop.circle.badge.checkmark") }
+            if !task.isAssigned(to: session.userId) {
+                Button { toggle(session.userId) } label: { Label("Mir zuweisen", systemImage: "person.crop.circle.badge.checkmark") }
             }
+            // Several people possible: each entry adds or removes one person.
             Menu {
-                Button("Nicht zugewiesen") { assign(nil) }
                 ForEach(work.members, id: \.userId) { m in
-                    Button { assign(m.userId) } label: {
-                        if m.userId == task.assigneeId { Label(m.displayName, systemImage: "checkmark") } else { Text(m.displayName) }
+                    Button { toggle(m.userId) } label: {
+                        if task.isAssigned(to: m.userId) { Label(m.displayName, systemImage: "checkmark") } else { Text(m.displayName) }
                     }
                 }
-            } label: { Label("Zuweisen", systemImage: "person.crop.circle") }
+                if !task.assigneeIds.isEmpty {
+                    Divider()
+                    Button("Niemand zuweisen") { assign([]) }
+                }
+            } label: { Label("Zuweisen", systemImage: "person.2.crop.square.stack") }
             extraMenu()
         }
         ShareLink(item: session.backend.configuration.taskLink(taskId: task.id)) {
@@ -92,8 +96,15 @@ struct TaskRowActions<Extra: View>: ViewModifier {
         perform("Status nicht geändert") { try await work.setStatus(task, status) }
     }
 
-    private func assign(_ userId: String?) {
-        perform("Zuweisung fehlgeschlagen") { try await work.setAssignee(task, userId) }
+    /// Adds `userId` to the assignees, or removes them if already assigned.
+    private func toggle(_ userId: String?) {
+        guard let userId else { return }
+        let ids = task.isAssigned(to: userId) ? task.assigneeIds.filter { $0 != userId } : task.assigneeIds + [userId]
+        assign(ids)
+    }
+
+    private func assign(_ userIds: [String]) {
+        perform("Zuweisung fehlgeschlagen") { try await work.setAssignees(task, userIds) }
     }
 }
 

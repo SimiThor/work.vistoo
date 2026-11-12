@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Light appearance only, like the web and iOS (tokens define no dark palette). -->
+    <!-- Light appearance; dark: values-night. Colours: generated Tokens. -->
     <style name="Theme.Vistoo" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/vistoo_surface_subtle</item>
         <item name="android:statusBarColor">@android:color/transparent</item>

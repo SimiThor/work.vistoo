@@ -30,6 +30,7 @@ const DAY_WIDTH: Record<Scale, number> = { day: 36, week: 14 };
 
 // Bar colours: packages/design-tokens (timeline-*), shared with iOS.
 const BAR_CLASS: Record<TaskStatus, string> = {
+  backlog: "border-dashed bg-background border-(--timeline-open-border) text-muted-foreground",
   open: "bg-(--timeline-open-bg) border-(--timeline-open-border) text-foreground",
   in_progress: "bg-accent-blue-soft border-(--timeline-progress-border) text-foreground",
   in_review: "bg-(--timeline-review-bg) border-(--timeline-review-border) text-foreground",

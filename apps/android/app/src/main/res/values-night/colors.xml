@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher/splash only (dark appearance); the UI uses the generated Tokens. -->
+    <color name="vistoo_background">#FF1C1C1E</color>
+    <color name="vistoo_surface_subtle">#FF000000</color>
+</resources>

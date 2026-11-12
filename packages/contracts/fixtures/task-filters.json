@@ -1,22 +1,27 @@
 {
-  "$comment": "Shared conformance cases for task filtering. Run by packages/domain (TypeScript) and apps/ios VistooCoreTests (Swift). Values within a filter are OR-ed, different filters AND-ed; search matches the title case-insensitively; a query of the form `24` or `#24` also matches the task with that issue number.",
+  "$comment": "Shared conformance cases for task filtering. Run by packages/domain (TypeScript) and apps/ios VistooCoreTests (Swift). Values within a filter are OR-ed, different filters AND-ed; the assignee filter matches if ANY of `assigneeIds` (fallback: `assigneeId`) is selected, an empty list counts as `none`; search matches the title case-insensitively; a query of the form `24` or `#24` also matches the task with that issue number.",
   "tasks": [
     { "id": "t1", "number": 1, "title": "Angebot für Müller GmbH", "projectId": "p1", "assigneeId": "u1", "status": "open" },
     { "id": "t2", "number": 2, "title": "ÜBERARBEITUNG Logo", "projectId": "p1", "assigneeId": null, "status": "in_progress" },
     { "id": "t3", "number": 3, "title": "Release vorbereiten", "projectId": "p2", "assigneeId": "u2", "status": "in_review" },
     { "id": "t4", "number": 12, "title": "Rechnung prüfen", "projectId": "p2", "assigneeId": "u1", "status": "done" },
-    { "id": "t5", "number": 24, "title": "Neuer Status aus der Zukunft", "projectId": "p1", "assigneeId": null, "status": "blocked" }
+    { "id": "t5", "number": 24, "title": "Neuer Status aus der Zukunft", "projectId": "p1", "assigneeId": null, "status": "blocked" },
+    { "id": "t6", "number": 30, "title": "Gemeinsame Planung", "projectId": "p2", "assigneeId": "u2", "assigneeIds": ["u2", "u3"], "status": "backlog" },
+    { "id": "t7", "number": 31, "title": "Ohne Zuständige", "projectId": "p2", "assigneeId": null, "assigneeIds": [], "status": "backlog" }
   ],
   "cases": [
-    { "name": "no filters", "filters": {}, "expected": ["t1", "t2", "t3", "t4", "t5"] },
+    { "name": "no filters", "filters": {}, "expected": ["t1", "t2", "t3", "t4", "t5", "t6", "t7"] },
     { "name": "search is case-insensitive incl. umlauts", "filters": { "q": "überarbeitung" }, "expected": ["t2"] },
     { "name": "search ignores surrounding whitespace", "filters": { "q": "  müller " }, "expected": ["t1"] },
     { "name": "search matches substrings of the title only", "filters": { "q": "p2" }, "expected": [] },
-    { "name": "project filter", "filters": { "projects": ["p2"] }, "expected": ["t3", "t4"] },
+    { "name": "project filter", "filters": { "projects": ["p2"] }, "expected": ["t3", "t4", "t6", "t7"] },
     { "name": "values within a filter are OR-ed", "filters": { "statuses": ["open", "done"] }, "expected": ["t1", "t4"] },
     { "name": "different filters are AND-ed", "filters": { "projects": ["p1"], "assignees": ["u1"] }, "expected": ["t1"] },
-    { "name": "unassigned", "filters": { "assignees": ["none"] }, "expected": ["t2", "t5"] },
-    { "name": "unassigned or a person", "filters": { "assignees": ["none", "u2"] }, "expected": ["t2", "t3", "t5"] },
+    { "name": "unassigned", "filters": { "assignees": ["none"] }, "expected": ["t2", "t5", "t7"] },
+    { "name": "unassigned or a person", "filters": { "assignees": ["none", "u2"] }, "expected": ["t2", "t3", "t5", "t6", "t7"] },
+    { "name": "any of several assignees matches", "filters": { "assignees": ["u3"] }, "expected": ["t6"] },
+    { "name": "assigneeIds takes precedence over assigneeId", "filters": { "assignees": ["u2"], "projects": ["p2"] }, "expected": ["t3", "t6"] },
+    { "name": "backlog status", "filters": { "statuses": ["backlog"] }, "expected": ["t6", "t7"] },
     { "name": "unknown status values only match themselves", "filters": { "statuses": ["in_progress"] }, "expected": ["t2"] },
     { "name": "search by issue number with #", "filters": { "q": "#12" }, "expected": ["t4"] },
     { "name": "search by issue number without #", "filters": { "q": " 24 " }, "expected": ["t5"] },

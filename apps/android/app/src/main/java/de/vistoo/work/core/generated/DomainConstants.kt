@@ -6,6 +6,7 @@ package de.vistoo.work.core.generated
 /** German label, identical to the web app. */
 val TaskStatus.label: String
     get() = when (this) {
+        TaskStatus.Backlog -> "Backlog"
         TaskStatus.Open -> "Offen"
         TaskStatus.InProgress -> "In Arbeit"
         TaskStatus.InReview -> "Im Review"
@@ -49,6 +50,8 @@ object DomainDefaults {
     const val maxFilesPerMessage = 3
     const val storageWarnRatio = 0.8
     const val invitationTtlDays = 7
+    /** Most people a task can be assigned to at once. */
+    const val maxTaskAssignees = 20
     /** Filter value for "unassigned" (shared filter semantics). */
     const val unassigned = "none"
     val allowedFileTypes: List<Limits.AllowedFileType> = listOf(

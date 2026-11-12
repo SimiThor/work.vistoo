@@ -62,7 +62,13 @@ export const TaskSchema = named(
     title: z.string(),
     description: z.string(),
     status: TaskStatusSchema,
+    /**
+     * First entry of `assigneeIds` (or null). Kept for app builds that only
+     * know one responsible person; new clients use `assigneeIds`.
+     */
     assigneeId: id.nullable(),
+    /** Everyone responsible for the task, in the order they were added (may be empty). */
+    assigneeIds: z.array(id),
     startDate: calendarDay.nullable(),
     endDate: calendarDay.nullable(),
     /** Sort key within the status column (ascending). */

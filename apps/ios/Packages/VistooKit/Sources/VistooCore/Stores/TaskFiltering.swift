@@ -1,7 +1,8 @@
 import Foundation
 
 /// Task filter semantics shared with the web (packages/domain/src/filters.ts).
-/// Values within one filter are OR-ed, different filters AND-ed; the search
+/// Values within one filter are OR-ed, different filters AND-ed; the assignee
+/// filter matches if ANY assignee is selected (none = `unassigned`); the search
 /// matches the title case-insensitively; `24` or `#24` also matches issue #24. Verified against
 /// packages/contracts/fixtures/task-filters.json in the tests.
 public struct TaskFilters: Equatable, Sendable {
@@ -27,11 +28,16 @@ public struct TaskFilters: Equatable, Sendable {
 
     private static let locale = Locale(identifier: "de_DE")
 
-    public func matches(title: String, number: Int? = nil, projectId: String, assigneeId: String?, status: TaskStatus) -> Bool {
+    /// `assigneeIds`: all assignees (nil = only `assigneeId` is known, e.g. fixtures of older clients).
+    public func matches(title: String, number: Int? = nil, projectId: String, assigneeId: String?, assigneeIds: [String]? = nil, status: TaskStatus) -> Bool {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(with: Self.locale)
         if !q.isEmpty, !title.lowercased(with: Self.locale).contains(q), !Self.matchesIssueNumber(number, q) { return false }
         if !projects.isEmpty, !projects.contains(projectId) { return false }
-        if !assignees.isEmpty, !assignees.contains(assigneeId ?? DomainDefaults.unassigned) { return false }
+        if !assignees.isEmpty {
+            let ids = assigneeIds ?? assigneeId.map { [$0] } ?? []
+            let keys = ids.isEmpty ? [DomainDefaults.unassigned] : ids
+            if !keys.contains(where: assignees.contains) { return false }
+        }
         if !statuses.isEmpty, !statuses.contains(status) { return false }
         return true
     }
@@ -45,7 +51,7 @@ public struct TaskFilters: Equatable, Sendable {
     }
 
     public func matches(_ task: TaskItem) -> Bool {
-        matches(title: task.title, number: task.number, projectId: task.projectId, assigneeId: task.assigneeId, status: task.status)
+        matches(title: task.title, number: task.number, projectId: task.projectId, assigneeId: task.assigneeId, assigneeIds: task.assigneeIds, status: task.status)
     }
 }
 
@@ -58,4 +64,10 @@ extension TaskItem {
     }
 
     public var hasCompleteRange: Bool { startDate != nil && endDate != nil }
+
+    /// Whether `userId` is one of the people responsible.
+    public func isAssigned(to userId: String?) -> Bool {
+        guard let userId else { return false }
+        return assigneeIds.contains(userId)
+    }
 }

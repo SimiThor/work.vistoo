@@ -557,6 +557,7 @@ data class CreateTaskRequest(
     val status: TaskStatus? = null,
     val milestoneId: Patchable<String> = Patchable.Unset,
     val assigneeId: Patchable<String> = Patchable.Unset,
+    val assigneeIds: List<String>? = null,
     val startDate: Patchable<CalendarDate> = Patchable.Unset,
     val endDate: Patchable<CalendarDate> = Patchable.Unset,
 ) : ApiRequest {
@@ -574,6 +575,7 @@ data class CreateTaskRequest(
         status?.let { put("status", JsonPrimitive(it.rawValue)) }
         milestoneId.encodeInto(this, "milestoneId") { JsonPrimitive(it) }
         assigneeId.encodeInto(this, "assigneeId") { JsonPrimitive(it) }
+        assigneeIds?.let { put("assigneeIds", JsonArray(it.map { JsonPrimitive(it) })) }
         startDate.encodeInto(this, "startDate") { JsonPrimitive(it.iso) }
         endDate.encodeInto(this, "endDate") { JsonPrimitive(it.iso) }
     }
@@ -1497,6 +1499,14 @@ data class SetTaskAssigneeRequest(
     }
 }
 
+data class SetTaskAssigneesRequest(
+    val assigneeIds: List<String>,
+) : ApiRequest {
+    override fun toJson(): JsonElement = buildJsonObject {
+        put("assigneeIds", JsonArray(assigneeIds.map { JsonPrimitive(it) }))
+    }
+}
+
 data class SetTaskChecklistItemRequest(
     val index: Long,
     val checked: Boolean,
@@ -1556,6 +1566,7 @@ data class TaskItem(
     val description: String,
     val status: TaskStatus,
     val assigneeId: String? = null,
+    val assigneeIds: List<String>,
     val startDate: CalendarDate? = null,
     val endDate: CalendarDate? = null,
     val position: Double,
@@ -1589,6 +1600,7 @@ data class TaskList(
 /** Open enum: values added by a newer server decode to [Unknown]. */
 @Serializable(with = TaskStatus.Serializer::class)
 sealed class TaskStatus(override val rawValue: String) : OpenEnum {
+    data object Backlog : TaskStatus("backlog")
     data object Open : TaskStatus("open")
     data object InProgress : TaskStatus("in_progress")
     data object InReview : TaskStatus("in_review")
@@ -1598,9 +1610,10 @@ sealed class TaskStatus(override val rawValue: String) : OpenEnum {
     final override fun toString(): String = rawValue
 
     companion object {
-        val knownCases: List<TaskStatus> by lazy { listOf(Open, InProgress, InReview, Done) }
+        val knownCases: List<TaskStatus> by lazy { listOf(Backlog, Open, InProgress, InReview, Done) }
 
         fun from(rawValue: String): TaskStatus = when (rawValue) {
+            "backlog" -> Backlog
             "open" -> Open
             "in_progress" -> InProgress
             "in_review" -> InReview
@@ -1914,6 +1927,7 @@ data class UpdateTaskRequest(
         val status: TaskStatus? = null,
         val milestoneId: Patchable<String> = Patchable.Unset,
         val assigneeId: Patchable<String> = Patchable.Unset,
+        val assigneeIds: List<String>? = null,
         val startDate: Patchable<CalendarDate> = Patchable.Unset,
         val endDate: Patchable<CalendarDate> = Patchable.Unset,
     ) : ApiRequest {
@@ -1930,6 +1944,7 @@ data class UpdateTaskRequest(
             status?.let { put("status", JsonPrimitive(it.rawValue)) }
             milestoneId.encodeInto(this, "milestoneId") { JsonPrimitive(it) }
             assigneeId.encodeInto(this, "assigneeId") { JsonPrimitive(it) }
+            assigneeIds?.let { put("assigneeIds", JsonArray(it.map { JsonPrimitive(it) })) }
             startDate.encodeInto(this, "startDate") { JsonPrimitive(it.iso) }
             endDate.encodeInto(this, "endDate") { JsonPrimitive(it.iso) }
         }

@@ -8,7 +8,7 @@ import { setPushTransportForTests, type PushMessage } from "../src/push/apns";
 import { setBackgroundRunner } from "../src/push/background";
 import { createChannel, openDm, sendMessage } from "../src/services/chat";
 import { registerDevice, updateNotificationSettings, getNotificationSettings } from "../src/services/notifications";
-import { createTask, setTaskAssignee, updateTask } from "../src/services/tasks";
+import { createTask, setTaskAssignee, setTaskAssignees, updateTask } from "../src/services/tasks";
 import { removeMember } from "../src/services/team";
 import { makeMemberCtx, makeProject, makeWorkspace } from "./support/fixtures";
 
@@ -126,6 +126,18 @@ describe("assignment pushes", () => {
     await flush();
     expect(receivedBy(carla)).toHaveLength(1);
     expect(receivedBy(ben)).toHaveLength(1);
+  });
+
+  it("several assignees: everyone new is notified once, the actor and existing assignees are not", async () => {
+    const projectId = (await makeProject(wsId)).id;
+    const task = await createTask(anna, { ...base(projectId), title: "Team", assigneeId: null, assigneeIds: [anna.userId, ben.userId] });
+    await flush();
+    expect(receivedBy(ben)).toHaveLength(1);
+    expect(receivedBy(anna)).toHaveLength(0);
+    await setTaskAssignees(anna, { id: task.id, assigneeIds: [anna.userId, ben.userId, carla.userId] });
+    await flush();
+    expect(receivedBy(ben)).toHaveLength(1);
+    expect(receivedBy(carla)).toHaveLength(1);
   });
 
   it("respects the assignment preference", async () => {

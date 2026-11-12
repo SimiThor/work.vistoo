@@ -30,8 +30,10 @@ Pfade: Web `apps/web/src`, iOS `apps/ios/Packages/VistooKit/Sources`, Backend `p
 | Versionskonflikt | Hinweis „Aktuelle Version laden / Trotzdem speichern“ | gleicher Dialog als Alert | `CONFLICT` + `error.current` | identisches Verhalten | ✅ `api.test.ts` · 🟡 UI |
 | Aufgabe löschen | Kartenmenü, Panel | Swipe, Kontextmenü, Detail | `deleteTask` (404 bei Wiederholung = erledigt) | | ✅ `api.test.ts` |
 | Kanban mit Statuswechsel | Board (dnd-kit, Tastatur, Menü) | `BoardView`: Statusauswahl + Spaltenliste; Swipe „Weiter“, Kontextmenü „Status ändern“ | `setTaskStatus`, `moveTask` | Statuswechsel auf iOS erscheint im Web und umgekehrt | ✅ E2E 3 |
+| Backlog-Spalte (ganz links, vor „Offen“; gestricheltes Status-Icon) | Board-Spalte, Statusmenüs, Timeline (gestrichelter Balken) | iOS + Android: erster Status in Auswahl/Board, Swipe „Weiter“ → Offen | Status `backlog` (Enum additiv, Migration `0024`); ältere Apps zeigen ihn als unbekannten Status | Backlog auf iOS/Android erscheint im Web in der Backlog-Spalte | ✅ `tasks.test.ts`, E2E 3b, Swift/Kotlin-Vertragstests · 🟡 UI |
 | Gespeicherte Reihenfolge | Drag & Drop zwischen sichtbare Nachbarn | „Sortieren“ (Drag-Griffe) + Kontextmenü „Reihenfolge“ + VoiceOver-Aktionen | `moveTask` (fraktionale Positionen, Renormalisierung) | gleiche Platzierungsregel | ✅ `tasks.test.ts`, `api.test.ts` · 🟡 UI |
-| Zuweisen | Kartenmenü, Panel | Kontextmenü „Zuweisen“, Detail | `setTaskAssignee` (nur aktive Mitglieder) | | ✅ |
+| Zuweisen (mehrere Personen) | Kartenmenü (Checkboxen), Panel (Mehrfachauswahl), Avatar-Stapel auf der Karte | iOS + Android: Kontextmenü „Zuweisen“ (an/aus je Person), Detail (Mehrfachauswahl), Avatar-Stapel | `setTaskAssignees` (`PUT /tasks/{id}/assignees`, max. 20, nur aktive Mitglieder, Reihenfolge bleibt, neu Hinzugefügte werden benachrichtigt); `assigneeId` = erste Person für ältere Apps, `setTaskAssignee` ersetzt die Liste; Trigger hält `assignee_id`/`assignee_ids` synchron (`0025`) | Filter „Person“ findet Aufgaben, wenn **eine** der Personen gewählt ist | ✅ `tasks.test.ts`, `notifications.test.ts`, Filter-Fixtures (TS/Swift/Kotlin), E2E 3b · 🟡 UI |
+| Darstellung hell/dunkel | folgt dem System; Umschalter System/Hell/Dunkel neben dem Namen (pro Browser) | iOS + Android folgen dem System | Dark-Werte in `packages/design-tokens/tokens.json` (`dark`), generiert für CSS, Swift (`Color(light:dark:)`), Kotlin (`Tokens.isDark`) | jede Farbe hat einen Dark-Wert | ✅ `generate.test.mjs` · 🟡 UI |
 | Timeline/Gantt (Tag/Woche, Heute, nicht geplante Aufgaben) | `timeline.tsx` | `TimelineView`: horizontale Achse, Namen über dem Balken links angeheftet, Zoom + „Heute“ unten, Tippen → Detail mit DatePickern | Kalendertage ohne Zeitzone (`CalendarDate` ↔ `dates.ts`) | iOS-Termine erscheinen exakt im Web | ✅ E2E 3, `DateTests` · 🟡 UI |
 | Suche und Filter (Projekt, Meilenstein, Person; Status nur iOS; OR/AND) | Filterleiste, URL (Status nicht angeboten) | `.searchable` + `FilterSheet` | Semantik `packages/domain/src/filters.ts`; Fixtures `packages/contracts/fixtures/task-filters.json` | gemeinsame Fälle grün in TS **und** Swift | ✅ |
 | „Alle Aufgaben“ vs. Projektansicht | `/tasks`, `/projects/[id]` | Tab „Aufgaben“, Projekt-Detail | `listTasks` (alle aktiven / ein Projekt) | | ✅ |
@@ -78,6 +80,21 @@ Web und iOS (Mehr → Entscheidungen) über dieselben Services und `/decisions�
 | „Ersetzen“: neue oder bestehende Entscheidung; alte bleibt vollständig, wird Superseded und verweist auf die neue (Rückverweis abgeleitet) | „Durch neue Entscheidung ersetzen …“ (neu oder bestehend), Hinweise „Ersetzt durch“/„Ersetzt“ | `supersedeDecision` (nur Decided, keine Zyklen, idempotent); Löschen der neuen macht die alte wieder gültig | | ✅ `decisions.test.ts`, E2E `decisions` |
 | Suche (Titel, Kontext, Optionen, Ergebnisse, Entscheidung, Begründung …), Filter Typ/Status/Person, Sortierung (zuletzt geändert, erstellt) | `.searchable` (Serversuche) + Filtermenü Typ/Status/Person/Sortierung | `listDecisions`: Postgres-Volltext (`tsvector` 'simple', GIN-Index, Präfixsuche) | | ✅ `decisions.test.ts`, E2E `decisions` |
 
+## Meetings (Planung, Agenda, Ergebnisse) – vorerst nur Web
+
+Bewusst zuerst nur im Web. Fachlogik liegt trotzdem vollständig im Backend (`services/meetings.ts`), damit iOS/Android später nur UI und additive API-Endpunkte brauchen. Noch **keine** Endpunkte in `/api/v1` (Vertrag unverändert).
+
+| Funktion | Web | iOS / Android | Gemeinsame Logik | Fertig, wenn … | Status |
+| --- | --- | --- | --- | --- | --- |
+| Übersicht „Anstehend“ (aufsteigend, laufende inklusive) / „Vergangen“ (absteigend), Titelsuche | `/meetings`, `meetings/meetings-view.tsx` | noch nicht | `listMeetings`; Aufteilung `splitMeetings` (`packages/domain/src/meetings.ts`) | | ✅ E2E `meetings` |
+| Meeting anlegen / bearbeiten / löschen (Titel, Datum, Beginn, Ende bzw. Dauer, Teilnehmende, Link, Beschreibung) | `meeting-dialog.tsx`, Detailseite `/meetings/[id]` | noch nicht | `createMeeting` (idempotent per Client-ID), `updateMeeting` (Version → `CONFLICT` + `current`), `deleteMeeting`; Zeiten in Teamzeitzone (Europe/Berlin) → `timestamptz`; Ende > Beginn am selben Tag (Schema + CHECK); Teilnehmende nur aktive Mitglieder, PK verhindert Dubletten | Zeiten stimmen unabhängig von der Zeitzone des Browsers | ✅ `meetings.test.ts`, Domain-Tests, E2E |
+| Gemeinsame Agenda: Punkte anlegen, bearbeiten, löschen, Drag & Drop / Menü sortieren, zuständige Person, „Besprochen“, Ergebnis (Markdown inkl. Checklisten) | `meetings/agenda.tsx` | noch nicht | `createAgendaItem`, `updateAgendaItem` (Textänderungen auf veralteter Version → `CONFLICT`; Status/Zuständig gelten immer), `reorderAgenda` (fehlende IDs bleiben in Reihenfolge erhalten), `deleteAgendaItem` | gleichzeitige Änderungen überschreiben keinen fremden Text; Reihenfolge bleibt nach Reload | ✅ `meetings.test.ts`, E2E |
+| Zusammenarbeit live | Realtime-Signal auf `meetings*`-Tabellen → Nachladen über Server Action | – | RLS nur SELECT für aktive Mitglieder (`0023_meetings_security.sql`) | neue Punkte erscheinen beim Teammitglied ohne Reload | ✅ E2E |
+| Issue aus Agenda-Punkt erstellen / bestehendes verknüpfen (`#42 – Titel`) | Dialog „Issue erstellen“ (Titel, Beschreibung + Ergebnis vorausgefüllt, Projekt, Zuständig), Suche `#42`/Titel | noch nicht | `createIssueFromAgendaItem` (nutzt `insertTask`), `addAgendaRelation`, `removeAgendaRelation`; Tabelle `meeting_agenda_relations` | | ✅ `meetings.test.ts`, E2E |
+| Entscheidung aus Agenda-Punkt erstellen / verknüpfen / öffnen / Verknüpfung lösen | Dialog „Entscheidung erstellen“, Suche | noch nicht | `createDecisionFromAgendaItem` (nutzt `insertDecision`), Relationen wie oben | | ✅ `meetings.test.ts`, E2E |
+| Zum Kalender: `.ics` (Apple Kalender, Outlook …) und Google-Kalender-Link | Menü „Zum Kalender“, Route `/meetings/[id]/ics` | – | `buildIcs`, `googleCalendarUrl` (UTC-Zeiten, stabile UID, `SEQUENCE` = Version) | keine automatische Synchronisierung | ✅ Domain-Tests, E2E |
+| „Meeting beitreten“ (Discord, Meet, Teams, Zoom …, neuer Tab) | Detailkopf | – | `meetingProvider` (nur Beschriftung) | | ✅ E2E |
+
 ## Kommunikation
 
 | Funktion | Web (Bestand) | iOS | Gemeinsame Logik | Fertig, wenn … | Status |
@@ -111,7 +128,7 @@ iOS-Navigation: Tabs **Für mich** (ungelesene Unterhaltungen, eigene To-dos mit
 
 ## Bewusst nicht enthalten (auch nicht im Web)
 
-Web-Push, Offline-Synchronisierung, Task-Abhängigkeiten, Dark Mode (Web: nur hell; iOS folgt), Kommentare, Unteraufgaben. Push ist ein eigener Funktionsbereich und braucht einen eigenen Auftrag (APNs-Schlüssel, Gerätetokens, Versandlogik).
+Web-Push, Offline-Synchronisierung, Task-Abhängigkeiten, Kommentare, Unteraufgaben. Push ist ein eigener Funktionsbereich und braucht einen eigenen Auftrag (APNs-Schlüssel, Gerätetokens, Versandlogik).
 
 ## Entfernt
 

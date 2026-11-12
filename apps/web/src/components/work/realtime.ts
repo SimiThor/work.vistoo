@@ -15,6 +15,8 @@ type TaskRow = {
   description: string;
   status: TaskStatus;
   assignee_id: string | null;
+  /** Missing in events from before migration 0024 (never in practice). */
+  assignee_ids?: string[] | null;
   start_date: string | null;
   end_date: string | null;
   position: number;
@@ -34,7 +36,8 @@ function rowToTask(r: TaskRow): TaskDTO {
     title: r.title,
     description: r.description,
     status: r.status,
-    assigneeId: r.assignee_id,
+    assigneeId: r.assignee_ids?.[0] ?? r.assignee_id ?? null,
+    assigneeIds: r.assignee_ids ?? (r.assignee_id ? [r.assignee_id] : []),
     startDate: r.start_date,
     endDate: r.end_date,
     position: Number(r.position),

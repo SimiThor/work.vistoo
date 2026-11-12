@@ -154,6 +154,24 @@ test("3. status, filter and timeline agree on both platforms", async () => {
   await expect(web.getByText(/Montag, 9\. November 2026 bis Freitag, 13\. November 2026/)).toBeAttached();
 });
 
+test("3b. backlog column and several assignees agree on both platforms", async () => {
+  // Native client: two people responsible, task into the backlog (left of "Offen").
+  const assigned = await ios("ben", "PUT", `/tasks/${taskId}/assignees`, { assigneeIds: [ids.ben, ids.anna] });
+  expect(assigned.status).toBe(200);
+  expect(assigned.body.assigneeIds).toEqual([ids.ben, ids.anna]);
+  expect(assigned.body.assigneeId).toBe(ids.ben); // legacy field for older app builds
+  const backlog = await ios("ben", "PUT", `/tasks/${taskId}/status`, { status: "backlog" });
+  expect(backlog.body.status).toBe("backlog");
+
+  // Web: filtering by the SECOND person still finds the task, in the backlog column.
+  await web.goto(`/projects/${projectId}?assignee=${ids.anna}`);
+  await expect(column(web, "Backlog").getByText("Vom Web, auf iOS bearbeitet")).toBeVisible({ timeout: 15_000 });
+
+  // An older app build that only knows one person replaces the list.
+  const legacy = await ios("ben", "PUT", `/tasks/${taskId}/assignee`, { assigneeId: ids.ben });
+  expect(legacy.body.assigneeIds).toEqual([ids.ben]);
+});
+
 test("4. channel messages and DMs between web and iOS", async () => {
   await web.goto("/chat");
   await web.getByRole("link", { name: /^Allgemein/ }).click();

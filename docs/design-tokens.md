@@ -31,4 +31,11 @@ Die Web-Werte sind beim Umzug unverändert geblieben (gleiche Variablennamen und
 
 ## iOS-Umsetzung
 
-Die App nutzt Systemschrift, SF Symbols, native Listen, Sheets und Materialien (`.bar`). Die Tokens sorgen für Wiedererkennbarkeit (Akzentblau, Statusfarben und -formen, ruhige graue Flächen, Projektfarben, Logo). Erscheinungsbild ist **hell**, wie im Web (das Web-MVP hat keinen Dark Mode). Ein dunkles Schema bräuchte zuerst eine Dark-Palette in den Tokens, für beide Plattformen.
+Die App nutzt Systemschrift, SF Symbols, native Listen, Sheets und Materialien (`.bar`). Die Tokens sorgen für Wiedererkennbarkeit (Akzentblau, Statusfarben und -formen, ruhige graue Flächen, Projektfarben, Logo). Hell und dunkel folgen der Systemeinstellung: jede Farbe hat in `tokens.json` einen `dark`-Wert (Overrides ebenfalls), generiert als `Color(light:dark:)`.
+
+## Dunkle Darstellung
+
+- **Tokens:** Jeder Farb-Token hat `value` (hell) und `dark`. Plattform-Overrides können beide setzen (iOS/Android: gruppierter Hintergrund schwarz wie `systemGroupedBackground`). Schatten haben für das Web zusätzlich `webDark`. `generate.test.mjs` prüft, dass jede Farbe einen Dark-Wert hat.
+- **Web:** `tokens.generated.css` setzt die Dark-Werte für `:root.dark` und – ohne Klasse – per `prefers-color-scheme`. `lib/theme.ts` setzt vor dem ersten Rendern `dark`/`light` auf `<html>` (gespeicherte Wahl oder System); der Umschalter (System/Hell/Dunkel) sitzt neben dem Namen unten in der Seitenleiste. Tailwinds `dark:` folgt der Klasse.
+- **iOS:** Generierte Farben sind dynamisch (`Color(light:dark:)`), die App folgt dem System.
+- **Android:** `Tokens.isDark` (Snapshot-State) schaltet alle Palettenfarben; `VistooTheme` setzt es aus `isSystemInDarkTheme()`. Start-/Splash-Farben: `res/values-night`.

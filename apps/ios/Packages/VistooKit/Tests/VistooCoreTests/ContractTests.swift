@@ -22,7 +22,7 @@ private func json(_ object: some Encodable) throws -> [String: Any] {
 struct TaskFilterConformanceTests {
     struct Fixture: Decodable {
         struct FixtureTask: Decodable {
-            let id: String, number: Int?, title: String, projectId: String, assigneeId: String?, status: String
+            let id: String, number: Int?, title: String, projectId: String, assigneeId: String?, assigneeIds: [String]?, status: String
         }
         struct Case: Decodable {
             struct Filters: Decodable {
@@ -51,7 +51,7 @@ struct TaskFilterConformanceTests {
         let result = Self.fixture.tasks.filter {
             filters.matches(
                 title: $0.title, number: $0.number, projectId: $0.projectId,
-                assigneeId: $0.assigneeId, status: TaskStatus(rawValue: $0.status)
+                assigneeId: $0.assigneeId, assigneeIds: $0.assigneeIds, status: TaskStatus(rawValue: $0.status)
             )
         }.map(\.id)
         #expect(result == c.expected, "\(name)")
@@ -71,7 +71,7 @@ struct GeneratedModelTests {
     @Test func taskDecodesFromAPIJSON() throws {
         let raw = """
         {"id":"0b3b5f0e-6f2c-4f7a-9d55-1f7d8c1b2a10","projectId":"9f1c6a2e-3d4b-4c5d-8e6f-7a8b9c0d1e2f","groupId":null,"number":42,
-         "title":"Angebot","description":"","status":"in_progress","assigneeId":null,"startDate":"2026-11-09","endDate":null,
+         "title":"Angebot","description":"","status":"in_progress","assigneeId":"u1","assigneeIds":["u1","u2"],"startDate":"2026-11-09","endDate":null,
          "position":1024,"createdBy":"1f1c6a2e-3d4b-4c5d-8e6f-7a8b9c0d1e2f","createdAt":"2026-11-06T07:43:29.456Z",
          "updatedAt":"2026-11-06T07:43:29.456Z","version":3,"someFutureField":true}
         """
@@ -81,6 +81,20 @@ struct GeneratedModelTests {
         #expect(task.endDate == nil)
         #expect(task.version == 3)
         #expect(task.number == 42)
+        #expect(task.assigneeIds == ["u1", "u2"])
+        #expect(task.isAssigned(to: "u2"))
+    }
+
+    @Test func backlogIsAKnownStatusLeftOfOpen() throws {
+        let statuses = try JSONDecoder().decode([TaskStatus].self, from: Data(#"["backlog"]"#.utf8))
+        #expect(statuses == [.backlog])
+        #expect(TaskStatus.knownCases.first == .backlog)
+        #expect(TaskStatus.backlog.label == "Backlog")
+    }
+
+    @Test func setAssigneesBodyCarriesTheList() throws {
+        let body = try json(SetTaskAssigneesRequest(assigneeIds: ["u1", "u2"]))
+        #expect(body["assigneeIds"] as? [String] == ["u1", "u2"])
     }
 
     @Test func partialUpdateDistinguishesUnsetNullAndValue() throws {

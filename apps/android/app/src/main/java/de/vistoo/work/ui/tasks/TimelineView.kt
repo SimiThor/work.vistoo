@@ -264,6 +264,7 @@ private fun TimelineRow(task: TaskItem, start: CalendarDate, dayWidth: Dp, width
     val left = dayWidth * (s.dayNumber - start.dayNumber).toInt()
     val barWidth = maxOf(dayWidth * (e.dayNumber - s.dayNumber + 1).toInt() - 4.dp, dayWidth - 4.dp)
     val (fill, stroke) = when (task.status) {
+        TaskStatus.Backlog -> Tokens.Palette.background to Tokens.Palette.timelineOpenBorder
         TaskStatus.Open -> Tokens.Palette.timelineOpenBg to Tokens.Palette.timelineOpenBorder
         TaskStatus.InProgress -> Tokens.Palette.accentBlueSoft to Tokens.Palette.timelineProgressBorder
         TaskStatus.InReview -> Tokens.Palette.timelineReviewBg to Tokens.Palette.timelineReviewBorder

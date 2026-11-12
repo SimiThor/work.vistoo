@@ -48,6 +48,7 @@ import de.vistoo.work.core.stores.LoadState
 import de.vistoo.work.core.stores.SessionModel
 import de.vistoo.work.core.stores.WorkScope
 import de.vistoo.work.core.stores.WorkStore
+import de.vistoo.work.core.stores.isAssignedTo
 import de.vistoo.work.core.support.CalendarDate
 import de.vistoo.work.ui.app.AccountButton
 import de.vistoo.work.ui.app.Navigator
@@ -99,13 +100,13 @@ fun HomeScreen(session: SessionModel, nav: NavHostController) {
     val todoPreviewCount = 6
 
     val unread = session.chat.conversations.filter { it.unread && !it.archived }.sortedByDescending { it.lastMessageAt }
-    val myOpenTasks = work.tasks(WorkScope.All).filter { it.assigneeId == session.userId && it.status != TaskStatus.Done }
+    val myOpenTasks = work.tasks(WorkScope.All).filter { it.isAssignedTo(session.userId) && it.status != TaskStatus.Done }
     val buckets = HomeBucket.group(myOpenTasks)
 
     fun newTask() {
         val last = work.project(lastProjectId)?.takeIf { !it.archived }?.id
         val projectId = last ?: work.activeProjects.firstOrNull()?.id ?: return
-        draft = WorkStore.TaskDraft(projectId = projectId, status = TaskStatus.Open, assigneeId = session.userId)
+        draft = WorkStore.TaskDraft(projectId = projectId, status = TaskStatus.Open, assigneeIds = listOf(session.userId))
     }
 
     Scaffold(

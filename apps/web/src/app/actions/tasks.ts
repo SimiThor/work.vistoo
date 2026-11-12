@@ -7,7 +7,7 @@ import {
   createTaskSchema,
   idSchema,
   moveTaskSchema,
-  setAssigneeSchema,
+  setAssigneesSchema,
   setChecklistItemSchema,
   setStatusSchema,
   updateTaskSchema,
@@ -30,8 +30,8 @@ export async function setTaskStatusAction(input: unknown) {
   return runAction(setStatusSchema, input, (ctx, data) => tasks.setTaskStatus(ctx, data));
 }
 
-export async function setTaskAssigneeAction(input: unknown) {
-  return runAction(setAssigneeSchema, input, (ctx, data) => tasks.setTaskAssignee(ctx, data));
+export async function setTaskAssigneesAction(input: unknown) {
+  return runAction(setAssigneesSchema, input, (ctx, data) => tasks.setTaskAssignees(ctx, data));
 }
 
 export async function setTaskChecklistItemAction(input: unknown) {

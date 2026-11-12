@@ -1,20 +1,19 @@
 "use client";
 
 import { Flag } from "lucide-react";
-import { MemberAvatar } from "@/components/member-avatar";
+import { AssigneeStack, assigneesLabel } from "@/components/assignee-stack";
 import { ProjectDot } from "@/components/project-dot";
-import { displayName, type TaskDTO } from "@vistoo/domain";
+import type { TaskDTO } from "@vistoo/domain";
 import { formatShortDate } from "@vistoo/domain/dates";
 import { useToday } from "@/lib/use-today";
 import { cn } from "@/lib/utils";
 import { useWork } from "./work-context";
 import { IssueNumber } from "./issue-number";
 
-/** Card content: title, assignee, optional end date, project/milestone when helpful. Nothing else. */
+/** Card content: title, assignees, optional end date, project/milestone when helpful. Nothing else. */
 export function TaskCardBody({ task }: { task: TaskDTO }) {
   const { scope, projectById, milestoneById, people } = useWork();
   const project = projectById.get(task.projectId);
-  const assignee = task.assigneeId ? people.get(task.assigneeId) : null;
   const today = useToday();
   const overdue = today !== null && task.endDate !== null && task.status !== "done" && task.endDate < today;
   const refYear = Number((today ?? task.endDate ?? "").slice(0, 4)) || undefined;
@@ -50,10 +49,8 @@ export function TaskCardBody({ task }: { task: TaskDTO }) {
           <span />
         )}
         <span className="flex items-center gap-1.5">
-          <span className="sr-only">
-            {assignee ? `Verantwortlich: ${displayName(assignee)}` : "Nicht zugewiesen"}
-          </span>
-          <MemberAvatar member={assignee} size="sm" />
+          <span className="sr-only">{assigneesLabel(task.assigneeIds, people)}</span>
+          <AssigneeStack ids={task.assigneeIds} people={people} size="sm" />
         </span>
       </div>
     </div>

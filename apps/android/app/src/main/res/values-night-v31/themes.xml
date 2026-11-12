@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark appearance (system setting). Colours: generated Tokens (dark values). -->
+    <style name="Theme.Vistoo" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/vistoo_surface_subtle</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+
+    <style name="Theme.Vistoo.Starting" parent="Theme.Vistoo">
+        <item name="android:windowSplashScreenBackground">@color/vistoo_surface_subtle</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+</resources>

@@ -2,9 +2,11 @@ package de.vistoo.work.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -44,6 +46,7 @@ import de.vistoo.work.ui.theme.VType
 /** Icon colour (text stays neutral; shape + label carry the meaning). */
 val TaskStatus.tint: Color
     get() = when (this) {
+        TaskStatus.Backlog -> Tokens.Palette.statusBacklog
         TaskStatus.Open -> Tokens.Palette.statusOpen
         TaskStatus.InProgress -> Tokens.Palette.statusProgress
         TaskStatus.InReview -> Tokens.Palette.statusReview
@@ -54,20 +57,26 @@ val TaskStatus.tint: Color
 /** Next status for the "advance" swipe action. */
 val TaskStatus.next: TaskStatus?
     get() = when (this) {
+        TaskStatus.Backlog -> TaskStatus.Open
         TaskStatus.Open -> TaskStatus.InProgress
         TaskStatus.InProgress -> TaskStatus.InReview
         TaskStatus.InReview -> TaskStatus.Done
         else -> null
     }
 
-/** Status glyph distinguishable by shape (empty, half, three-quarter, check) — same as web and iOS. */
+/** Status glyph distinguishable by shape (dashed, empty, half, three-quarter, check) — same as web and iOS. */
 @Composable
 fun StatusIcon(status: TaskStatus, size: Dp = 16.dp, modifier: Modifier = Modifier) {
     val tint = status.tint
     Canvas(modifier.size(size)) {
         val s = this.size.minDimension
         val stroke = s * 0.1f
-        drawCircle(tint, radius = (s - stroke) / 2, style = Stroke(stroke))
+        val dash = if (status == TaskStatus.Backlog) {
+            androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(s * 0.14f, s * 0.14f))
+        } else {
+            null
+        }
+        drawCircle(tint, radius = (s - stroke) / 2, style = Stroke(stroke, pathEffect = dash))
         val inset = s * 0.2f
         val arcSize = Size(s - 2 * inset, s - 2 * inset)
         when (status) {
@@ -81,7 +90,7 @@ fun StatusIcon(status: TaskStatus, size: Dp = 16.dp, modifier: Modifier = Modifi
                     lineTo(s * 0.44f, s * 0.67f)
                     lineTo(s * 0.72f, s * 0.36f)
                 }
-                drawPath(p, Color.White, style = Stroke(width = s * 0.12f, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                drawPath(p, Tokens.Palette.background, style = Stroke(width = s * 0.12f, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
             }
             else -> Unit
         }
@@ -156,6 +165,26 @@ fun Avatar(fullName: String?, email: String?, size: Dp = 28.dp, modifier: Modifi
             )
         } else {
             Icon(Icons.Outlined.Person, null, tint = Tokens.Palette.mutedForeground, modifier = Modifier.size(size * 0.55f))
+        }
+    }
+}
+
+/** Overlapping avatars of several people (at most `max`, then "+n"), e.g. task assignees. */
+@Composable
+fun AvatarStack(people: List<Member>, modifier: Modifier = Modifier, size: Dp = 28.dp, max: Int = 3) {
+    val shown = if (people.size > max) people.take(max - 1) else people
+    val rest = people.size - shown.size
+    val ring = Modifier.border(2.dp, Tokens.Palette.background, CircleShape)
+    val step = size * 0.7f
+    Box(modifier) {
+        shown.forEachIndexed { i, p -> Avatar(p.fullName, p.email, size = size, modifier = Modifier.padding(start = step * i).then(ring)) }
+        if (rest > 0) {
+            Box(
+                Modifier.padding(start = step * shown.size).then(ring).size(size).background(Tokens.Palette.surfaceSunken, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("+$rest", fontSize = (size.value * 0.36f).sp, fontWeight = FontWeight.SemiBold, color = Tokens.Palette.mutedForeground, maxLines = 1)
+            }
         }
     }
 }

@@ -52,7 +52,7 @@ import de.vistoo.work.ui.components.GroupedList
 import de.vistoo.work.ui.components.LabeledRow
 import de.vistoo.work.ui.components.ListRow
 import de.vistoo.work.ui.components.OptionalDateRow
-import de.vistoo.work.ui.components.PersonPicker
+import de.vistoo.work.ui.components.MultiPersonPicker
 import de.vistoo.work.ui.components.PickerOption
 import de.vistoo.work.ui.components.PickerRow
 import de.vistoo.work.ui.components.ProjectDot
@@ -73,7 +73,7 @@ data class TaskFields(
     val description: String = "",
     val status: TaskStatus = TaskStatus.Open,
     val projectId: String = "",
-    val assigneeId: String? = null,
+    val assigneeIds: List<String> = emptyList(),
     val milestoneId: String? = null,
     val startDate: CalendarDate? = null,
     val endDate: CalendarDate? = null,
@@ -92,8 +92,8 @@ data class TaskFields(
     val isValid: Boolean get() = titleProblem == null && dateProblem == null && description.length <= CreateTaskRequest.descriptionMaxLength
 
     companion object {
-        fun of(task: TaskItem) = TaskFields(task.title, task.description, task.status, task.projectId, task.assigneeId, task.milestoneId, task.startDate, task.endDate)
-        fun of(draft: WorkStore.TaskDraft) = TaskFields(title = draft.title, status = draft.status, projectId = draft.projectId, assigneeId = draft.assigneeId)
+        fun of(task: TaskItem) = TaskFields(task.title, task.description, task.status, task.projectId, task.assigneeIds, task.milestoneId, task.startDate, task.endDate)
+        fun of(draft: WorkStore.TaskDraft) = TaskFields(title = draft.title, status = draft.status, projectId = draft.projectId, assigneeIds = draft.assigneeIds)
     }
 }
 
@@ -134,11 +134,11 @@ fun LazyListScope.taskFieldsForm(
         }
         if (isCreate) row("project") { projectPicker() }
         row("assignee") {
-            PersonPicker("Verantwortlich", work, fields.assigneeId, { onChange(fields.copy(assigneeId = it)) }, viewerId, noneLabel = "Nicht zugewiesen", enabled = !readOnly)
+            MultiPersonPicker("Verantwortlich", work, fields.assigneeIds, { onChange(fields.copy(assigneeIds = it)) }, viewerId, enabled = !readOnly)
         }
-        if (viewerId != null && fields.assigneeId != viewerId && !readOnly) {
+        if (viewerId != null && viewerId !in fields.assigneeIds && !readOnly) {
             row("assignMe") {
-                ActionRow("Mir zuweisen", icon = { Icon(Icons.Outlined.HowToReg, null) }, onClick = { onChange(fields.copy(assigneeId = viewerId)) })
+                ActionRow("Mir zuweisen", icon = { Icon(Icons.Outlined.HowToReg, null) }, onClick = { onChange(fields.copy(assigneeIds = fields.assigneeIds + viewerId)) })
             }
         }
     }
@@ -203,7 +203,7 @@ fun TaskCreateView(session: SessionModel, draft: WorkStore.TaskDraft, onCreated:
             // Keeps the client id: retries never duplicate.
             val d = draft.copy(
                 title = fields.title, description = fields.description, status = fields.status, projectId = fields.projectId,
-                assigneeId = fields.assigneeId, milestoneId = fields.milestoneId, startDate = fields.startDate, endDate = fields.endDate,
+                assigneeIds = fields.assigneeIds, milestoneId = fields.milestoneId, startDate = fields.startDate, endDate = fields.endDate,
             )
             try {
                 val task = session.work.createTask(d)
@@ -289,7 +289,7 @@ fun TaskDetailView(session: SessionModel, taskId: String, focusDates: Boolean = 
             description = if (f.description != original.description) f.description else null,
             status = if (f.status != original.status) f.status else null,
             projectId = if (f.projectId != original.projectId) f.projectId else null,
-            assigneeId = if (f.assigneeId != original.assigneeId) Patchable.of(f.assigneeId) else Patchable.Unset,
+            assigneeIds = if (f.assigneeIds != original.assigneeIds) f.assigneeIds else null,
             milestoneId = if (f.milestoneId != original.milestoneId) Patchable.of(f.milestoneId) else Patchable.Unset,
             startDate = if (f.startDate != original.startDate) Patchable.of(f.startDate) else Patchable.Unset,
             endDate = if (f.endDate != original.endDate) Patchable.of(f.endDate) else Patchable.Unset,

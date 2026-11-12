@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { THEME_COLOR, THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -10,7 +11,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  // Initial value per system setting; applyTheme() updates it for an explicit choice.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: THEME_COLOR.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLOR.dark },
+  ],
   width: "device-width",
   initialScale: 1,
   // Android: shrink the layout when the on-screen keyboard opens (chat composer stays visible).
@@ -19,7 +24,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="de" className="h-full">
+    // The inline script sets `dark`/`light` on <html> before hydration (stored choice or system).
+    <html lang="de" className="h-full" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="h-full">
         <TooltipProvider delayDuration={400}>{children}</TooltipProvider>
         <Toaster position="bottom-right" closeButton />

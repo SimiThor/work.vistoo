@@ -126,7 +126,7 @@ fun WorkScreen(
         val last = work.project(lastProjectId)?.takeIf { !it.archived }?.id
         val fallback = projectId ?: last ?: work.activeProjects.firstOrNull()?.id ?: return
         val assigneeId = filters.assignees.singleOrNull()?.takeIf { it != DomainDefaults.unassigned }
-        draft = WorkStore.TaskDraft(projectId = fallback, status = status, assigneeId = assigneeId)
+        draft = WorkStore.TaskDraft(projectId = fallback, status = status, assigneeIds = listOfNotNull(assigneeId))
     }
 
     Scaffold(

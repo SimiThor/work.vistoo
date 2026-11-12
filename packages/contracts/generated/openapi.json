@@ -7497,7 +7497,7 @@
         "tags": [
           "Tasks"
         ],
-        "summary": "Quick action: set or clear the responsible person.",
+        "summary": "Legacy quick action: one responsible person replaces all assignees (null = none). Use setTaskAssignees.",
         "security": [
           {
             "bearerAuth": []
@@ -7522,6 +7522,126 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SetTaskAssigneeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: UNAUTHENTICATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: FORBIDDEN",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: ARCHIVED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: VALIDATION",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "Error codes: CLIENT_OUTDATED",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error codes: INTERNAL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{id}/assignees": {
+      "put": {
+        "operationId": "setTaskAssignees",
+        "tags": [
+          "Tasks"
+        ],
+        "summary": "Quick action: set everyone responsible (empty list = unassigned).",
+        "description": "Order is kept (display order), duplicates are dropped. Newly added people get an assignment notification.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-vistoo-auth": "member",
+        "x-vistoo-retry": "safe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTaskAssigneesRequest"
               }
             }
           }
@@ -10134,6 +10254,7 @@
             "default": "open",
             "type": "string",
             "enum": [
+              "backlog",
               "open",
               "in_progress",
               "in_review",
@@ -10163,6 +10284,14 @@
                 "type": "null"
               }
             ]
+          },
+          "assigneeIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           "startDate": {
             "default": null,
@@ -11587,6 +11716,7 @@
           "status": {
             "type": "string",
             "enum": [
+              "backlog",
               "open",
               "in_progress",
               "in_review",
@@ -12132,6 +12262,22 @@
           "assigneeId"
         ]
       },
+      "SetTaskAssigneesRequest": {
+        "type": "object",
+        "properties": {
+          "assigneeIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "assigneeIds"
+        ]
+      },
       "SetTaskChecklistItemRequest": {
         "type": "object",
         "properties": {
@@ -12160,6 +12306,7 @@
           "status": {
             "type": "string",
             "enum": [
+              "backlog",
               "open",
               "in_progress",
               "in_review",
@@ -12263,6 +12410,13 @@
               }
             ]
           },
+          "assigneeIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
           "startDate": {
             "anyOf": [
               {
@@ -12316,6 +12470,7 @@
           "description",
           "status",
           "assigneeId",
+          "assigneeIds",
           "startDate",
           "endDate",
           "position",
@@ -12403,6 +12558,7 @@
       "TaskStatus": {
         "type": "string",
         "enum": [
+          "backlog",
           "open",
           "in_progress",
           "in_review",
@@ -12942,6 +13098,7 @@
               "status": {
                 "type": "string",
                 "enum": [
+                  "backlog",
                   "open",
                   "in_progress",
                   "in_review",
@@ -12969,6 +13126,14 @@
                     "type": "null"
                   }
                 ]
+              },
+              "assigneeIds": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
               },
               "startDate": {
                 "anyOf": [

@@ -2,11 +2,12 @@
 
 import type { MemberRole, TaskStatus } from "./constants";
 
-export { CONVERSATION_KINDS, MEMBER_ROLES, TASK_STATUSES } from "./constants";
+export { CONVERSATION_KINDS, MAX_TASK_ASSIGNEES, MEMBER_ROLES, TASK_STATUSES } from "./constants";
 export type { ConversationKind, MemberRole, TaskStatus } from "./constants";
 export type { GroupDTO, InvitationDTO, IssueRefDTO, MemberDTO, MilestoneDTO, ProjectDTO, TaskDTO } from "./dto";
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
+  backlog: "Backlog",
   open: "Offen",
   in_progress: "In Arbeit",
   in_review: "Im Review",

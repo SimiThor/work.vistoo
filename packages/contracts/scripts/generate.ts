@@ -13,7 +13,7 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { INVITATION_TTL_DAYS, MEMBER_ROLES, PROJECT_COLORS, ROLE_LABEL, STATUS_LABEL, TASK_STATUSES } from "@vistoo/domain";
+import { INVITATION_TTL_DAYS, MAX_TASK_ASSIGNEES, MEMBER_ROLES, PROJECT_COLORS, ROLE_LABEL, STATUS_LABEL, TASK_STATUSES } from "@vistoo/domain";
 import { ALLOWED_FILE_TYPES, CHAT_LIMITS } from "@vistoo/domain/chat-config";
 import { UNASSIGNED } from "@vistoo/domain/filters";
 import {
@@ -126,6 +126,8 @@ function domainConstants(): string {
     `    public static let maxFilesPerMessage = ${CHAT_LIMITS.maxFilesPerMessage}`,
     `    public static let storageWarnRatio = ${CHAT_LIMITS.warnRatio}`,
     `    public static let invitationTtlDays = ${INVITATION_TTL_DAYS}`,
+    "    /// Most people a task can be assigned to at once.",
+    `    public static let maxTaskAssignees = ${MAX_TASK_ASSIGNEES}`,
     "    /// Filter value for \"unassigned\" (shared filter semantics).",
     `    public static let unassigned = ${str(UNASSIGNED)}`,
     "    public static let allowedFileTypes: [Limits.AllowedFileType] = [",
@@ -250,6 +252,8 @@ function domainConstantsKotlin(): string {
     `    const val maxFilesPerMessage = ${CHAT_LIMITS.maxFilesPerMessage}`,
     `    const val storageWarnRatio = ${CHAT_LIMITS.warnRatio}`,
     `    const val invitationTtlDays = ${INVITATION_TTL_DAYS}`,
+    "    /** Most people a task can be assigned to at once. */",
+    `    const val maxTaskAssignees = ${MAX_TASK_ASSIGNEES}`,
     '    /** Filter value for "unassigned" (shared filter semantics). */',
     `    const val unassigned = ${kStr(UNASSIGNED)}`,
     "    val allowedFileTypes: List<Limits.AllowedFileType> = listOf(",

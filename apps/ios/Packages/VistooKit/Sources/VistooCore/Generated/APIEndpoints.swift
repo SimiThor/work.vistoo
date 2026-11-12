@@ -922,11 +922,23 @@ public enum API {
         )
     }
 
-    /// Quick action: set or clear the responsible person.
+    /// Legacy quick action: one responsible person replaces all assignees (null = none). Use setTaskAssignees.
     public static func setTaskAssignee(id: String, body: SetTaskAssigneeRequest) -> Endpoint<TaskItem> {
         Endpoint(
             method: .put,
             path: "/tasks/\(id.pathEncoded)/assignee",
+            query: [],
+            body: body,
+            auth: .member,
+            retry: .safe
+        )
+    }
+
+    /// Quick action: set everyone responsible (empty list = unassigned).
+    public static func setTaskAssignees(id: String, body: SetTaskAssigneesRequest) -> Endpoint<TaskItem> {
+        Endpoint(
+            method: .put,
+            path: "/tasks/\(id.pathEncoded)/assignees",
             query: [],
             body: body,
             auth: .member,

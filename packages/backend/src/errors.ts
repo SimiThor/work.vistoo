@@ -40,6 +40,11 @@ function fromPgError(err: unknown): AppError | null {
           fieldErrors: { endDate: "Das Enddatum darf nicht vor dem Startdatum liegen." },
         });
       }
+      if (constraint === "meetings_time_range") {
+        return new AppError("VALIDATION", "Die Endzeit muss nach der Startzeit liegen.", {
+          fieldErrors: { "times.endTime": "Die Endzeit muss nach der Startzeit liegen." },
+        });
+      }
       if (constraint === "tasks_assignee_active") {
         return new AppError("VALIDATION", "Diese Person ist kein aktives Mitglied mehr.");
       }

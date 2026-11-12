@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { AuthContext } from "../auth";
 import type { DbOrTx } from "../db";
 import { milestones, projects, workspaceMembers } from "@vistoo/database/schema";
@@ -36,6 +36,24 @@ export async function assertActiveMember(db: DbOrTx, ctx: AuthContext, userId: s
     );
   if (!member) {
     throw invalid("Diese Person ist kein aktives Mitglied.", { assigneeId: "Ungültige Person." });
+  }
+}
+
+/** All of `userIds` are active members (empty list = ok). */
+export async function assertActiveMembers(db: DbOrTx, ctx: AuthContext, userIds: string[]) {
+  if (!userIds.length) return;
+  const rows = await db
+    .select({ userId: workspaceMembers.userId })
+    .from(workspaceMembers)
+    .where(
+      and(
+        eq(workspaceMembers.workspaceId, ctx.workspaceId),
+        inArray(workspaceMembers.userId, userIds),
+        eq(workspaceMembers.status, "active"),
+      ),
+    );
+  if (rows.length !== new Set(userIds).size) {
+    throw invalid("Mindestens eine Person ist kein aktives Mitglied.", { assigneeIds: "Ungültige Person." });
   }
 }
 

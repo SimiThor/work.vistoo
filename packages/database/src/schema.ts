@@ -22,6 +22,7 @@ import {
 import { ACTIVITY_TYPES, ATTRACTION_STATUSES, type ActivityMetadata } from "@vistoo/domain/crm";
 import { IDEA_STATUSES } from "@vistoo/domain/ideas";
 import { DECISION_STATUSES, DECISION_TYPES, HISTORY_KINDS, type HistoryDetails } from "@vistoo/domain/decisions";
+import { AGENDA_STATUSES } from "@vistoo/domain/meetings";
 
 /**
  * Application schema. Drizzle is the single source of truth for tables,
@@ -38,6 +39,7 @@ export const invitationStatus = pgEnum("invitation_status", [
   "revoked",
 ]);
 export const taskStatus = pgEnum("task_status", [
+  "backlog",
   "open",
   "in_progress",
   "in_review",
@@ -187,7 +189,18 @@ export const tasks = pgTable(
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
     status: taskStatus("status").notNull().default("open"),
+    /**
+     * Legacy single assignee = `assignee_ids[1]`. Kept in sync by the
+     * `tasks_assignees_sync` trigger (both directions), so API v1 can keep
+     * sending `assigneeId` to older app builds.
+     */
     assigneeId: uuid("assignee_id"),
+    /**
+     * Everyone responsible, in display order, no duplicates. Each entry must be
+     * an active member of the workspace (trigger; arrays cannot carry FKs).
+     * Removed members are stripped by `workspace_members_unassign_on_remove`.
+     */
+    assigneeIds: uuid("assignee_ids").array().notNull().default(sql`'{}'::uuid[]`),
     /** Calendar days (no time zone). */
     startDate: date("start_date", { mode: "string" }),
     endDate: date("end_date", { mode: "string" }),
@@ -224,6 +237,10 @@ export const tasks = pgTable(
     unique("tasks_workspace_id_id_uq").on(t.workspaceId, t.id),
     unique("tasks_workspace_number_uq").on(t.workspaceId, t.number),
     check("tasks_number_positive", sql`${t.number} > 0`),
+    check(
+      "tasks_assignee_ids_valid",
+      sql`cardinality(${t.assigneeIds}) <= 20 and array_position(${t.assigneeIds}, null) is null`,
+    ),
     check("tasks_title_len", sql`char_length(${t.title}) between 1 and 300`),
     check("tasks_description_len", sql`char_length(${t.description}) <= 20000`),
     check(
@@ -234,6 +251,7 @@ export const tasks = pgTable(
     index("tasks_project_idx").on(t.projectId),
     index("tasks_milestone_idx").on(t.milestoneId),
     index("tasks_assignee_idx").on(t.workspaceId, t.assigneeId),
+    index("tasks_assignee_ids_idx").using("gin", t.assigneeIds),
   ],
 );
 
@@ -626,6 +644,163 @@ export const decisionHistory = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Meetings & agenda
+// ---------------------------------------------------------------------------
+
+export const meetingAgendaStatus = pgEnum("meeting_agenda_status", AGENDA_STATUSES);
+
+/**
+ * Team meetings. Times are instants; the UI enters and shows them in the
+ * team's time zone. A meeting ends on the day it starts (service + CHECK).
+ */
+export const meetings = pgTable(
+  "meetings",
+  {
+    /** Client-generated on create: makes retries idempotent. */
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    /** External join link (Discord, Google Meet, Teams, Zoom …). */
+    meetingUrl: text("meeting_url"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => profiles.id),
+    updatedBy: uuid("updated_by").references(() => profiles.id),
+    /** Incremented on every edit; used for optimistic concurrency control. */
+    version: integer("version").notNull().default(1),
+    ...timestamps,
+  },
+  (t) => [
+    unique("meetings_workspace_id_id_uq").on(t.workspaceId, t.id),
+    index("meetings_workspace_starts_idx").on(t.workspaceId, t.startsAt),
+    check("meetings_title_len", sql`char_length(${t.title}) between 1 and 200`),
+    check("meetings_description_len", sql`char_length(${t.description}) <= 20000`),
+    check("meetings_time_range", sql`${t.endsAt} > ${t.startsAt} and ${t.endsAt} - ${t.startsAt} <= interval '24 hours'`),
+    check("meetings_url_web", sql`${t.meetingUrl} is null or (${t.meetingUrl} ~* '^https?://' and char_length(${t.meetingUrl}) <= 2048)`),
+  ],
+);
+
+/** Invited members. One row per person and meeting (primary key). Kept when someone leaves the team. */
+export const meetingParticipants = pgTable(
+  "meeting_participants",
+  {
+    meetingId: uuid("meeting_id").notNull(),
+    workspaceId: uuid("workspace_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.meetingId, t.userId] }),
+    foreignKey({
+      name: "meeting_participants_meeting_fk",
+      columns: [t.workspaceId, t.meetingId],
+      foreignColumns: [meetings.workspaceId, meetings.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "meeting_participants_member_fk",
+      columns: [t.workspaceId, t.userId],
+      foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.userId],
+    }),
+    index("meeting_participants_user_idx").on(t.workspaceId, t.userId),
+  ],
+);
+
+/**
+ * Points of a meeting's shared agenda, in `position` order. Each point can be
+ * marked as discussed and carries its outcome. Deleted with the meeting.
+ */
+export const meetingAgendaItems = pgTable(
+  "meeting_agenda_items",
+  {
+    /** Client-generated on create: makes retries idempotent. */
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    meetingId: uuid("meeting_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    assignedTo: uuid("assigned_to"),
+    status: meetingAgendaStatus("status").notNull().default("open"),
+    outcome: text("outcome").notNull().default(""),
+    /** Sort key within the meeting (ascending). */
+    position: doublePrecision("position").notNull(),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => profiles.id),
+    updatedBy: uuid("updated_by").references(() => profiles.id),
+    /** Incremented on every edit; stale text edits are rejected (service). */
+    version: integer("version").notNull().default(1),
+    ...timestamps,
+  },
+  (t) => [
+    unique("meeting_agenda_items_workspace_id_id_uq").on(t.workspaceId, t.id),
+    foreignKey({
+      name: "meeting_agenda_items_meeting_fk",
+      columns: [t.workspaceId, t.meetingId],
+      foreignColumns: [meetings.workspaceId, meetings.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "meeting_agenda_items_assignee_fk",
+      columns: [t.workspaceId, t.assignedTo],
+      foreignColumns: [workspaceMembers.workspaceId, workspaceMembers.userId],
+    }),
+    index("meeting_agenda_items_meeting_position_idx").on(t.meetingId, t.position),
+    index("meeting_agenda_items_assignee_idx").on(t.workspaceId, t.assignedTo),
+    check("meeting_agenda_items_title_len", sql`char_length(${t.title}) between 1 and 300`),
+    check(
+      "meeting_agenda_items_text_len",
+      sql`char_length(${t.description}) <= 20000 and char_length(${t.outcome}) <= 20000`,
+    ),
+  ],
+);
+
+/**
+ * Links from an agenda point to existing issues (tasks) or decisions. Exactly
+ * one target; same workspace enforced by the composite keys; removed together
+ * with the agenda point or the target.
+ */
+export const meetingAgendaRelations = pgTable(
+  "meeting_agenda_relations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    agendaItemId: uuid("agenda_item_id").notNull(),
+    taskId: uuid("task_id"),
+    decisionId: uuid("decision_id"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => profiles.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "meeting_agenda_relations_item_fk",
+      columns: [t.workspaceId, t.agendaItemId],
+      foreignColumns: [meetingAgendaItems.workspaceId, meetingAgendaItems.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "meeting_agenda_relations_task_fk",
+      columns: [t.workspaceId, t.taskId],
+      foreignColumns: [tasks.workspaceId, tasks.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "meeting_agenda_relations_decision_fk",
+      columns: [t.workspaceId, t.decisionId],
+      foreignColumns: [decisions.workspaceId, decisions.id],
+    }).onDelete("cascade"),
+    uniqueIndex("meeting_agenda_relations_task_uq").on(t.agendaItemId, t.taskId),
+    uniqueIndex("meeting_agenda_relations_decision_uq").on(t.agendaItemId, t.decisionId),
+    index("meeting_agenda_relations_task_idx").on(t.taskId),
+    index("meeting_agenda_relations_decision_idx").on(t.decisionId),
+    check("meeting_agenda_relations_one_target", sql`num_nonnulls(${t.taskId}, ${t.decisionId}) = 1`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Chat
 // ---------------------------------------------------------------------------
 
@@ -899,6 +1074,8 @@ export type AttractionActivity = typeof attractionActivities.$inferSelect;
 export type Decision = typeof decisions.$inferSelect;
 export type DecisionLink = typeof decisionLinks.$inferSelect;
 export type DecisionHistory = typeof decisionHistory.$inferSelect;
+export type Meeting = typeof meetings.$inferSelect;
+export type MeetingAgendaItem = typeof meetingAgendaItems.$inferSelect;
 export type TaskStatus = (typeof taskStatus.enumValues)[number];
 export type MemberRole = (typeof memberRole.enumValues)[number];
 export type Conversation = typeof conversations.$inferSelect;

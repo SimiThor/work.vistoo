@@ -7,7 +7,8 @@ import java.util.Locale
 
 /**
  * Task filter semantics shared with the web (packages/domain/src/filters.ts) and iOS.
- * Values within one filter are OR-ed, different filters AND-ed; the search matches
+ * Values within one filter are OR-ed, different filters AND-ed; the assignee filter
+ * matches if ANY assignee is selected (none = `unassigned`); the search matches
  * the title case-insensitively; `24` or `#24` also matches issue #24. Verified against
  * packages/contracts/fixtures/task-filters.json in the unit tests.
  */
@@ -24,16 +25,22 @@ data class TaskFilters(
     /** Number of active attribute filters (search excluded), for the toolbar badge. */
     val count: Int get() = projects.size + assignees.size + statuses.size
 
-    fun matches(title: String, number: Long?, projectId: String, assigneeId: String?, status: TaskStatus): Boolean {
+    /** `assigneeIds`: all assignees (null = only `assigneeId` is known, e.g. fixtures of older clients). */
+    fun matches(title: String, number: Long?, projectId: String, assigneeId: String?, status: TaskStatus, assigneeIds: List<String>? = null): Boolean {
         val q = query.trim().lowercase(Locale.GERMANY)
         if (q.isNotEmpty() && !title.lowercase(Locale.GERMANY).contains(q) && !matchesIssueNumber(number, q)) return false
         if (projects.isNotEmpty() && projectId !in projects) return false
-        if (assignees.isNotEmpty() && (assigneeId ?: DomainDefaults.unassigned) !in assignees) return false
+        if (assignees.isNotEmpty()) {
+            val ids = assigneeIds ?: listOfNotNull(assigneeId)
+            val keys = ids.ifEmpty { listOf(DomainDefaults.unassigned) }
+            if (keys.none { it in assignees }) return false
+        }
         if (statuses.isNotEmpty() && status !in statuses) return false
         return true
     }
 
-    fun matches(task: TaskItem): Boolean = matches(task.title, task.number, task.projectId, task.assigneeId, task.status)
+    fun matches(task: TaskItem): Boolean =
+        matches(task.title, task.number, task.projectId, task.assigneeId, task.status, task.assigneeIds)
 
     companion object {
         /** `24` or `#24` names issue #24 (exact match, ASCII digits only). */
@@ -50,3 +57,6 @@ data class TaskFilters(
 val TaskBoardOrder: Comparator<TaskItem> = compareBy<TaskItem>({ it.position }, { it.createdAt }, { it.id })
 
 val TaskItem.hasCompleteRange: Boolean get() = startDate != null && endDate != null
+
+/** Whether `userId` is one of the people responsible. */
+fun TaskItem.isAssignedTo(userId: String?): Boolean = userId != null && userId in assigneeIds

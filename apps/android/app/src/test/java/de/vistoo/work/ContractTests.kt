@@ -6,12 +6,15 @@ import de.vistoo.work.core.api.Patchable
 import de.vistoo.work.core.generated.CreateTaskRequest
 import de.vistoo.work.core.generated.Message
 import de.vistoo.work.core.generated.Meta
+import de.vistoo.work.core.generated.SetTaskAssigneesRequest
 import de.vistoo.work.core.generated.TaskItem
 import de.vistoo.work.core.generated.TaskStatus
 import de.vistoo.work.core.generated.UpdateTaskRequest
+import de.vistoo.work.core.generated.label
 import de.vistoo.work.core.realtime.TaskRow
 import de.vistoo.work.core.stores.DecisionStore
 import de.vistoo.work.core.stores.TaskFilters
+import de.vistoo.work.core.stores.isAssignedTo
 import de.vistoo.work.core.support.CalendarDate
 import java.io.File
 import java.time.Instant
@@ -53,7 +56,8 @@ class TaskFilterConformanceTest {
                 statuses = f.list("statuses").map { TaskStatus.from(it) }.toSet(),
             )
             val result = tasks.filter {
-                filters.matches(it.str("title")!!, it.str("number")?.toLong(), it.str("projectId")!!, it.str("assigneeId"), TaskStatus.from(it.str("status")!!))
+                val ids = (it["assigneeIds"] as? JsonArray)?.map { e -> e.jsonPrimitive.content }
+                filters.matches(it.str("title")!!, it.str("number")?.toLong(), it.str("projectId")!!, it.str("assigneeId"), TaskStatus.from(it.str("status")!!), ids)
             }.map { it.str("id") }
             assertEquals(c.str("name"), c.list("expected"), result)
         }
@@ -96,7 +100,7 @@ class Iso8601Test {
 class ModelCodingTest {
     private val taskJson = """
         {"id":"a","projectId":"p","groupId":null,"milestoneId":null,"number":24,"title":"T","description":"",
-         "status":"blocked","assigneeId":null,"startDate":"2026-11-01","endDate":null,"position":1024,
+         "status":"blocked","assigneeId":"u1","assigneeIds":["u1","u2"],"startDate":"2026-11-01","endDate":null,"position":1024,
          "createdBy":"u","createdAt":"2026-11-06T07:43:29.456Z","updatedAt":"2026-11-06T07:43:29.456Z","version":3,
          "fieldFromTheFuture":true}
     """.trimIndent()
@@ -109,6 +113,21 @@ class ModelCodingTest {
         assertEquals(CalendarDate.parse("2026-11-01"), task.startDate)
         assertEquals(3L, task.version)
         assertEquals(TaskStatus.InProgress, TaskStatus.from("in_progress"))
+        assertEquals(listOf("u1", "u2"), task.assigneeIds)
+        assertTrue(task.isAssignedTo("u2"))
+    }
+
+    @Test
+    fun backlogIsAKnownStatusLeftOfOpen() {
+        assertEquals(TaskStatus.Backlog, TaskStatus.from("backlog"))
+        assertEquals(TaskStatus.Backlog, TaskStatus.knownCases.first())
+        assertEquals("Backlog", TaskStatus.Backlog.label)
+    }
+
+    @Test
+    fun setAssigneesBodyCarriesTheList() {
+        val body = SetTaskAssigneesRequest(assigneeIds = listOf("u1", "u2")).toJson().jsonObject
+        assertEquals(listOf("u1", "u2"), body["assigneeIds"]!!.jsonArray.map { it.jsonPrimitive.content })
     }
 
     @Test
@@ -141,14 +160,15 @@ class ModelCodingTest {
     fun realtimeTaskRowDecodes() {
         val record = ApiJson.parseToJsonElement(
             """{"id":"A","project_id":"P","title":"T","status":"done","position":"2048.5","created_by":"U","created_at":"2026-11-06T07:43:29.456789+00:00",
-               "updated_at":"2026-11-06 07:43:29+00","version":4,"number":7,"assignee_id":null,"start_date":"2026-11-02"}""",
+               "updated_at":"2026-11-06 07:43:29+00","version":4,"number":7,"assignee_id":"B","assignee_ids":["B","C"],"start_date":"2026-11-02"}""",
         ).jsonObject
         val task = TaskRow.decode(record)!!
         assertEquals("a", task.id)
         assertEquals(TaskStatus.Done, task.status)
         assertEquals(2048.5, task.position, 0.0)
         assertEquals(7L, task.number)
-        assertNull(task.assigneeId)
+        assertEquals("b", task.assigneeId)
+        assertEquals(listOf("b", "c"), task.assigneeIds)
         assertTrue(task.createdAt.isBefore(Instant.parse("2026-11-07T00:00:00Z")))
     }
 

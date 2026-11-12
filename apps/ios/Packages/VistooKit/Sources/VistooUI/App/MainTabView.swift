@@ -158,6 +158,6 @@ struct AccountButton: View {
 extension WorkStore {
     /// Own open tasks whose end date has passed (badge of the "Für mich" tab).
     func overdueCount(for userId: String, today: CalendarDate = .today()) -> Int {
-        tasks(in: .all).filter { $0.assigneeId == userId && $0.isOverdue(today: today) }.count
+        tasks(in: .all).filter { $0.isAssigned(to: userId) && $0.isOverdue(today: today) }.count
     }
 }

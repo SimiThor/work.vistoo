@@ -7,6 +7,7 @@ extension TaskStatus {
     /// Icon colour (text stays neutral; shape + label carry the meaning).
     var tint: Color {
         switch self {
+        case .backlog: Tokens.Palette.statusBacklog
         case .open: Tokens.Palette.statusOpen
         case .inProgress: Tokens.Palette.statusProgress
         case .inReview: Tokens.Palette.statusReview
@@ -18,6 +19,7 @@ extension TaskStatus {
     /// Next status for the "advance" swipe action.
     var next: TaskStatus? {
         switch self {
+        case .backlog: .open
         case .open: .inProgress
         case .inProgress: .inReview
         case .inReview: .done
@@ -26,7 +28,7 @@ extension TaskStatus {
     }
 }
 
-/// Status glyph distinguishable by shape (empty, half, three-quarter, check) — same as the web.
+/// Status glyph distinguishable by shape (dashed, empty, half, three-quarter, check) — same as the web.
 struct StatusIcon: View {
     let status: TaskStatus
     var size: CGFloat = 16
@@ -35,7 +37,11 @@ struct StatusIcon: View {
     var body: some View {
         let s = size * scale
         ZStack {
-            Circle().stroke(status.tint, lineWidth: s * 0.1)
+            if status == .backlog {
+                Circle().stroke(status.tint, style: StrokeStyle(lineWidth: s * 0.1, dash: [s * 0.14, s * 0.14]))
+            } else {
+                Circle().stroke(status.tint, lineWidth: s * 0.1)
+            }
             switch status {
             case .inProgress:
                 HalfCircle(fraction: 0.5).fill(status.tint).padding(s * 0.2)
@@ -45,7 +51,7 @@ struct StatusIcon: View {
                 Circle().fill(status.tint)
                 Image(systemName: "checkmark")
                     .font(.system(size: s * 0.55, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Tokens.Palette.background)
             default:
                 EmptyView()
             }
@@ -139,6 +145,36 @@ struct Avatar: View {
             }
         }
         .frame(width: s, height: s)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Overlapping avatars of several people (at most `max`, then "+n"), e.g. task assignees.
+struct AvatarStack: View {
+    let people: [Member]
+    var size: CGFloat = 28
+    var max = 3
+    @ScaledMetric private var scale: CGFloat = 1
+
+    var body: some View {
+        let s = size * scale
+        let shown = people.count > max ? Array(people.prefix(max - 1)) : people
+        let rest = people.count - shown.count
+        HStack(spacing: -s * 0.3) {
+            ForEach(shown, id: \.userId) { p in
+                Avatar(fullName: p.fullName, email: p.email, size: size)
+                    .overlay(Circle().stroke(Tokens.Palette.background, lineWidth: 2))
+            }
+            if rest > 0 {
+                Text("+\(rest)")
+                    .font(.system(size: s * 0.36, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Tokens.Palette.mutedForeground)
+                    .frame(width: s, height: s)
+                    .background(Circle().fill(Tokens.Palette.surfaceSunken))
+                    .overlay(Circle().stroke(Tokens.Palette.background, lineWidth: 2))
+            }
+        }
         .accessibilityHidden(true)
     }
 }

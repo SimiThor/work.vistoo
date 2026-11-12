@@ -2,6 +2,7 @@
 
 import {
   ArrowUpRight,
+  CalendarDays,
   CircleCheck,
   FolderOpen,
   Headphones,
@@ -26,6 +27,7 @@ const ITEMS = [
   { href: "/tasks", label: "Alle Aufgaben", icon: ListTodo },
   { href: "/todos", label: "Meine To-dos", icon: CircleCheck },
   { href: "/ideas", label: "Ideen", icon: Lightbulb },
+  { href: "/meetings", label: "Meetings", icon: CalendarDays },
   { href: "/decisions", label: "Entscheidungen", icon: Scale },
   { href: "/crm", label: "CRM", icon: Landmark },
   { href: "/chat", label: "Chat", icon: MessageSquare },
@@ -44,7 +46,8 @@ function Items({ pathname }: { pathname: string | null }) {
   return (
     <ul className="space-y-0.5">
       {ITEMS.map(({ href, label, icon: Icon }) => {
-        const active = pathname === href || (href === "/chat" && Boolean(pathname?.startsWith("/chat/")));
+        const active =
+          pathname === href || ((href === "/chat" || href === "/meetings") && Boolean(pathname?.startsWith(`${href}/`)));
         const unread = href === "/chat" && chatUnread;
         return (
           <li key={href}>

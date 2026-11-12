@@ -146,7 +146,8 @@ public final class WorkStore {
         public var title: String = ""
         public var description: String = ""
         public var status: TaskStatus = .open
-        public var assigneeId: String?
+        /// Everyone responsible (order = display order).
+        public var assigneeIds: [String] = []
         public var milestoneId: String?
         public var startDate: CalendarDate?
         public var endDate: CalendarDate?
@@ -154,7 +155,7 @@ public final class WorkStore {
         public init(projectId: String, status: TaskStatus = .open, assigneeId: String? = nil) {
             self.projectId = projectId
             self.status = status
-            self.assigneeId = assigneeId
+            self.assigneeIds = assigneeId.map { [$0] } ?? []
         }
     }
 
@@ -166,7 +167,7 @@ public final class WorkStore {
             description: draft.description,
             status: draft.status,
             milestoneId: Patchable(draft.milestoneId),
-            assigneeId: Patchable(draft.assigneeId),
+            assigneeIds: draft.assigneeIds,
             startDate: Patchable(draft.startDate),
             endDate: Patchable(draft.endDate)
         )
@@ -200,13 +201,15 @@ public final class WorkStore {
         }
     }
 
-    public func setAssignee(_ task: TaskItem, _ userId: String?) async throws(APIError) {
+    /// Quick action: set everyone responsible (empty = unassigned).
+    public func setAssignees(_ task: TaskItem, _ userIds: [String]) async throws(APIError) {
         let previous = tasksById[task.id]
         var optimistic = task
-        optimistic.assigneeId = userId
+        optimistic.assigneeIds = userIds
+        optimistic.assigneeId = userIds.first
         tasksById[task.id] = optimistic
         do {
-            merge(try await backend.send(API.setTaskAssignee(id: task.id, body: SetTaskAssigneeRequest(assigneeId: userId))))
+            merge(try await backend.send(API.setTaskAssignees(id: task.id, body: SetTaskAssigneesRequest(assigneeIds: userIds))))
         } catch {
             tasksById[task.id] = previous
             throw error

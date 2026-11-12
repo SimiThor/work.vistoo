@@ -6,6 +6,7 @@ extension TaskStatus {
     /// German label, identical to the web app.
     public var label: String {
         switch self {
+        case .backlog: return "Backlog"
         case .open: return "Offen"
         case .inProgress: return "In Arbeit"
         case .inReview: return "Im Review"
@@ -57,6 +58,8 @@ public enum DomainDefaults {
     public static let maxFilesPerMessage = 3
     public static let storageWarnRatio = 0.8
     public static let invitationTtlDays = 7
+    /// Most people a task can be assigned to at once.
+    public static let maxTaskAssignees = 20
     /// Filter value for "unassigned" (shared filter semantics).
     public static let unassigned = "none"
     public static let allowedFileTypes: [Limits.AllowedFileType] = [

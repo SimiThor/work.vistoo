@@ -37,8 +37,8 @@ type Columns = Record<TaskStatus, string[]>;
 const COLUMN_PREFIX = "column:";
 
 function groupByStatus(tasks: TaskDTO[]): Columns {
-  const cols: Columns = { open: [], in_progress: [], in_review: [], done: [] };
-  for (const t of tasks) cols[t.status].push(t.id);
+  const cols = Object.fromEntries(TASK_STATUSES.map((s) => [s, [] as string[]])) as Columns;
+  for (const t of tasks) cols[t.status]?.push(t.id);
   return cols;
 }
 
@@ -233,7 +233,7 @@ function Column({
   return (
     <section
       aria-labelledby={headingId}
-      className="flex w-[84vw] max-w-[320px] shrink-0 snap-start flex-col rounded-xl bg-surface-subtle sm:w-auto sm:max-w-none sm:min-w-[260px] sm:flex-1 sm:basis-0"
+      className="flex w-[84vw] max-w-[320px] shrink-0 snap-start flex-col rounded-xl bg-surface-subtle sm:w-auto sm:max-w-none sm:min-w-[216px] sm:flex-1 sm:basis-0"
     >
       <header className="flex h-11 shrink-0 items-center justify-between gap-2 pr-1.5 pl-3">
         <h2 id={headingId} className="flex items-center gap-2 text-[13px] font-semibold">

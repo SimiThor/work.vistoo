@@ -368,6 +368,15 @@ private fun JsonElement.str(): String? = if (this is JsonPrimitive && this !is J
 
 /** Postgres row of `tasks` as delivered by Realtime (snake_case). */
 object TaskRow {
+    /** uuid[] arrives as a JSON array (or, defensively, as a Postgres array literal `{a,b}`). */
+    private fun ids(record: JsonObject, key: String): List<String>? = when (val v = record[key]) {
+        is kotlinx.serialization.json.JsonArray -> v.mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p !is JsonNull }?.content?.lowercase() }
+        is JsonPrimitive -> v.takeIf { it !is JsonNull }?.content
+            ?.takeIf { it.startsWith("{") && it.endsWith("}") }
+            ?.removeSurrounding("{", "}")?.split(",")?.filter { it.isNotBlank() }?.map { it.lowercase() }
+        else -> null
+    }
+
     fun decode(record: JsonObject): TaskItem? {
         fun string(key: String): String? = record[key]?.let { if (it is JsonNull) null else (it as? JsonPrimitive)?.content }
         fun number(key: String): Double? = record[key]?.let { (it as? JsonPrimitive)?.let { p -> if (p is JsonNull) null else p.doubleOrNull ?: p.content.toDoubleOrNull() } }
@@ -390,7 +399,8 @@ object TaskRow {
             title = title,
             description = string("description") ?: "",
             status = TaskStatus.from(status),
-            assigneeId = string("assignee_id")?.lowercase(),
+            assigneeId = (ids(record, "assignee_ids")?.firstOrNull() ?: string("assignee_id"))?.lowercase(),
+            assigneeIds = ids(record, "assignee_ids") ?: listOfNotNull(string("assignee_id")?.lowercase()),
             startDate = string("start_date")?.let(CalendarDate::parse),
             endDate = string("end_date")?.let(CalendarDate::parse),
             position = position,

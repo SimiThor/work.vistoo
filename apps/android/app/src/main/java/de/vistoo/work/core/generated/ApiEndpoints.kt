@@ -838,10 +838,21 @@ object API {
         response = Project.serializer(),
     )
 
-    /** Quick action: set or clear the responsible person. */
+    /** Legacy quick action: one responsible person replaces all assignees (null = none). Use setTaskAssignees. */
     fun setTaskAssignee(id: String, body: SetTaskAssigneeRequest): Endpoint<TaskItem> = Endpoint(
         method = HttpMethod.PUT,
         path = "/tasks/${pathSegment(id)}/assignee",
+        query = emptyList(),
+        body = body.toJson(),
+        auth = AuthLevel.Member,
+        retry = RetryPolicy.Safe,
+        response = TaskItem.serializer(),
+    )
+
+    /** Quick action: set everyone responsible (empty list = unassigned). */
+    fun setTaskAssignees(id: String, body: SetTaskAssigneesRequest): Endpoint<TaskItem> = Endpoint(
+        method = HttpMethod.PUT,
+        path = "/tasks/${pathSegment(id)}/assignees",
         query = emptyList(),
         body = body.toJson(),
         auth = AuthLevel.Member,

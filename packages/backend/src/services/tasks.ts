@@ -6,6 +6,7 @@ import type {
   createTaskSchema,
   moveTaskSchema,
   setAssigneeSchema,
+  setAssigneesSchema,
   setChecklistItemSchema,
   setStatusSchema,
   updateTaskSchema,
@@ -15,7 +16,7 @@ import type { AuthContext } from "../auth";
 import { getDb, type DbOrTx, type Tx } from "../db";
 import { projects, tasks, type Task } from "@vistoo/database/schema";
 import { AppError, invalid, notFound } from "../errors";
-import { assertActiveMember, assertMilestoneInWorkspace, getWritableProject } from "./guards";
+import { assertActiveMembers, assertMilestoneInWorkspace, getWritableProject } from "./guards";
 import { notifyAssignment } from "./notifications";
 
 const POSITION_STEP = 1024;
@@ -31,7 +32,8 @@ export function toTaskDTO(t: Task): TaskDTO {
     title: t.title,
     description: t.description,
     status: t.status,
-    assigneeId: t.assigneeId,
+    assigneeId: t.assigneeIds[0] ?? null,
+    assigneeIds: t.assigneeIds,
     startDate: t.startDate,
     endDate: t.endDate,
     position: t.position,
@@ -40,6 +42,27 @@ export function toTaskDTO(t: Task): TaskDTO {
     updatedAt: t.updatedAt.toISOString(),
     version: t.version,
   };
+}
+
+/** Unique ids, first occurrence wins (display order). */
+function uniqueIds(ids: string[]): string[] {
+  return [...new Set(ids)];
+}
+
+/**
+ * The assignee list a write asks for: `assigneeIds` if sent, otherwise the
+ * legacy single `assigneeId` (older app builds) replaces the list.
+ * `undefined` = leave unchanged.
+ */
+function requestedAssignees(input: { assigneeIds?: string[]; assigneeId?: string | null }): string[] | undefined {
+  if (input.assigneeIds !== undefined) return uniqueIds(input.assigneeIds);
+  if (input.assigneeId !== undefined) return input.assigneeId ? [input.assigneeId] : [];
+  return undefined;
+}
+
+/** Assignees that need to be checked/notified: in `next` but not in `previous`. */
+function addedAssignees(previous: string[], next: string[]): string[] {
+  return next.filter((u) => !previous.includes(u));
 }
 
 const columnOrder = [asc(tasks.position), asc(tasks.createdAt), asc(tasks.id)];
@@ -115,7 +138,7 @@ export async function createTask(ctx: AuthContext, input: z.output<typeof create
     created = true;
     return toTaskDTO(row);
   });
-  if (created && task.assigneeId) notifyAssignment(ctx, task);
+  if (created) notifyAssignment(ctx, task);
   return task;
 }
 
@@ -127,7 +150,8 @@ export async function createTask(ctx: AuthContext, input: z.output<typeof create
 export async function insertTask(tx: Tx, ctx: AuthContext, input: z.output<typeof createTaskSchema>): Promise<Task> {
   await getWritableProject(tx, ctx, input.projectId);
   if (input.milestoneId) await assertMilestoneInWorkspace(tx, ctx, input.milestoneId);
-  if (input.assigneeId) await assertActiveMember(tx, ctx, input.assigneeId);
+  const assigneeIds = requestedAssignees(input) ?? [];
+  await assertActiveMembers(tx, ctx, assigneeIds);
   const position = await endOfColumn(tx, ctx, input.status);
   const [row] = await tx
     .insert(tasks)
@@ -139,7 +163,8 @@ export async function insertTask(tx: Tx, ctx: AuthContext, input: z.output<typeo
       title: input.title,
       description: input.description,
       status: input.status,
-      assigneeId: input.assigneeId,
+      assigneeIds,
+      assigneeId: assigneeIds[0] ?? null,
       startDate: input.startDate,
       endDate: input.endDate,
       position,
@@ -156,7 +181,7 @@ export async function insertTask(tx: Tx, ctx: AuthContext, input: z.output<typeo
  */
 export async function updateTask(ctx: AuthContext, input: z.output<typeof updateTaskSchema>): Promise<TaskDTO> {
   const { id, expectedVersion, patch } = input;
-  let previousAssignee: string | null = null;
+  let previousAssignees: string[] = [];
   const task = await getDb().transaction(async (tx) => {
     const current = await lockTask(tx, ctx, id);
     if (current.version !== expectedVersion) {
@@ -167,12 +192,14 @@ export async function updateTask(ctx: AuthContext, input: z.output<typeof update
       );
     }
     await getWritableProject(tx, ctx, current.projectId);
-    previousAssignee = current.assigneeId;
+    previousAssignees = current.assigneeIds;
+    const assigneeIds = requestedAssignees(patch) ?? current.assigneeIds;
 
     const next = {
       projectId: patch.projectId ?? current.projectId,
       milestoneId: patch.milestoneId !== undefined ? patch.milestoneId : current.milestoneId,
-      assigneeId: patch.assigneeId !== undefined ? patch.assigneeId : current.assigneeId,
+      assigneeIds,
+      assigneeId: assigneeIds[0] ?? null,
       startDate: patch.startDate !== undefined ? patch.startDate : current.startDate,
       endDate: patch.endDate !== undefined ? patch.endDate : current.endDate,
       status: patch.status ?? current.status,
@@ -184,9 +211,7 @@ export async function updateTask(ctx: AuthContext, input: z.output<typeof update
     if (next.milestoneId && next.milestoneId !== current.milestoneId) {
       await assertMilestoneInWorkspace(tx, ctx, next.milestoneId);
     }
-    if (next.assigneeId && next.assigneeId !== current.assigneeId) {
-      await assertActiveMember(tx, ctx, next.assigneeId);
-    }
+    await assertActiveMembers(tx, ctx, addedAssignees(current.assigneeIds, next.assigneeIds));
     if (next.startDate && next.endDate && next.endDate < next.startDate) {
       throw invalid("Das Enddatum darf nicht vor dem Startdatum liegen.", {
         endDate: "Das Enddatum darf nicht vor dem Startdatum liegen.",
@@ -211,7 +236,7 @@ export async function updateTask(ctx: AuthContext, input: z.output<typeof update
     if (!row) throw new AppError("CONFLICT", "Diese Aufgabe wurde inzwischen von jemand anderem geändert.");
     return toTaskDTO(row);
   });
-  if (task.assigneeId && task.assigneeId !== previousAssignee) notifyAssignment(ctx, task);
+  notifyAssignment(ctx, task, addedAssignees(previousAssignees, task.assigneeIds));
   return task;
 }
 
@@ -274,18 +299,26 @@ export async function setTaskChecklistItem(
   });
 }
 
-/** Quick action: change the responsible person. */
+/** Legacy quick action (older app builds): the one responsible person replaces all assignees. */
 export async function setTaskAssignee(ctx: AuthContext, input: z.output<typeof setAssigneeSchema>): Promise<TaskDTO> {
-  let previousAssignee: string | null = null;
+  return setTaskAssignees(ctx, { id: input.id, assigneeIds: input.assigneeId ? [input.assigneeId] : [] });
+}
+
+/** Quick action: set everyone responsible (empty list = unassigned). Newly added people are notified. */
+export async function setTaskAssignees(ctx: AuthContext, input: z.output<typeof setAssigneesSchema>): Promise<TaskDTO> {
+  const assigneeIds = uniqueIds(input.assigneeIds);
+  let previousAssignees: string[] = [];
   const task = await getDb().transaction(async (tx) => {
     const current = await lockTask(tx, ctx, input.id);
-    previousAssignee = current.assigneeId;
+    previousAssignees = current.assigneeIds;
     await getWritableProject(tx, ctx, current.projectId);
-    if (input.assigneeId) await assertActiveMember(tx, ctx, input.assigneeId);
+    if (sameList(current.assigneeIds, assigneeIds)) return toTaskDTO(current);
+    await assertActiveMembers(tx, ctx, addedAssignees(current.assigneeIds, assigneeIds));
     const [row] = await tx
       .update(tasks)
       .set({
-        assigneeId: input.assigneeId,
+        assigneeIds,
+        assigneeId: assigneeIds[0] ?? null,
         version: sql`${tasks.version} + 1`,
         updatedAt: new Date(),
         updatedBy: ctx.userId,
@@ -294,8 +327,12 @@ export async function setTaskAssignee(ctx: AuthContext, input: z.output<typeof s
       .returning();
     return toTaskDTO(row);
   });
-  if (task.assigneeId && task.assigneeId !== previousAssignee) notifyAssignment(ctx, task);
+  notifyAssignment(ctx, task, addedAssignees(previousAssignees, task.assigneeIds));
   return task;
+}
+
+function sameList(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
 }
 
 async function neighbourPosition(

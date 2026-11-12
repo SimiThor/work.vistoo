@@ -246,7 +246,8 @@ async function touch(tx: Tx, ctx: AuthContext, id: string) {
     .where(and(eq(decisions.id, id), eq(decisions.workspaceId, ctx.workspaceId)));
 }
 
-async function insertDecision(
+/** The one way to insert a decision; runs inside the caller's transaction (e.g. from a meeting's agenda). */
+export async function insertDecision(
   tx: Tx,
   ctx: AuthContext,
   input: z.output<typeof createDecisionSchema>,
